@@ -1,43 +1,52 @@
 <?php
-
 namespace Dell\Faktury\Controllers;
 
-use Dell\Faktury\Models\User;
+use PDO;
+use PDOException;
 
-class HomeController
-{
-    public function index(): void
-    {
-        // Pobranie listy użytkowników
-        $users = User::all();
-
-        // Załadowanie widoku
+class HomeController {
+    /** Wyświetla stronę z tabelą i formularzem importu */
+    public function index(): void {
         include __DIR__ . '/../Views/home.php';
     }
 
-    public function upload(): void {
+    /** Obsługuje import CSV – wczytuje plik, pomija nagłówek i wrzuca rekordy do `test` */
+    public function importCsv(): void {
         header('Content-Type: application/json; charset=UTF-8');
+        require_once __DIR__ . '/../../config/configuration.php'; // dające $pdo
 
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-            echo json_encode(['message' => 'Błąd przesyłania pliku.']);
+            echo json_encode(['message' => 'Proszę przesłać poprawny plik CSV.']);
             return;
         }
 
-        $uploadDir = __DIR__ . '/../../Uploads/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
+        $rows = file($_FILES['file']['tmp_name'], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (!$rows) {
+            echo json_encode(['message' => 'Plik jest pusty lub błędny.']);
+            return;
         }
 
-        $uploadedFile = $_FILES['file'];
-        $filename = basename($uploadedFile['name']);
-        $targetPath = $uploadDir . $filename;
+        // Pierwszy wiersz to nagłówek
+        $header  = str_getcsv(array_shift($rows));
+        $columns = $header;
+        // Przygotuj INSERT
+        $colList      = implode(',', array_map(fn($c) => "`".str_replace('`','``',$c)."`", $columns));
+        $placeholders = implode(',', array_fill(0, count($columns), '?'));
+        $stmt         = $pdo->prepare("INSERT INTO `test` ({$colList}) VALUES ({$placeholders})");
 
-        if (move_uploaded_file($uploadedFile['tmp_name'], $targetPath)) {
-            $msg = 'Plik "' . htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') . '" został poprawnie przesłany!';
-        } else {
-            $msg = 'Wystąpił błąd podczas zapisywania pliku.';
+        $pdo->beginTransaction();
+        $count = 0;
+        foreach ($rows as $line) {
+            $fields = str_getcsv($line);
+            // Dopasuj liczbę wartości do kolumn
+            $fields = count($fields) < count($columns)
+                    ? array_pad($fields, count($columns), null)
+                    : array_slice($fields, 0, count($columns));
+            $stmt->execute($fields);
+            $count++;
         }
+        $pdo->commit();
 
-        echo json_encode(['message' => $msg]);
+        echo json_encode(['message' => "Zaimportowano {$count} rekordów."]);
     }
 }
