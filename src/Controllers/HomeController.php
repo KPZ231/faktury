@@ -13,7 +13,7 @@ class HomeController {
     /** Obsługuje import CSV – wczytuje plik, pomija nagłówek i wrzuca rekordy do `test` */
     public function importCsv(): void {
         header('Content-Type: application/json; charset=UTF-8');
-        require_once __DIR__ . '/../../config/configuration.php'; // dające $pdo
+        require_once __DIR__ . '/../../config/database.php';
 
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
             echo json_encode(['message' => 'Proszę przesłać poprawny plik CSV.']);
@@ -27,26 +27,70 @@ class HomeController {
         }
 
         // Pierwszy wiersz to nagłówek
-        $header  = str_getcsv(array_shift($rows));
+        $header = str_getcsv(array_shift($rows));
         $columns = $header;
-        // Przygotuj INSERT
-        $colList      = implode(',', array_map(fn($c) => "`".str_replace('`','``',$c)."`", $columns));
+
+        // Znajdź indeks kolumny z numerem faktury
+        $invoiceNumberIndex = array_search('numer', $columns);
+        if ($invoiceNumberIndex === false) {
+            echo json_encode(['message' => 'Nie znaleziono kolumny "numer" w pliku.']);
+            return;
+        }
+
+        // Przygotuj zapytania
+        $colList = implode(',', array_map(fn($c) => "`".str_replace('`','``',$c)."`", $columns));
         $placeholders = implode(',', array_fill(0, count($columns), '?'));
-        $stmt         = $pdo->prepare("INSERT INTO `test` ({$colList}) VALUES ({$placeholders})");
+        
+        // Zapytanie do sprawdzenia czy faktura istnieje
+        $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM `test` WHERE `numer` = ?");
+        
+        // Zapytanie do wstawienia nowej faktury
+        $insertStmt = $pdo->prepare("INSERT INTO `test` ($colList) VALUES ($placeholders)");
+        
+        // Zapytanie do aktualizacji istniejącej faktury
+        $updateCols = implode(',', array_map(fn($c) => "`".str_replace('`','``',$c)."` = ?", $columns));
+        $updateStmt = $pdo->prepare("UPDATE `test` SET $updateCols WHERE `numer` = ?");
 
         $pdo->beginTransaction();
-        $count = 0;
-        foreach ($rows as $line) {
-            $fields = str_getcsv($line);
-            // Dopasuj liczbę wartości do kolumn
-            $fields = count($fields) < count($columns)
-                    ? array_pad($fields, count($columns), null)
-                    : array_slice($fields, 0, count($columns));
-            $stmt->execute($fields);
-            $count++;
-        }
-        $pdo->commit();
+        $imported = 0;
+        $updated = 0;
 
-        echo json_encode(['message' => "Zaimportowano {$count} rekordów."]);
+        try {
+            foreach ($rows as $line) {
+                $fields = str_getcsv($line);
+                
+                // Dopasuj liczbę wartości do kolumn
+                if (count($fields) < count($columns)) {
+                    $fields = array_pad($fields, count($columns), null);
+                } elseif (count($fields) > count($columns)) {
+                    $fields = array_slice($fields, 0, count($columns));
+                }
+
+                $invoiceNumber = $fields[$invoiceNumberIndex];
+                
+                // Sprawdź czy faktura już istnieje
+                $checkStmt->execute([$invoiceNumber]);
+                $exists = $checkStmt->fetchColumn() > 0;
+
+                if ($exists) {
+                    // Aktualizuj istniejącą fakturę
+                    $updateFields = array_merge($fields, [$invoiceNumber]);
+                    $updateStmt->execute($updateFields);
+                    $updated++;
+                } else {
+                    // Wstaw nową fakturę
+                    $insertStmt->execute($fields);
+                    $imported++;
+                }
+            }
+
+            $pdo->commit();
+            echo json_encode([
+                'message' => "Zaimportowano $imported nowych rekordów i zaktualizowano $updated istniejących rekordów."
+            ]);
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            echo json_encode(['message' => 'Błąd podczas importu: ' . $e->getMessage()]);
+        }
     }
 }
