@@ -13,10 +13,6 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     $r->addRoute('POST', '/', [Dell\Faktury\Controllers\HomeController::class, 'importCsv']);
     $r->addRoute('POST', '/upload-file', [Dell\Faktury\Controllers\HomeController::class, 'uploadFile']);
     
-    // Wizard
-    $r->addRoute('GET', '/wizard', [Dell\Faktury\Controllers\WizardController::class, 'showWizard']);
-    $r->addRoute('GET', '/wizard/{step}', [Dell\Faktury\Controllers\WizardController::class, 'showWizard']);
-    $r->addRoute('POST', '/wizard/{step}', [Dell\Faktury\Controllers\WizardController::class, 'saveRecord']);
 });
 
 $httpMethod = $_SERVER['REQUEST_METHOD'];
@@ -41,15 +37,7 @@ switch ($routeInfo[0]) {
         $vars = $routeInfo[2];
         
         try {
-            // Create controller instance with PDO connection if it's WizardController
-            if ($class === Dell\Faktury\Controllers\WizardController::class) {
-                if (!isset($pdo)) {
-                    throw new Exception('Database connection not initialized');
-                }
-                $ctrl = new $class($pdo);
-            } else {
-                $ctrl = new $class();
-            }
+            $ctrl = new $class();
             
             // Pass step parameter if it exists
             if (isset($vars['step'])) {
