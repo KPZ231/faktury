@@ -3,48 +3,34 @@ require_once __DIR__ . '/../../config/database.php';
 ?>
 <!DOCTYPE html>
 <html lang="pl">
-<style>
-    /* Styl powiadomienia */
-    .notification {
-        position: fixed;
-        top: 20px;
-        right: -100%;
-        padding: 20px;
-        background: #323232;
-        color: #fff;
-        border-radius: 4px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        max-width: 300px;
-        font-family: sans-serif;
-        transition: right 0.5s ease-out;
-        z-index: 1000;
-    }
-    .notification.show {
-        right: 20px;
-    }
-    table {
-        width: 80%;
-        margin: 30px auto;
-        border-collapse: collapse;
-    }
-    table, th, td {
-        border: 1px solid #ccc;
-    }
-    th, td {
-        padding: 10px;
-        text-align: center;
-    }
-    th {
-        background: #f2f2f2;
-    }
-</style>
 <head>
     <meta charset="UTF-8">
-    <title>Strona główna</title>
-    <link rel="stylesheet" href="././assets/css/style.css">
+    <base href="/zestawienie11/">
+    <title>Podejrzyj Faktury</title>
+    <link rel="stylesheet" href="../../assets/css/style.css">
+    <style>
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: -100%;
+            padding: 20px;
+            background: #323232;
+            color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            max-width: 300px;
+            font-family: sans-serif;
+            transition: right 0.5s ease-out;
+            z-index: 1000;
+        }
+        .notification.show { right: 20px; }
+        table { width: 95%; margin: 30px auto; border-collapse: collapse; }
+        table, th, td { border: 1px solid #ccc; }
+        th, td { padding: 8px; text-align: center; }
+        th { background: #f2f2f2; }
+    </style>
 </head>
 <body>
-
     <header>
         <h1>Podejrzyj Faktury</h1>
     </header>
@@ -60,42 +46,40 @@ require_once __DIR__ . '/../../config/database.php';
     <section id="dataTable">
         <?php
         try {
-            $stmt = $pdo->query(
-                'SELECT 
-                    `Nabywca`, 
-                    `Data wystawienia`, 
-                    `Wartość netto PLN`, 
-                    `Produkt/usługa`, 
-                    `Etykiety` 
-                 FROM `test` 
-                 ORDER BY `Data wystawienia` DESC'
-            );
+            $columns = [
+                'LP','numer','Typ','Sprzedający','Nazwa skrócona działu','NIP sprzedającego',
+                'Status','Data wystawienia','Data sprzedaży','Termin płatności','Nabywca','NIP',
+                'Ulica i nr','Kod pocztowy','Miejscowość','Kraj','E-mail klienta','Telefon klienta',
+                'Telefon komórkowy','Wartość netto','VAT','Wartość brutto','Wartość netto PLN','VAT PLN',
+                'Wartość brutto PLN','Płatność','Data płatności','Kwota opłacona','Waluta',
+                'Nr zamówienia','Adresat','Kategoria','Uwagi','Kody GTU','Oznaczenia dotyczące procedur',
+                'Oryginalny dokument','Przyczyna korekty'
+            ];
+            $sql = 'SELECT `' . implode('`,`', $columns) . '` FROM `test` ORDER BY `LP` DESC';
+            $stmt = $pdo->query($sql);
 
             if ($stmt->rowCount() > 0) {
                 echo '<table>';
-                echo '<thead><tr>'
-                   . '<th>Nabywca</th>'
-                   . '<th>Data wystawienia</th>'
-                   . '<th>Wartość netto PLN</th>'
-                   . '<th>Produkt/usługa</th>'
-                   . '<th>Etykiety</th>'
-                   . '</tr></thead><tbody>';
+                // Header
+                echo '<thead><tr>';
+                foreach ($columns as $col) {
+                    echo '<th>' . htmlspecialchars($col, ENT_QUOTES) . '</th>';
+                }
+                echo '</tr></thead><tbody>';
+                // Rows
                 while ($row = $stmt->fetch()) {
-                    echo '<tr>'
-                       . '<td>' . htmlspecialchars($row['Nabywca']) . '</td>'
-                       . '<td>' . htmlspecialchars($row['Data wystawienia']) . '</td>'
-                       . '<td>' . htmlspecialchars($row['Wartość netto PLN']) . '</td>'
-                       . '<td>' . htmlspecialchars($row['Produkt/usługa']) . '</td>'
-                       . '<td>' . htmlspecialchars($row['Etykiety']) . '</td>'
-                       . '</tr>';
+                    echo '<tr>';
+                    foreach ($columns as $col) {
+                        echo '<td>' . htmlspecialchars($row[$col], ENT_QUOTES) . '</td>';
+                    }
+                    echo '</tr>';
                 }
                 echo '</tbody></table>';
             } else {
                 echo '<p style="text-align:center;">Brak danych do wyświetlenia.</p>';
             }
         } catch (PDOException $e) {
-            echo '<p style="color:red;text-align:center;">Błąd pobierania danych: '
-               . htmlspecialchars($e->getMessage()) . '</p>';
+            echo '<p style="color:red; text-align:center;">Błąd pobierania danych: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
         }
         ?>
     </section>
@@ -103,37 +87,35 @@ require_once __DIR__ . '/../../config/database.php';
     <div id="notificationContainer"></div>
 
     <script>
-        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const form = e.currentTarget;
-            const formData = new FormData(form);
-            try {
-                const response = await fetch('upload-file', {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                const data = await response.json();
-                showNotification(data.message);
-            } catch {
-                showNotification('Wystąpił błąd podczas wysyłania.');
-            }
-            form.reset();
-        });
-
-        function showNotification(message) {
-            const container = document.getElementById('notificationContainer');
-            const notif = document.createElement('div');
-            notif.className = 'notification';
-            notif.textContent = message;
-            container.appendChild(notif);
-            setTimeout(() => notif.classList.add('show'), 50);
-            setTimeout(() => {
-                notif.classList.remove('show');
-                setTimeout(() => container.removeChild(notif), 500);
-            }, 5050);
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const data = new FormData(form);
+        try {
+            const res = await fetch('upload-file', {
+                method: 'POST',
+                body: data,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const json = await res.json();
+            showNotification(json.message);
+        } catch {
+            showNotification('Wystąpił błąd podczas wysyłania.');
         }
+        form.reset();
+    });
+    function showNotification(msg) {
+        const cont = document.getElementById('notificationContainer');
+        const n = document.createElement('div');
+        n.className = 'notification';
+        n.textContent = msg;
+        cont.appendChild(n);
+        setTimeout(() => n.classList.add('show'), 50);
+        setTimeout(() => {
+            n.classList.remove('show');
+            setTimeout(() => cont.removeChild(n), 500);
+        }, 5050);
+    }
     </script>
-
 </body>
 </html>
