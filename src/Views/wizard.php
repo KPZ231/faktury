@@ -28,15 +28,17 @@
       <label>Liczba rat (0-4):<input id="installmentsCount" type="number" min="0" max="4" value="0"></label>
     </fieldset>
 
+    <fieldset id="agentsSection">
+      <legend>Agenci</legend>
+      <!-- pola dynamicznie generowane -->
+    </fieldset>
+
     <fieldset id="installmentsSection">
       <legend>Raty</legend>
       <!-- pola dynamicznie generowane -->
     </fieldset>
 
-    <fieldset id="agentsSection">
-      <legend>Agenci</legend>
-      <!-- pola dynamicznie generowane -->
-    </fieldset>
+    
 
     <button type="submit" class="btn">Zapisz rekord</button>
   </form>
