@@ -1,70 +1,61 @@
--- phpMyAdmin SQL Dump
--- version 5.2.1
--- https://www.phpmyadmin.net/
---
--- Host: 127.0.0.1
--- Generation Time: Apr 29, 2025 at 12:56 PM
--- Wersja serwera: 10.4.32-MariaDB
--- Wersja PHP: 8.2.12
-
-SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-START TRANSACTION;
-SET time_zone = "+00:00";
 
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8mb4 */;
-
---
--- Database: `test1`
---
-
--- --------------------------------------------------------
-
---
--- Struktura tabeli dla tabeli `test2`
---
-
-CREATE TABLE `test2` (
-  `Sprawa` varchar(255) DEFAULT NULL,
-  `Zakończona?` varchar(255) DEFAULT NULL,
-  `Wywalczona kwota` decimal(10,2) DEFAULT NULL,
-  `Opłata wstępna` decimal(10,2) DEFAULT NULL,
-  `Success fee` decimal(10,2) DEFAULT NULL,
-  `Całość prowizji` decimal(10,2) DEFAULT NULL,
-  `Prowizja Kuba` decimal(10,2) DEFAULT NULL,
-  `Do wypłaty Kuba` decimal(10,2) DEFAULT NULL,
-  `Prowizja Agent 1` decimal(10,2) DEFAULT NULL,
-  `Prowizja Agent 2` decimal(10,2) DEFAULT NULL,
-  `Prowizja Agent 3` decimal(10,2) DEFAULT NULL,
-  `Prowizja Agent 4` decimal(10,2) DEFAULT NULL,
-  `Prowizja Agent 5` decimal(10,2) DEFAULT NULL,
-  `Rata 1` decimal(10,2) DEFAULT NULL,
-  `Rata 2` decimal(10,2) DEFAULT NULL,
-  `Rata 3` decimal(10,2) DEFAULT NULL,
-  `Ostatnia` decimal(10,2) DEFAULT NULL,
-  `Rata 1_1` decimal(10,2) DEFAULT NULL,
-  `Nr faktury` varchar(255) DEFAULT NULL,
-  `Rata 2_1` decimal(10,2) DEFAULT NULL,
-  `Rata 3_1` decimal(10,2) DEFAULT NULL,
-  `Ostatnia_1` decimal(10,2) DEFAULT NULL,
-  `Rata 1_2` decimal(10,2) DEFAULT NULL,
-  `Rata 2_2` decimal(10,2) DEFAULT NULL,
-  `Rata 3_2` decimal(10,2) DEFAULT NULL,
-  `Ostatnia_2` decimal(10,2) DEFAULT NULL,
-  `Rata 1_3` decimal(10,2) DEFAULT NULL,
-  `Rata 2_3` decimal(10,2) DEFAULT NULL,
-  `Rata 3_3` decimal(10,2) DEFAULT NULL,
-  `Ostatnia_3` decimal(10,2) DEFAULT NULL,
-  `Rata 1_4` decimal(10,2) DEFAULT NULL,
-  `Rata 2_4` decimal(10,2) DEFAULT NULL,
-  `Rata 3_4` decimal(10,2) DEFAULT NULL,
-  `Ostatnia_4` decimal(10,2) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-COMMIT;
-
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+-- Create the main commissions table
+CREATE TABLE IF NOT EXISTS test2 (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    case_name VARCHAR(255) NOT NULL,
+    is_completed BOOLEAN DEFAULT FALSE,
+    amount_won DECIMAL(15, 2),
+    upfront_fee DECIMAL(15, 2),
+    success_fee_percentage DECIMAL(5, 2),
+    total_commission DECIMAL(15, 2),
+    
+    -- Kuba's commission details
+    kuba_percentage DECIMAL(5, 2),
+    kuba_payout DECIMAL(15, 2),
+    
+    -- Agent percentages
+    agent1_percentage DECIMAL(5, 2),
+    agent2_percentage DECIMAL(5, 2),
+    agent3_percentage DECIMAL(5, 2),
+    agent4_percentage DECIMAL(5, 2),
+    agent5_percentage DECIMAL(5, 2),
+    
+    -- Payment installments
+    installment1_amount DECIMAL(15, 2),
+    installment1_paid BOOLEAN DEFAULT FALSE,
+    installment2_amount DECIMAL(15, 2),
+    installment2_paid BOOLEAN DEFAULT FALSE,
+    installment3_amount DECIMAL(15, 2),
+    installment3_paid BOOLEAN DEFAULT FALSE,
+    final_installment_amount DECIMAL(15, 2),
+    final_installment_paid BOOLEAN DEFAULT FALSE,
+    
+    -- Kuba's commission installments
+    kuba_installment1_amount DECIMAL(15, 2),
+    kuba_invoice_number VARCHAR(50),
+    kuba_installment2_amount DECIMAL(15, 2),
+    kuba_installment3_amount DECIMAL(15, 2),
+    kuba_final_installment_amount DECIMAL(15, 2),
+    
+    -- Agent 1 commission installments
+    agent1_installment1_amount DECIMAL(15, 2),
+    agent1_installment2_amount DECIMAL(15, 2),
+    agent1_installment3_amount DECIMAL(15, 2),
+    agent1_final_installment_amount DECIMAL(15, 2),
+    
+    -- Agent 2 commission installments
+    agent2_installment1_amount DECIMAL(15, 2),
+    agent2_installment2_amount DECIMAL(15, 2),
+    agent2_installment3_amount DECIMAL(15, 2),
+    agent2_final_installment_amount DECIMAL(15, 2),
+    
+    -- Agent 3 commission installments
+    agent3_installment1_amount DECIMAL(15, 2),
+    agent3_installment2_amount DECIMAL(15, 2),
+    agent3_installment3_amount DECIMAL(15, 2),
+    agent3_final_installment_amount DECIMAL(15, 2),
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

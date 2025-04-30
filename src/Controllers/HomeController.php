@@ -7,6 +7,8 @@ use PDOException;
 class HomeController {
     /** Wyświetla stronę z tabelą i formularzem importu */
     public function index(): void {
+        require_once __DIR__ . '/../../config/database.php';
+        global $pdo;
         include __DIR__ . '/../Views/home.php';
     }
 

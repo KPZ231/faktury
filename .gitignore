@@ -1,5 +1,5 @@
-# Ignore ZIP files
 *.zip
-
-# Ignore environment files
 .env
+*.xlsx
+*.csv
+*.sql

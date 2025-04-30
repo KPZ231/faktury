@@ -154,14 +154,168 @@ tr:last-child td {
     header h1 {
         font-size: 1.8rem;
     }
-    
+
     #uploadFile {
         margin: 1rem;
         padding: 1.5rem;
     }
-    
-    th, td {
+
+    th,
+    td {
         padding: 0.8rem;
         font-size: 0.9rem;
     }
+}
+
+body.wizard {
+    font-family: Arial, sans-serif;
+    background: #f9f9f9;
+    padding: 20px;
+}
+
+form#wizardForm {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    max-width: 700px;
+    margin: auto;
+}
+
+form#wizardForm h2 {
+    margin-top: 0;
+}
+
+form#wizardForm fieldset {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    padding: 12px;
+}
+
+form#wizardForm legend {
+    font-weight: bold;
+    padding: 0 4px;
+}
+
+form#wizardForm label {
+    display: block;
+    margin-bottom: 10px;
+}
+
+form#wizardForm input[type="text"],
+form#wizardForm input[type="number"],
+form#wizardForm select {
+    width: 100%;
+    padding: 6px;
+    margin-top: 4px;
+    border: 1px solid #aaa;
+    border-radius: 4px;
+}
+
+.controls {
+    display: flex;
+    gap: 20px;
+}
+
+.btn {
+    background: #007bff;
+    color: #fff;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: #0056b3;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: -100%;
+    padding: 20px;
+    background: #323232;
+    color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    max-width: 300px;
+    font-family: sans-serif;
+    transition: right 0.5s ease-out;
+    z-index: 1000;
+}
+
+.notification.show {
+    right: 20px;
+}
+
+table {
+    width: 95%;
+    margin: 30px auto;
+    border-collapse: collapse;
+}
+
+table,
+th,
+td {
+    border: 1px solid #ccc;
+}
+
+th,
+td {
+    padding: 8px;
+    text-align: center;
+}
+
+th {
+    background: #f2f2f2;
+}
+
+.sort-controls {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem auto;
+    max-width: 95%;
+    justify-content: flex-end;
+}
+
+.sort-controls select,
+.sort-controls button {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+}
+
+.sort-controls button {
+    background: #3498db;
+    color: white;
+    border: none;
+}
+
+.sort-controls button:hover {
+    background: #2980b9;
+}
+
+th.sortable {
+    cursor: pointer;
+    position: relative;
+    padding-right: 20px;
+}
+
+th.sortable::after {
+    content: '↕';
+    position: absolute;
+    right: 5px;
+    color: #666;
+}
+
+th.sortable.asc::after {
+    content: '↑';
+}
+
+th.sortable.desc::after {
+    content: '↓';
 }

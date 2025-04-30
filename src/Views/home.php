@@ -1,6 +1,4 @@
 <?php
-require_once __DIR__ . '/../../config/database.php';
-
 // Obsługa importu CSV i wstawianie rekordów do tabeli `test`
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
     header('Content-Type: application/json; charset=UTF-8');
@@ -66,53 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
     <!-- <base href="/zestawienie11/"> -->
     <title>Podejrzyj Faktury</title>
     <link rel="stylesheet" href="../../assets/css/style.css">
-    <style>
-        .notification { position: fixed; top: 20px; right: -100%; padding: 20px; background: #323232; color: #fff; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); max-width: 300px; font-family: sans-serif; transition: right 0.5s ease-out; z-index:1000; }
-        .notification.show { right: 20px; }
-        table { width: 95%; margin: 30px auto; border-collapse: collapse; }
-        table, th, td { border: 1px solid #ccc; }
-        th, td { padding: 8px; text-align: center; }
-        th { background: #f2f2f2; }
-        .sort-controls { 
-            display: flex; 
-            gap: 1rem; 
-            margin: 1rem auto; 
-            max-width: 95%; 
-            justify-content: flex-end;
-        }
-        .sort-controls select, .sort-controls button {
-            padding: 0.5rem 1rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background: white;
-            cursor: pointer;
-        }
-        .sort-controls button {
-            background: #3498db;
-            color: white;
-            border: none;
-        }
-        .sort-controls button:hover {
-            background: #2980b9;
-        }
-        th.sortable {
-            cursor: pointer;
-            position: relative;
-            padding-right: 20px;
-        }
-        th.sortable::after {
-            content: '↕';
-            position: absolute;
-            right: 5px;
-            color: #666;
-        }
-        th.sortable.asc::after {
-            content: '↑';
-        }
-        th.sortable.desc::after {
-            content: '↓';
-        }
-    </style>
 </head>
 <body>
     <header><h1>Podejrzyj Faktury</h1></header>
@@ -148,7 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
         <?php
         try {
             // Pobierz wszystkie kolumny dynamicznie
-            $stmtCols = $pdo->query('DESCRIBE `test`');
+            $stmtCols = $pdo->prepare('DESCRIBE `test`');   
+            $stmtCols->execute();
             $columns = array_column($stmtCols->fetchAll(PDO::FETCH_ASSOC), 'Field');
             $colsEsc = implode(',', array_map(fn($c) => "`$c`", $columns));
             $stmt = $pdo->query("SELECT $colsEsc FROM `test` ORDER BY `LP` DESC");
