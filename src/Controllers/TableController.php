@@ -395,18 +395,28 @@ class TableController
                 foreach ($visibleHeaders as $title) {
                     $value = $row[$title] ?? '';
 
-                    // Formatowanie kwot i procentów
                     if (is_numeric($value)) {
-                        if (strpos($title, '%') !== false) {
+                        if ($title === 'Do wypłaty Kuba') { 
                             echo '<td>' . number_format((float)$value, 2, ',', ' ') . '%</td>';
-                        } elseif (strpos($title, 'Rata') !== false) {
+                        } elseif (strpos($title, '%') !== false) {
+                            echo '<td>' . number_format((float)$value, 2, ',', ' ') . '%</td>';
+                        } elseif (strpos($title, 'Wywalczona kwota') !== false ||
+                                  strpos($title, 'Opłata wstępna') !== false ||
+                                  strpos($title, 'Całość prowizji') !== false ||
+                                  strpos($title, 'Rata') !== false) {
+                            // Dodaj znak złotówki do wartości pieniężnych
                             echo '<td>' . number_format((float)$value, 2, ',', ' ') . ' zł</td>';
                         } else {
                             echo '<td>' . number_format((float)$value, 2, ',', ' ') . '</td>';
                         }
+                    } elseif ($value === 'Tak' || $value === 'Nie') {
+                        // Obsługa wartości boolean
+                        $color = ($value === 'Tak') ? 'green' : 'red';
+                        echo '<td style="color:' . $color . ';">' . htmlspecialchars($value, ENT_QUOTES) . '</td>';
                     } else {
                         echo '<td>' . htmlspecialchars($value, ENT_QUOTES) . '</td>';
                     }
+                    
                 }
                 echo '</tr>';
             }
