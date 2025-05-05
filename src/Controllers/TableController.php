@@ -19,7 +19,39 @@ class TableController
         require_once __DIR__ . '/../../config/database.php';
         global $pdo;
         $this->pdo = $pdo;
+        
+        // Pobierz listę agentów
+        $agents = $this->getAgents();
+        
+        // Jeśli wybrano agenta, wyświetl sprawy tego agenta
+        $selectedAgentId = isset($_GET['agent_id']) ? intval($_GET['agent_id']) : null;
+        $selectedAgent = null;
+        
+        if ($selectedAgentId) {
+            foreach ($agents as $agent) {
+                if ($agent['agent_id'] == $selectedAgentId) {
+                    $selectedAgent = $agent;
+                    break;
+                }
+            }
+        }
+        
         include __DIR__ . '/../Views/table.php';
+    }
+    
+    /**
+     * Pobiera listę wszystkich agentów
+     */
+    public function getAgents(): array
+    {
+        try {
+            $query = "SELECT agent_id, imie, nazwisko FROM agenci ORDER BY nazwisko, imie";
+            $stmt = $this->pdo->query($query);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log('Error fetching agents: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**
@@ -149,118 +181,227 @@ class TableController
             error_log('Error calculating commissions: ' . $e->getMessage());
         }
     }
-
-
-    public function renderTable(): void
+    
+    /**
+     * Pobierz sprawy przypisane do danego agenta
+     */
+    public function getAgentCases($agentId): array
     {
         try {
-            // Najpierw przeliczamy prowizje
+            // Pobierz dane agenta
+            $query = "SELECT imie, nazwisko FROM agenci WHERE agent_id = :agent_id";
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute([':agent_id' => $agentId]);
+            $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$agent) {
+                return [];
+            }
+            
+            // Tworzymy pełne imię i nazwisko agenta
+            $fullName = $agent['imie'] . ' ' . $agent['nazwisko'];
+            
+            // Szukamy w tabeli test2 spraw, które mają taką samą nazwę jak imię i nazwisko agenta
+            $query = "SELECT * FROM test2 WHERE case_name = :agent_name";
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute([':agent_name' => $fullName]);
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log('Error fetching agent cases: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function renderAgentSelection(): void
+    {
+        try {
+            $agents = $this->getAgents();
+            
+            if (empty($agents)) {
+                echo '<p style="text-align:center;">Brak agentów w bazie danych.</p>';
+                return;
+            }
+            
+            echo '<div class="agent-selection">';
+            echo '<h3>Wybierz agenta:</h3>';
+            echo '<div class="agent-list">';
+            
+            foreach ($agents as $agent) {
+                $url = '?agent_id=' . $agent['agent_id'];
+                echo '<a href="' . $url . '" class="agent-button">' . 
+                     htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'], ENT_QUOTES) . '</a>';
+            }
+            
+            echo '</div></div>';
+        } catch (PDOException $e) {
+            echo '<p style="color:red; text-align:center;">Błąd: ' . 
+                 htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
+        }
+    }
+
+    public function renderTable($agentId = null): void
+    {
+        try {
+            // Przelicz prowizje
             $this->calculateCommissions();
-
-            // Zapytanie SQL z aliasami dla ładniejszych nagłówków
-            $query = "SELECT 
-                case_name AS 'Sprawa',
-                CASE WHEN is_completed = 1 THEN 'Tak' WHEN is_completed = 0 THEN 'Nie' ELSE '' END AS 'Zakończona?',
-                amount_won AS 'Wywalczona kwota',
-                upfront_fee AS 'Opłata wstępna',
-                success_fee_percentage AS 'Success fee %',
-                total_commission AS 'Całość prowizji',
-                kuba_percentage AS 'Prowizja % Kuba',
-                kuba_payout AS 'Do wypłaty Kuba',
-                agent1_percentage AS 'Prowizja % Agent 1',
-                agent2_percentage AS 'Prowizja % Agent 2',
-                agent3_percentage AS 'Prowizja % Agent 3',
-                agent4_percentage AS 'Prowizja % Agent 4',
-                agent5_percentage AS 'Prowizja % Agent 5',
-                installment1_amount AS 'Rata 1',
-                CASE WHEN installment1_paid = 1 THEN 'Tak' WHEN installment1_paid = 0 THEN 'Nie' END AS 'Opłacona?',
-                installment2_amount AS 'Rata 2',
-                CASE WHEN installment2_paid = 1 THEN 'Tak' WHEN installment2_paid = 0 THEN 'Nie' END AS 'Opłacona?',
-                installment3_amount AS 'Rata 3',
-                CASE WHEN installment3_paid = 1 THEN 'Tak' WHEN installment3_paid = 0 THEN 'Nie' END AS 'Opłacona?',
-                final_installment_amount AS 'Rata ostatnia',
-                CASE WHEN final_installment_paid = 1 THEN 'Tak' WHEN final_installment_paid = 0 THEN 'Nie' END AS 'Opłacona?',
-                kuba_installment1_amount AS 'Rata 1 - Kuba',
-                kuba_invoice_number AS 'Nr faktury',
-                kuba_installment2_amount AS 'Rata 2 - Kuba',
-                kuba_installment3_amount AS 'Rata 3 - Kuba',
-                kuba_final_installment_amount AS 'Rata ostatnia - Kuba',
-                agent1_installment1_amount AS 'Rata 1 - Agent 1',
-                agent1_installment2_amount AS 'Rata 2 - Agent 1',
-                agent1_installment3_amount AS 'Rata 3 - Agent 1',
-                agent1_final_installment_amount AS 'Rata ostatnia - Agent 1',
-                agent2_installment1_amount AS 'Rata 1 - Agent 2',
-                agent2_installment2_amount AS 'Rata 2 - Agent 2',
-                agent2_installment3_amount AS 'Rata 3 - Agent 2',
-                agent2_final_installment_amount AS 'Rata ostatnia - Agent 2',
-                agent3_installment1_amount AS 'Rata 1 - Agent 3',
-                agent3_installment2_amount AS 'Rata 2 - Agent 3',
-                agent3_installment3_amount AS 'Rata 3 - Agent 3',
-                agent3_final_installment_amount AS 'Rata ostatnia - Agent 3'
-            FROM test2 ORDER BY id DESC";
-
-            $stmt = $this->pdo->query($query);
-
-            if ($stmt->rowCount() > 0) {
-                // Najpierw pobieramy wszystkie dane, aby sprawdzić, które kolumny zawierają dane
-                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                if (empty($rows)) {
-                    echo '<p style="text-align:center;">Brak danych.</p>';
+            
+            // Jeśli podano ID agenta, pobierz tylko jego sprawy
+            if ($agentId) {
+                $cases = $this->getAgentCases($agentId);
+                
+                if (empty($cases)) {
+                    echo '<p style="text-align:center;">Brak spraw dla wybranego agenta.</p>';
                     return;
                 }
-
-                // Sprawdzamy, które kolumny zawierają jakiekolwiek niepuste dane
-                $nonEmptyColumns = [];
-                foreach ($rows as $row) {
-                    foreach ($row as $column => $value) {
-                        if ($value !== null && $value !== '') {
-                            $nonEmptyColumns[$column] = true;
-                        }
-                    }
+                
+                // Przygotuj dane do wyświetlenia
+                $rows = [];
+                foreach ($cases as $case) {
+                    $row = [
+                        'Sprawa' => $case['case_name'],
+                        'Zakończona?' => $case['is_completed'] ? 'Tak' : 'Nie',
+                        'Wywalczona kwota' => $case['amount_won'],
+                        'Opłata wstępna' => $case['upfront_fee'],
+                        'Success fee %' => $case['success_fee_percentage'],
+                        'Całość prowizji' => $case['total_commission'],
+                        'Prowizja % Kuba' => $case['kuba_percentage'],
+                        'Do wypłaty Kuba' => $case['kuba_payout'],
+                        'Prowizja % Agent 1' => $case['agent1_percentage'],
+                        'Prowizja % Agent 2' => $case['agent2_percentage'],
+                        'Prowizja % Agent 3' => $case['agent3_percentage'],
+                        'Prowizja % Agent 4' => $case['agent4_percentage'],
+                        'Prowizja % Agent 5' => $case['agent5_percentage'],
+                        'Rata 1' => $case['installment1_amount'],
+                        'Opłacona 1' => $case['installment1_paid'] ? 'Tak' : 'Nie',
+                        'Rata 2' => $case['installment2_amount'],
+                        'Opłacona 2' => $case['installment2_paid'] ? 'Tak' : 'Nie',
+                        'Rata 3' => $case['installment3_amount'],
+                        'Opłacona 3' => $case['installment3_paid'] ? 'Tak' : 'Nie',
+                        'Rata 4' => $case['final_installment_amount'],
+                        'Opłacona 4' => $case['final_installment_paid'] ? 'Tak' : 'Nie',
+                        'Rata 1 – Kuba' => $case['kuba_installment1_amount'],
+                        'Nr faktury' => $case['kuba_invoice_number'],
+                        'Rata 2 – Kuba' => $case['kuba_installment2_amount'],
+                        'Rata 3 – Kuba' => $case['kuba_installment3_amount'],
+                        'Rata 4 – Kuba' => $case['kuba_final_installment_amount'],
+                        'Rata 1 – Agent 1' => $case['agent1_installment1_amount'],
+                        'Rata 2 – Agent 1' => $case['agent1_installment2_amount'],
+                        'Rata 3 – Agent 1' => $case['agent1_installment3_amount'],
+                        'Rata 4 – Agent 1' => $case['agent1_final_installment_amount'],
+                        'Rata 1 – Agent 2' => $case['agent2_installment1_amount'],
+                        'Rata 2 – Agent 2' => $case['agent2_installment2_amount'],
+                        'Rata 3 – Agent 2' => $case['agent2_installment3_amount'],
+                        'Rata 4 – Agent 2' => $case['agent2_final_installment_amount'],
+                        'Rata 1 – Agent 3' => $case['agent3_installment1_amount'],
+                        'Rata 2 – Agent 3' => $case['agent3_installment2_amount'],
+                        'Rata 3 – Agent 3' => $case['agent3_installment3_amount'],
+                        'Rata 4 – Agent 3' => $case['agent3_final_installment_amount']
+                    ];
+                    $rows[] = $row;
                 }
-
-                // Wyświetlamy tylko te kolumny, które mają jakiekolwiek dane
-                echo '<table class="data-table"><thead><tr>';
-                foreach (array_keys($nonEmptyColumns) as $col) {
-                    echo '<th class="sortable" data-column="' . htmlspecialchars($col, ENT_QUOTES) . '">' .
-                        htmlspecialchars($col, ENT_QUOTES) . '</th>';
-                }
-                echo '</tr></thead><tbody>';
-
-                // Wyświetlamy dane tylko dla niepustych kolumn
-                foreach ($rows as $row) {
-                    echo '<tr>';
-                    foreach ($row as $column => $value) {
-                        if (isset($nonEmptyColumns[$column])) {
-                            // Formatowanie kwot pieniężnych
-                            if (
-                                is_numeric($value) &&
-                                (strpos($column, 'kwota') !== false ||
-                                    strpos($column, 'fee') !== false ||
-                                    strpos($column, 'amount') !== false ||
-                                    strpos($column, 'payout') !== false ||
-                                    strpos($column, 'commission') !== false ||
-                                    strpos($column, 'Rata') !== false)
-                            ) {
-                                echo '<td>' . number_format((float)$value, 2, ',', ' ') . ' zł</td>';
-                            }
-                            // Formatowanie procentów
-                            elseif (is_numeric($value) && strpos($column, '%') !== false) {
-                                echo '<td>' . number_format((float)$value, 2, ',', ' ') . '%</td>';
-                            } else {
-                                echo '<td>' . htmlspecialchars($value !== null ? $value : '', ENT_QUOTES) . '</td>';
-                            }
-                        }
-                    }
-                    echo '</tr>';
-                }
-                echo '</tbody></table>';
             } else {
-                echo '<p style="text-align:center;">Brak danych.</p>';
+                // Oryginalne SELECT z wszystkimi kolumnami + statusami opłacenia
+                $query = "SELECT
+                    case_name AS 'Sprawa',
+                    CASE WHEN is_completed = 1 THEN 'Tak' WHEN is_completed = 0 THEN 'Nie' ELSE '' END AS 'Zakończona?',
+                    amount_won AS 'Wywalczona kwota',
+                    upfront_fee AS 'Opłata wstępna',
+                    success_fee_percentage AS 'Success fee %',
+                    total_commission AS 'Całość prowizji',
+                    kuba_percentage AS 'Prowizja % Kuba',
+                    kuba_payout AS 'Do wypłaty Kuba',
+                    agent1_percentage AS 'Prowizja % Agent 1',
+                    agent2_percentage AS 'Prowizja % Agent 2',
+                    agent3_percentage AS 'Prowizja % Agent 3',
+                    agent4_percentage AS 'Prowizja % Agent 4',
+                    agent5_percentage AS 'Prowizja % Agent 5',
+        
+                    installment1_amount AS 'Rata 1',
+                    CASE WHEN installment1_paid = 1 THEN 'Tak' WHEN installment1_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 1',
+                    installment2_amount AS 'Rata 2',
+                    CASE WHEN installment2_paid = 1 THEN 'Tak' WHEN installment2_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 2',
+                    installment3_amount AS 'Rata 3',
+                    CASE WHEN installment3_paid = 1 THEN 'Tak' WHEN installment3_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 3',
+                    final_installment_amount AS 'Rata 4',
+                    CASE WHEN final_installment_paid = 1 THEN 'Tak' WHEN final_installment_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 4',
+        
+                    kuba_installment1_amount AS 'Rata 1 – Kuba',
+                    kuba_invoice_number AS 'Nr faktury',
+                    kuba_installment2_amount AS 'Rata 2 – Kuba',
+                    kuba_installment3_amount AS 'Rata 3 – Kuba',
+                    kuba_final_installment_amount AS 'Rata 4 – Kuba',
+        
+                    agent1_installment1_amount AS 'Rata 1 – Agent 1',
+                    agent1_installment2_amount AS 'Rata 2 – Agent 1',
+                    agent1_installment3_amount AS 'Rata 3 – Agent 1',
+                    agent1_final_installment_amount AS 'Rata 4 – Agent 1',
+                    agent2_installment1_amount AS 'Rata 1 – Agent 2',
+                    agent2_installment2_amount AS 'Rata 2 – Agent 2',
+                    agent2_installment3_amount AS 'Rata 3 – Agent 2',
+                    agent2_final_installment_amount AS 'Rata 4 – Agent 2',
+                    agent3_installment1_amount AS 'Rata 1 – Agent 3',
+                    agent3_installment2_amount AS 'Rata 2 – Agent 3',
+                    agent3_installment3_amount AS 'Rata 3 – Agent 3',
+                    agent3_final_installment_amount AS 'Rata 4 – Agent 3'
+                FROM test2
+                ORDER BY id DESC";
+
+                $stmt = $this->pdo->query($query);
+                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
+
+            if (empty($rows)) {
+                echo '<p style="text-align:center;">Brak danych.</p>';
+                return;
+            }
+
+            // Pełna lista nagłówków w kolejności SELECT
+            $allHeaders = array_keys($rows[0]);
+
+            // FILTR: zostawiamy tylko te nagłówki, które mają choć jeden nie-pusty rekord
+            $visibleHeaders = array_filter($allHeaders, function ($title) use ($rows) {
+                foreach ($rows as $row) {
+                    if (isset($row[$title]) && $row[$title] !== '' && $row[$title] !== null) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+
+            echo '<table class="data-table"><thead><tr>';
+            foreach ($visibleHeaders as $title) {
+                echo '<th class="sortable" data-column="' . htmlspecialchars($title, ENT_QUOTES) . '">'
+                    . htmlspecialchars($title, ENT_QUOTES) . '</th>';
+            }
+            echo '</tr></thead><tbody>';
+
+            // Wyświetlanie wierszy – tylko kolumny z $visibleHeaders
+            foreach ($rows as $row) {
+                echo '<tr>';
+                foreach ($visibleHeaders as $title) {
+                    $value = $row[$title] ?? '';
+
+                    // Formatowanie kwot i procentów
+                    if (is_numeric($value)) {
+                        if (strpos($title, '%') !== false) {
+                            echo '<td>' . number_format((float)$value, 2, ',', ' ') . '%</td>';
+                        } elseif (strpos($title, 'Rata') !== false) {
+                            echo '<td>' . number_format((float)$value, 2, ',', ' ') . ' zł</td>';
+                        } else {
+                            echo '<td>' . number_format((float)$value, 2, ',', ' ') . '</td>';
+                        }
+                    } else {
+                        echo '<td>' . htmlspecialchars($value, ENT_QUOTES) . '</td>';
+                    }
+                }
+                echo '</tr>';
+            }
+
+            echo '</tbody></table>';
         } catch (PDOException $e) {
-            echo '<p style="color:red; text-align:center;">Błąd: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
+            echo '<p style="color:red; text-align:center;">Błąd: '
+                . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
         }
     }
 }

@@ -1,11 +1,46 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
   <meta charset="UTF-8">
   <title>Dodaj rekord</title>
   <link rel="stylesheet" href="../../assets/css/style.css">
+  <link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body class="wizard">
+
+  <nav class="cleannav">
+    <ul class="cleannav__list">
+      <li class="cleannav__item">
+        <a href="/" class="cleannav__link">
+          <i class="fa-solid fa-house cleannav__icon"></i>
+          Home
+        </a>
+      </li>
+      <li class="cleannav__item">
+        <a href="/agents" class="cleannav__link">
+          <i class="fa-solid fa-plus cleannav__icon"></i>
+          Dodaj Agenta
+        </a>
+      </li>
+      <li class="cleannav__item">
+        <a href="/table" class="cleannav__link">
+          <i class="fa-solid fa-briefcase cleannav__icon"></i>
+          Tabela Z Danymi
+        </a>
+      </li>
+      <li class="cleannav__item">
+        <a href="/wizard" class="cleannav__link">
+          <i class="fa-solid fa-database cleannav__icon"></i>
+          Kreator Rekorkdu
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+
   <?php if (isset($_GET['success'])): ?>
     <div class="success">Rekord został dodany pomyślnie!</div>
   <?php endif; ?>
@@ -38,7 +73,7 @@
       <!-- pola dynamicznie generowane -->
     </fieldset>
 
-    
+
 
     <button type="submit" class="btn">Zapisz rekord</button>
   </form>
@@ -67,22 +102,16 @@
         lbl.innerHTML = `Rata ${i} kwota:<input type='number' step='0.01' name='installment${i}_amount'>`;
         instSection.appendChild(lbl);
       }
-      
-      // Dodajemy finalną ratę jeśli liczba rat jest mniejsza niż maksymalna (4)
-      if (count > 0 && count < 4) {
-        const finalLabel = document.createElement('label');
-        finalLabel.innerHTML = `Rata końcowa:<input type='number' step='0.01' name='final_installment_amount'>`;
-        instSection.appendChild(finalLabel);
-      }
     }
 
     // Dodajemy event listenery dla obu pól
     agentsInput.addEventListener('input', renderAgents);
     instInput.addEventListener('input', renderInstallments);
-    
+
     // Inicjalizujemy formularze przy załadowaniu strony
     renderAgents();
     renderInstallments();
   </script>
 </body>
+
 </html>

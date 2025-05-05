@@ -43,24 +43,37 @@ class WizardController
             'installment2_amount',
             'installment2_paid',
             'installment3_amount',
-            'installment3_paid'
+            'installment3_paid',
+            'final_installment_paid', // dodałem to pole
         ];
 
-        $cols = [];
+        // Zdefiniuj od razu, które kolumny traktujesz jako boolean
+        $booleanFields = [
+            'is_completed',
+            'installment1_paid',
+            'installment2_paid',
+            'installment3_paid',
+            'final_installment_paid',
+        ];
+
+        $cols   = [];
         $values = [];
 
         foreach ($columns as $col) {
             $cols[] = "`$col`";
+
+            // jeśli to pole boolean – zawsze wrzucamy 0
+            if (in_array($col, $booleanFields, true)) {
+                $values[] = '0';
+                continue;
+            }
+
+            // wszystkie pozostałe traktujemy normalnie
             $val = $data[$col] ?? null;
             if ($val === '' || $val === null) {
                 $values[] = 'NULL';
             } else {
-                // boolean fields
-                if (in_array($col, ['is_completed', 'installment1_paid', 'installment2_paid', 'installment3_paid', 'final_installment_paid'])) {
-                    $values[] = 0; // Zawsze ustawiamy wartość 0 dla pól typu boolean
-                } else {
-                    $values[] = $this->db->quote($val);
-                }
+                $values[] = $this->db->quote($val);
             }
         }
 

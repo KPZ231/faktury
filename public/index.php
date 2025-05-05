@@ -3,6 +3,7 @@ session_start();
 require __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/database.php';
 
+use Dell\Faktury\Controllers\AgentController;
 use FastRoute\Dispatcher;
 use function FastRoute\simpleDispatcher;
 use Dell\Faktury\Controllers\HomeController;
@@ -20,6 +21,9 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     $r->addRoute('POST',   '/wizard',      [WizardController::class, 'store']);
 
     $r->addRoute('GET', '/table',          [TableController::class, 'index']);
+
+    $r->addRoute('GET', "/agents", [AgentController::class, 'index']);
+    $r->addRoute('POST', "/agents", [AgentController::class, 'addAgent']);
 });
 
 $httpMethod = $_SERVER['REQUEST_METHOD'];
