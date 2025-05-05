@@ -19,14 +19,14 @@ class TableController
         require_once __DIR__ . '/../../config/database.php';
         global $pdo;
         $this->pdo = $pdo;
-        
+
         // Pobierz listę agentów
         $agents = $this->getAgents();
-        
+
         // Jeśli wybrano agenta, wyświetl sprawy tego agenta
         $selectedAgentId = isset($_GET['agent_id']) ? intval($_GET['agent_id']) : null;
         $selectedAgent = null;
-        
+
         if ($selectedAgentId) {
             foreach ($agents as $agent) {
                 if ($agent['agent_id'] == $selectedAgentId) {
@@ -35,10 +35,10 @@ class TableController
                 }
             }
         }
-        
+
         include __DIR__ . '/../Views/table.php';
     }
-    
+
     /**
      * Pobiera listę wszystkich agentów
      */
@@ -181,7 +181,7 @@ class TableController
             error_log('Error calculating commissions: ' . $e->getMessage());
         }
     }
-    
+
     /**
      * Pobierz sprawy przypisane do danego agenta
      */
@@ -193,62 +193,64 @@ class TableController
             $stmt = $this->pdo->prepare($query);
             $stmt->execute([':agent_id' => $agentId]);
             $agent = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
             if (!$agent) {
                 return [];
             }
-    
+
             // Dekoduj zapisany JSON do tablicy ID spraw
             $caseIds = json_decode($agent['sprawy'], true);
             if (!is_array($caseIds) || count($caseIds) === 0) {
                 return [];
             }
-    
+
             // Przygotuj zapytanie z warunkiem IN dla wszystkich ID
             $placeholders = implode(',', array_fill(0, count($caseIds), '?'));
             $query = "SELECT * FROM test2 WHERE id IN ($placeholders)";
             $stmt = $this->pdo->prepare($query);
             $stmt->execute($caseIds);
-    
+
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (\PDOException $e) {
             error_log('Error fetching agent cases: ' . $e->getMessage());
             return [];
         }
     }
-    
+
 
     public function renderAgentSelection(): void
-{
-    try {
-        $agents = $this->getAgents();
-        
-        if (empty($agents)) {
-            echo '<p style="text-align:center;">Brak agentów w bazie danych.</p>';
-            return;
-        }
-        
-        echo '<div class="agent-selection">';
-        echo '<h3>Wybierz agenta:</h3>';
-        echo '<div class="agent-list">';
-        
-        foreach ($agents as $agent) {
-            $url = '?agent_id=' . $agent['agent_id'];
-            // Jeśli imię agenta to "jakub" (porównanie ignorujące wielkość liter), ustaw tło na zielono
-            $style = '';
-            if (strtolower($agent['imie']) === 'jakub') {
-                $style = ' style="background-color: green;"';
+    {
+        try {
+            $agents = $this->getAgents();
+    
+            if (empty($agents)) {
+                echo '<p style="text-align:center;">Brak agentów w bazie danych.</p>';
+                return;
             }
-            echo '<a href="' . $url . '" class="agent-button"' . $style . '>' . 
-                 htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'], ENT_QUOTES) . '</a>';
+    
+            echo '<div class="agent-selection">';
+            echo '<h3>Wybierz agenta:</h3>';
+            echo '<div class="agent-list">';
+    
+            // Używamy absolutnej ścieżki (/table), aby zapewnić właściwe przekierowanie
+            foreach ($agents as $agent) {
+                $url = '/table?agent_id=' . $agent['agent_id'];
+                // Jeśli imię agenta to "jakub" (porównanie ignorujące wielkość liter), ustaw tło na zielono
+                $style = '';
+                if (strtolower($agent['imie']) === 'jakub') {
+                    $style = ' style="background-color: green;"';
+                }
+                echo '<a href="' . $url . '" class="agent-button"' . $style . '>' .
+                     htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'], ENT_QUOTES) . '</a>';
+            }
+    
+            echo '</div></div>';
+        } catch (PDOException $e) {
+            echo '<p style="color:red; text-align:center;">Błąd: ' .
+                htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
         }
-        
-        echo '</div></div>';
-    } catch (PDOException $e) {
-        echo '<p style="color:red; text-align:center;">Błąd: ' . 
-             htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
     }
-}
+    
 
 
     public function renderTable($agentId = null): void
@@ -256,16 +258,16 @@ class TableController
         try {
             // Przelicz prowizje
             $this->calculateCommissions();
-            
+
             // Jeśli podano ID agenta, pobierz tylko jego sprawy
             if ($agentId) {
                 $cases = $this->getAgentCases($agentId);
-                
+
                 if (empty($cases)) {
                     echo '<p style="text-align:center;">Brak spraw dla wybranego agenta.</p>';
                     return;
                 }
-                
+
                 // Przygotuj dane do wyświetlenia
                 $rows = [];
                 foreach ($cases as $case) {
