@@ -103,7 +103,5 @@ class AgentController
             echo "Brak takiej sprawy dla tego agenta.";
             return;
         }
-
-        include __DIR__ . '/../Views/agent_details.php';
     }
 }

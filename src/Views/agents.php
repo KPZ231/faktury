@@ -66,7 +66,7 @@ $count = count($agents);
       <li class="cleannav__item">
         <a href="/wizard" class="cleannav__link">
           <i class="fa-solid fa-database cleannav__icon"></i>
-          Kreator Rekorkdu
+          Kreator Rekordu
         </a>
       </li>
     </ul>
@@ -103,7 +103,7 @@ $count = count($agents);
                         if (is_array($cases) && count($cases) > 0) {
                             foreach ($cases as $case) {
                                 $url = sprintf(
-                                    'agent_details.php?agent_id=%d&amp;case=%s',
+                                    'table?agent_id=2',
                                     $agent['agent_id'],
                                     urlencode($case)
                                 );

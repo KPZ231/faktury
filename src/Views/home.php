@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             <li class="cleannav__item">
                 <a href="/wizard" class="cleannav__link">
                     <i class="fa-solid fa-database cleannav__icon"></i>
-                    Kreator Rekorkdu
+                    Kreator Rekordu
                 </a>
             </li>
         </ul>

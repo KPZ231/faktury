@@ -188,57 +188,68 @@ class TableController
     public function getAgentCases($agentId): array
     {
         try {
-            // Pobierz dane agenta
-            $query = "SELECT imie, nazwisko FROM agenci WHERE agent_id = :agent_id";
+            // Pobierz kolumnę 'sprawy' dla wybranego agenta
+            $query = "SELECT sprawy FROM agenci WHERE agent_id = :agent_id";
             $stmt = $this->pdo->prepare($query);
             $stmt->execute([':agent_id' => $agentId]);
             $agent = $stmt->fetch(PDO::FETCH_ASSOC);
-            
+    
             if (!$agent) {
                 return [];
             }
-            
-            // Tworzymy pełne imię i nazwisko agenta
-            $fullName = $agent['imie'] . ' ' . $agent['nazwisko'];
-            
-            // Szukamy w tabeli test2 spraw, które mają taką samą nazwę jak imię i nazwisko agenta
-            $query = "SELECT * FROM test2 WHERE case_name = :agent_name";
+    
+            // Dekoduj zapisany JSON do tablicy ID spraw
+            $caseIds = json_decode($agent['sprawy'], true);
+            if (!is_array($caseIds) || count($caseIds) === 0) {
+                return [];
+            }
+    
+            // Przygotuj zapytanie z warunkiem IN dla wszystkich ID
+            $placeholders = implode(',', array_fill(0, count($caseIds), '?'));
+            $query = "SELECT * FROM test2 WHERE id IN ($placeholders)";
             $stmt = $this->pdo->prepare($query);
-            $stmt->execute([':agent_name' => $fullName]);
-            
+            $stmt->execute($caseIds);
+    
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             error_log('Error fetching agent cases: ' . $e->getMessage());
             return [];
         }
     }
+    
 
     public function renderAgentSelection(): void
-    {
-        try {
-            $agents = $this->getAgents();
-            
-            if (empty($agents)) {
-                echo '<p style="text-align:center;">Brak agentów w bazie danych.</p>';
-                return;
-            }
-            
-            echo '<div class="agent-selection">';
-            echo '<h3>Wybierz agenta:</h3>';
-            echo '<div class="agent-list">';
-            
-            foreach ($agents as $agent) {
-                $url = '?agent_id=' . $agent['agent_id'];
-                echo '<a href="' . $url . '" class="agent-button">' . 
-                     htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'], ENT_QUOTES) . '</a>';
-            }
-            
-            echo '</div></div>';
-        } catch (PDOException $e) {
-            echo '<p style="color:red; text-align:center;">Błąd: ' . 
-                 htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
+{
+    try {
+        $agents = $this->getAgents();
+        
+        if (empty($agents)) {
+            echo '<p style="text-align:center;">Brak agentów w bazie danych.</p>';
+            return;
         }
+        
+        echo '<div class="agent-selection">';
+        echo '<h3>Wybierz agenta:</h3>';
+        echo '<div class="agent-list">';
+        
+        foreach ($agents as $agent) {
+            $url = '?agent_id=' . $agent['agent_id'];
+            // Jeśli imię agenta to "jakub" (porównanie ignorujące wielkość liter), ustaw tło na zielono
+            $style = '';
+            if (strtolower($agent['imie']) === 'jakub') {
+                $style = ' style="background-color: green;"';
+            }
+            echo '<a href="' . $url . '" class="agent-button"' . $style . '>' . 
+                 htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'], ENT_QUOTES) . '</a>';
+        }
+        
+        echo '</div></div>';
+    } catch (PDOException $e) {
+        echo '<p style="color:red; text-align:center;">Błąd: ' . 
+             htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
     }
+}
+
 
     public function renderTable($agentId = null): void
     {
