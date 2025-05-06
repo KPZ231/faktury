@@ -296,8 +296,8 @@
         errorKuba.innerText = "Prowizja Kuby musi być liczbą.";
         kubaInput.classList.add('input-error');
         formValid = false;
-      } else if (kubaValue < 0 || kubaValue > 25) {
-        errorKuba.innerText = "Prowizja Kuby musi być z przedziału 0 - 25%.";
+      } else if (kubaValue < 0 || kubaValue > 100) {
+        errorKuba.innerText = "Prowizja Kuby musi być z przedziału 0 - 100%.";
         kubaInput.classList.add('input-error');
         formValid = false;
       } else {

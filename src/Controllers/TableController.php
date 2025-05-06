@@ -60,119 +60,94 @@ class TableController
     public function calculateCommissions(): void
     {
         try {
+            // Pobierz wszystkie rekordy z tabeli test2
             $query = "SELECT * FROM test2";
             $stmt = $this->pdo->query($query);
             $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+    
             foreach ($cases as $case) {
-                $updated = false;
                 $updates = [];
                 $params = [];
                 $id = $case['id'];
-
-                // 1. Oblicz prowizję całkowitą
-                if (empty($case['total_commission']) && !empty($case['amount_won']) && !empty($case['success_fee_percentage'])) {
-                    $upfrontFee = !empty($case['upfront_fee']) ? floatval($case['upfront_fee']) : 0;
-                    $amountWon = floatval($case['amount_won']);
-                    $successFeePercentage = floatval($case['success_fee_percentage']) / 100;
-
-                    $totalCommission = $upfrontFee + ($amountWon * $successFeePercentage);
-                    $updates[] = "total_commission = :total_commission";
-                    $params[':total_commission'] = $totalCommission;
-                    $updated = true;
-                } else {
-                    $totalCommission = !empty($case['total_commission']) ? floatval($case['total_commission']) : 0;
-                }
-
-                // 2. Oblicz wypłatę dla Kuby jako procent (od 0 do 100)
-                if (empty($case['kuba_payout']) && isset($case['kuba_percentage'])) {
-                    $kubaPercentage = floatval($case['kuba_percentage']);
-
-                    $agentPercentages = [
-                        !empty($case['agent1_percentage']) ? floatval($case['agent1_percentage']) : 0,
-                        !empty($case['agent2_percentage']) ? floatval($case['agent2_percentage']) : 0,
-                        !empty($case['agent3_percentage']) ? floatval($case['agent3_percentage']) : 0,
-                        !empty($case['agent4_percentage']) ? floatval($case['agent4_percentage']) : 0,
-                        !empty($case['agent5_percentage']) ? floatval($case['agent5_percentage']) : 0
-                    ];
-
-                    $totalAgentPercentage = array_sum($agentPercentages);
-                    $kubaPayout = $kubaPercentage - $totalAgentPercentage;
-
-                    // Upewniamy się, że wynik nie przekroczy zakresu 0-100
-                    $kubaPayout = max(0, min(100, $kubaPayout));
-
-                    $updates[] = "kuba_payout = :kuba_payout";
-                    $params[':kuba_payout'] = $kubaPayout;
-                    $updated = true;
-                }
-
-
-                // 3. Ostatnia rata całości
-                if (empty($case['final_installment_amount']) && $totalCommission > 0) {
-                    $installments = [
-                        !empty($case['installment1_amount']) ? floatval($case['installment1_amount']) : 0,
-                        !empty($case['installment2_amount']) ? floatval($case['installment2_amount']) : 0,
-                        !empty($case['installment3_amount']) ? floatval($case['installment3_amount']) : 0
-                    ];
-                    $finalInstallment = $totalCommission - array_sum($installments);
-
-                    if ($finalInstallment > 0) {
-                        $updates[] = "final_installment_amount = :final_installment_amount";
-                        $params[':final_installment_amount'] = $finalInstallment;
-                        $updated = true;
-                    }
-                }
-
-                // 4. Ostatnia rata Kuby
-                if (empty($case['kuba_final_installment_amount']) && !empty($case['kuba_payout'])) {
-                    $kubaPayout = floatval($case['kuba_payout']);
-                    $kubaInstallments = [
-                        !empty($case['kuba_installment1_amount']) ? floatval($case['kuba_installment1_amount']) : 0,
-                        !empty($case['kuba_installment2_amount']) ? floatval($case['kuba_installment2_amount']) : 0,
-                        !empty($case['kuba_installment3_amount']) ? floatval($case['kuba_installment3_amount']) : 0
-                    ];
-                    $kubaFinalInstallment = $kubaPayout - array_sum($kubaInstallments);
-
-                    if ($kubaFinalInstallment > 0) {
-                        $updates[] = "kuba_final_installment_amount = :kuba_final_installment_amount";
-                        $params[':kuba_final_installment_amount'] = $kubaFinalInstallment;
-                        $updated = true;
-                    }
-                }
-
-                // 5. Ostatnie raty agentów (dla 1 i 2 przykładowo, resztę możesz rozszerzyć tak samo)
-                for ($i = 1; $i <= 3; $i++) {
-                    $percentageField = "agent{$i}_percentage";
-                    $payoutField = "agent{$i}_final_installment_amount";
-                    $installmentFields = [
-                        "agent{$i}_installment1_amount",
-                        "agent{$i}_installment2_amount",
-                        "agent{$i}_installment3_amount"
-                    ];
-
-                    if (!empty($case[$percentageField]) && empty($case[$payoutField]) && $totalCommission > 0) {
-                        $agentPercentage = floatval($case[$percentageField]) / 100;
-                        $agentPayout = $agentPercentage * $totalCommission;
-
-                        $installments = array_map(function ($field) use ($case) {
-                            return !empty($case[$field]) ? floatval($case[$field]) : 0;
-                        }, $installmentFields);
-
-                        $finalInstallment = $agentPayout - array_sum($installments);
-                        if ($finalInstallment > 0) {
-                            $updates[] = "$payoutField = :$payoutField";
-                            $params[":$payoutField"] = $finalInstallment;
-                            $updated = true;
-                        }
-                    }
-                }
-
+    
+                // 1. Całość prowizji (F = D + (C * E))
+                $upfrontFee = !empty($case['upfront_fee']) ? floatval($case['upfront_fee']) : 0;
+                $amountWon = !empty($case['amount_won']) ? floatval($case['amount_won']) : 0;
+                $successFeePercentage = !empty($case['success_fee_percentage']) ? floatval($case['success_fee_percentage']) : 0;
+                $totalCommission = $upfrontFee + ($amountWon * ($successFeePercentage / 100));
+                $updates[] = "total_commission = :total_commission";
+                $params[':total_commission'] = $totalCommission;
+    
+                // 2. Do wypłaty Kuba (H = G - SUM(I:K))
+                $kubaPercentage = !empty($case['kuba_percentage']) ? floatval($case['kuba_percentage']) : 0;
+                $agent1Percentage = !empty($case['agent1_percentage']) ? floatval($case['agent1_percentage']) : 0;
+                $agent2Percentage = !empty($case['agent2_percentage']) ? floatval($case['agent2_percentage']) : 0;
+                $agent3Percentage = !empty($case['agent3_percentage']) ? floatval($case['agent3_percentage']) : 0;
+                $kubaPayout = $kubaPercentage - ($agent1Percentage + $agent2Percentage + $agent3Percentage);
+                // Ograniczamy wynik do przedziału 0–100
+                $kubaPayout = max(0, min(100, $kubaPayout));
+                $updates[] = "kuba_payout = :kuba_payout";
+                $params[':kuba_payout'] = $kubaPayout;
+    
+                // 3. Ostatnia rata (T = F - SUM(N, P, R))
+                $installment1 = !empty($case['installment1_amount']) ? floatval($case['installment1_amount']) : 0;
+                $installment2 = !empty($case['installment2_amount']) ? floatval($case['installment2_amount']) : 0;
+                $installment3 = !empty($case['installment3_amount']) ? floatval($case['installment3_amount']) : 0;
+                $finalInstallment = $totalCommission - ($installment1 + $installment2 + $installment3);
+                $finalInstallment = ($finalInstallment > 0) ? $finalInstallment : 0;
+                $updates[] = "final_installment_amount = :final_installment_amount";
+                $params[':final_installment_amount'] = $finalInstallment;
+    
+                // 4. Podział rat dla Kuby (V, X, Z, AB)
+                $updates[] = "kuba_installment1_amount = :kuba_installment1_amount";
+                $updates[] = "kuba_installment2_amount = :kuba_installment2_amount";
+                $updates[] = "kuba_installment3_amount = :kuba_installment3_amount";
+                $updates[] = "kuba_final_installment_amount = :kuba_final_installment_amount";
+                // Przeliczamy procent na ułamek (np. 15% -> 0.15)
+                $kubaFraction = $kubaPayout / 100;
+                $params[':kuba_installment1_amount'] = $installment1 * $kubaFraction;
+                $params[':kuba_installment2_amount'] = $installment2 * $kubaFraction;
+                $params[':kuba_installment3_amount'] = $installment3 * $kubaFraction;
+                $params[':kuba_final_installment_amount'] = $finalInstallment * $kubaFraction;
+    
+                // 5. Podział rat dla Agentów 1–3
+                // Agent 1
+                $agent1Fraction = $agent1Percentage / 100;
+                $updates[] = "agent1_installment1_amount = :agent1_installment1_amount";
+                $updates[] = "agent1_installment2_amount = :agent1_installment2_amount";
+                $updates[] = "agent1_installment3_amount = :agent1_installment3_amount";
+                $updates[] = "agent1_final_installment_amount = :agent1_final_installment_amount";
+                $params[':agent1_installment1_amount'] = $installment1 * $agent1Fraction;
+                $params[':agent1_installment2_amount'] = $installment2 * $agent1Fraction;
+                $params[':agent1_installment3_amount'] = $installment3 * $agent1Fraction;
+                $params[':agent1_final_installment_amount'] = $finalInstallment * $agent1Fraction;
+    
+                // Agent 2
+                $agent2Fraction = $agent2Percentage / 100;
+                $updates[] = "agent2_installment1_amount = :agent2_installment1_amount";
+                $updates[] = "agent2_installment2_amount = :agent2_installment2_amount";
+                $updates[] = "agent2_installment3_amount = :agent2_installment3_amount";
+                $updates[] = "agent2_final_installment_amount = :agent2_final_installment_amount";
+                $params[':agent2_installment1_amount'] = $installment1 * $agent2Fraction;
+                $params[':agent2_installment2_amount'] = $installment2 * $agent2Fraction;
+                $params[':agent2_installment3_amount'] = $installment3 * $agent2Fraction;
+                $params[':agent2_final_installment_amount'] = $finalInstallment * $agent2Fraction;
+    
+                // Agent 3
+                $agent3Fraction = $agent3Percentage / 100;
+                $updates[] = "agent3_installment1_amount = :agent3_installment1_amount";
+                $updates[] = "agent3_installment2_amount = :agent3_installment2_amount";
+                $updates[] = "agent3_installment3_amount = :agent3_installment3_amount";
+                $updates[] = "agent3_final_installment_amount = :agent3_final_installment_amount";
+                $params[':agent3_installment1_amount'] = $installment1 * $agent3Fraction;
+                $params[':agent3_installment2_amount'] = $installment2 * $agent3Fraction;
+                $params[':agent3_installment3_amount'] = $installment3 * $agent3Fraction;
+                $params[':agent3_final_installment_amount'] = $finalInstallment * $agent3Fraction;
+    
                 // Zapisz zmiany w bazie
-                if ($updated && !empty($updates)) {
+                if (!empty($updates)) {
                     $updateQuery = "UPDATE test2 SET " . implode(", ", $updates) . " WHERE id = :id";
                     $params[':id'] = $id;
-
                     $updateStmt = $this->pdo->prepare($updateQuery);
                     $updateStmt->execute($params);
                 }
@@ -181,6 +156,8 @@ class TableController
             error_log('Error calculating commissions: ' . $e->getMessage());
         }
     }
+    
+    
 
     /**
      * Pobierz sprawy przypisane do danego agenta

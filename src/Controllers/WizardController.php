@@ -34,7 +34,7 @@ class WizardController
             if ($kubaPercentage < 0 || $kubaPercentage > 100) {
                 $errors[] = "Prowizja Kuby musi być wartością z przedziału 0-100.";
             }
-            if ($kubaPercentage > 25) {
+            if ($kubaPercentage > 100) {
                 $errors[] = "Prowizja Kuby nie może być większa niż 25%.";
             }
         } else {
@@ -152,29 +152,26 @@ class WizardController
         // Pobierz ID ostatnio wstawionego rekordu
         $newCaseId = $this->db->lastInsertId();
         
-        // 1. Aktualizacja wybranych agentów – dodajemy do ich kolumny "sprawy" ID sprawy
+        // Dodaj powiązania agentów ze sprawą w tabeli sprawa_agent
         for ($i = 1; $i <= 5; $i++) {
             if (isset($data["agent{$i}_id"]) && !empty($data["agent{$i}_id"])) {
                 $agentId = (int)$data["agent{$i}_id"];
                 $stmt = $this->db->prepare(
-                    "UPDATE agenci 
-                     SET sprawy = JSON_ARRAY_APPEND(sprawy, '$', ?)
-                     WHERE agent_id = ?"
+                    "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola) 
+                     VALUES (?, ?, ?)"
                 );
-                $stmt->execute([$newCaseId, $agentId]);
+                $stmt->execute([$newCaseId, $agentId, "agent{$i}"]);
             }
         }
         
-        // 2. Dodatkowo – zawsze dodajemy sprawę do agenta o imieniu Kuba.
-        // Możemy najpierw wyszukać jego ID:
+        // Dodaj Kubę jako agenta (jeśli istnieje)
         $stmt = $this->db->prepare("SELECT agent_id FROM agenci WHERE LOWER(imie) = 'jakub' LIMIT 1");
         $stmt->execute();
         $kuba = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($kuba) {
             $stmt = $this->db->prepare(
-                "UPDATE agenci 
-                 SET sprawy = JSON_ARRAY_APPEND(sprawy, '$', ?)
-                 WHERE agent_id = ?"
+                "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola) 
+                 VALUES (?, ?, 'kuba')"
             );
             $stmt->execute([$newCaseId, $kuba['agent_id']]);
         }
