@@ -10,34 +10,45 @@ class WizardController
 
     public function __construct()
     {
+        error_log("WizardController::__construct - Inicjalizacja kontrolera wizarda");
         global $pdo; // PDO instance from config/database.php
         $this->db = $pdo;
+        error_log("WizardController::__construct - Połączenie z bazą danych zainicjalizowane");
     }
 
     // Wyświetla formularz wizard
     public function show(): void
     {
+        error_log("WizardController::show - Start");
         include __DIR__ . '../../views/wizard.php';
+        error_log("WizardController::show - Widok wizarda wyrenderowany");
     }
 
     // Przetwarza i zapisuje dane z formularza z walidacją
     public function store(): void
     {
+        error_log("WizardController::store - Start");
         $data = $_POST;
+        error_log("WizardController::store - Otrzymane dane: " . print_r($data, true));
         $errors = [];
 
         // Walidacja procentowych pól prowizji
+        error_log("WizardController::store - Rozpoczęcie walidacji danych");
 
         // 1. Walidacja prowizji Kuby
         if (isset($data['kuba_percentage']) && $data['kuba_percentage'] !== '') {
             $kubaPercentage = floatval($data['kuba_percentage']);
+            error_log("WizardController::store - Prowizja Kuby: {$kubaPercentage}");
             if ($kubaPercentage < 0 || $kubaPercentage > 100) {
+                error_log("WizardController::store - BŁĄD: Prowizja Kuby poza zakresem 0-100");
                 $errors[] = "Prowizja Kuby musi być wartością z przedziału 0-100.";
             }
-            if ($kubaPercentage > 100) {
+            if ($kubaPercentage > 25) {
+                error_log("WizardController::store - BŁĄD: Prowizja Kuby > 25%");
                 $errors[] = "Prowizja Kuby nie może być większa niż 25%.";
             }
         } else {
+            error_log("WizardController::store - BŁĄD: Brak prowizji Kuby");
             $errors[] = "Prowizja Kuby jest wymagana.";
             $kubaPercentage = 0;
         }
@@ -47,16 +58,22 @@ class WizardController
         for ($i = 1; $i <= 5; $i++) {
             if (isset($data["agent{$i}_percentage"]) && $data["agent{$i}_percentage"] !== '') {
                 $agentValue = floatval($data["agent{$i}_percentage"]);
+                error_log("WizardController::store - Prowizja Agenta {$i}: {$agentValue}");
                 if ($agentValue < 0 || $agentValue > 100) {
+                    error_log("WizardController::store - BŁĄD: Prowizja Agenta {$i} poza zakresem 0-100");
                     $errors[] = "Prowizja agenta {$i} musi być wartością z przedziału 0-100.";
                 }
                 if ($agentValue > $kubaPercentage) {
+                    error_log("WizardController::store - BŁĄD: Prowizja Agenta {$i} > prowizja Kuby");
                     $errors[] = "Prowizja agenta {$i} nie może być większa niż prowizja Kuby ({$kubaPercentage}%).";
                 }
                 $agentPercents[] = $agentValue;
+            } else {
+                error_log("WizardController::store - Agent {$i} nie ma określonej prowizji");
             }
         }
         if (array_sum($agentPercents) > $kubaPercentage) {
+            error_log("WizardController::store - BŁĄD: Suma prowizji agentów > prowizja Kuby");
             $errors[] = "Suma prowizji agentów (" . array_sum($agentPercents) . "%) nie może być większa niż prowizja Kuby ({$kubaPercentage}%).";
         }
 
@@ -64,9 +81,13 @@ class WizardController
         $fieldsToValidate = ['amount_won', 'upfront_fee', 'success_fee_percentage'];
         foreach ($fieldsToValidate as $field) {
             if (isset($data[$field]) && $data[$field] !== '') {
+                error_log("WizardController::store - Walidacja pola {$field}: " . $data[$field]);
                 if (!is_numeric($data[$field]) || floatval($data[$field]) < 0) {
+                    error_log("WizardController::store - BŁĄD: Pole {$field} ma nieprawidłową wartość");
                     $errors[] = "Pole '{$field}' musi być liczbą nieujemną.";
                 }
+            } else {
+                error_log("WizardController::store - Pole {$field} nie jest ustawione");
             }
         }
 
@@ -74,9 +95,13 @@ class WizardController
         for ($i = 1; $i <= 3; $i++) {
             $installmentField = "installment{$i}_amount";
             if (isset($data[$installmentField]) && $data[$installmentField] !== '') {
+                error_log("WizardController::store - Walidacja raty {$i}: " . $data[$installmentField]);
                 if (!is_numeric($data[$installmentField]) || floatval($data[$installmentField]) < 0) {
+                    error_log("WizardController::store - BŁĄD: Rata {$i} ma nieprawidłową wartość");
                     $errors[] = "Rata {$i} musi być liczbą nieujemną.";
                 }
+            } else {
+                error_log("WizardController::store - Rata {$i} nie jest ustawiona");
             }
         }
 
@@ -84,6 +109,7 @@ class WizardController
 
         // Jeśli wykryto błąd walidacji, wypisz je i zatrzymaj działanie
         if (count($errors) > 0) {
+            error_log("WizardController::store - Znaleziono " . count($errors) . " błędów walidacji");
             echo "<div style='color:red;'><h3>Błędy walidacji:</h3><ul>";
             foreach ($errors as $error) {
                 echo "<li>" . htmlspecialchars($error, ENT_QUOTES) . "</li>";
@@ -93,6 +119,7 @@ class WizardController
         }
 
         // Jeśli walidacja się powiodła, przetwarzamy dalszą część zapisu
+        error_log("WizardController::store - Walidacja zakończona sukcesem, przygotowanie do zapisu");
 
         // Lista kolumn zgodna ze strukturą tabeli test2 (pomijamy id, auto_increment)
         $columns = [
@@ -102,11 +129,6 @@ class WizardController
             'upfront_fee',
             'success_fee_percentage',
             'kuba_percentage',
-            'agent1_percentage',
-            'agent2_percentage',
-            'agent3_percentage',
-            'agent4_percentage',
-            'agent5_percentage',
             'installment1_amount',
             'installment1_paid',
             'installment2_amount',
@@ -115,6 +137,7 @@ class WizardController
             'installment3_paid',
             'final_installment_paid', // dodałem to pole
         ];
+        error_log("WizardController::store - Przygotowano " . count($columns) . " kolumn do zapisu");
 
         // Zdefiniuj od razu, które kolumny traktujesz jako boolean
         $booleanFields = [
@@ -134,6 +157,7 @@ class WizardController
             // Jeśli to pole boolean – zawsze wstawiamy 0
             if (in_array($col, $booleanFields, true)) {
                 $values[] = '0';
+                error_log("WizardController::store - Pole boolean {$col}: ustawiono 0");
                 continue;
             }
 
@@ -141,41 +165,93 @@ class WizardController
             $val = $data[$col] ?? null;
             if ($val === '' || $val === null) {
                 $values[] = 'NULL';
+                error_log("WizardController::store - Pole {$col}: ustawiono NULL");
             } else {
                 $values[] = $this->db->quote($val);
+                error_log("WizardController::store - Pole {$col}: ustawiono {$val}");
             }
         }
 
         $sql = "INSERT INTO `test2` (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $values) . ")";
+        error_log("WizardController::store - SQL insert: " . $sql);
         $this->db->exec($sql);
         
         // Pobierz ID ostatnio wstawionego rekordu
         $newCaseId = $this->db->lastInsertId();
+        error_log("WizardController::store - Dodano nową sprawę, ID: {$newCaseId}");
         
-        // Dodaj powiązania agentów ze sprawą w tabeli sprawa_agent
+        // Dodajemy powiązania agentów z nową sprawą
+        error_log("WizardController::store - Rozpoczęcie dodawania powiązań agentów");
         for ($i = 1; $i <= 5; $i++) {
-            if (isset($data["agent{$i}_id"]) && !empty($data["agent{$i}_id"])) {
+            if (isset($data["agent{$i}_id"]) && !empty($data["agent{$i}_id"]) && 
+                isset($data["agent{$i}_percentage"]) && $data["agent{$i}_percentage"] !== '') {
+                
                 $agentId = (int)$data["agent{$i}_id"];
+                $percentage = (float)$data["agent{$i}_percentage"];
+                error_log("WizardController::store - Dodawanie powiązania dla Agenta {$i}, ID: {$agentId}, procent: {$percentage}");
+                
+                // 1. Dodaj wpis do tabeli sprawa_agent
                 $stmt = $this->db->prepare(
-                    "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola) 
-                     VALUES (?, ?, ?)"
+                    "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola, percentage) 
+                     VALUES (?, ?, ?, ?)"
                 );
-                $stmt->execute([$newCaseId, $agentId, "agent{$i}"]);
+                $stmt->execute([$newCaseId, $agentId, "agent_{$i}", $percentage]);
+                error_log("WizardController::store - Dodano powiązanie w tabeli sprawa_agent");
+                
+                // 2. Aktualizuj pole sprawy w tabeli agentów (istniejący kod)
+                $stmt = $this->db->prepare(
+                    "UPDATE agenci 
+                     SET sprawy = JSON_ARRAY_APPEND(sprawy, '$', ?)
+                     WHERE agent_id = ?"
+                );
+                $stmt->execute([$newCaseId, $agentId]);
+                error_log("WizardController::store - Zaktualizowano pole 'sprawy' dla agenta ID: {$agentId}");
+            } else {
+                error_log("WizardController::store - Agent {$i} nie jest wybrany lub nie ma określonego procentu");
             }
         }
         
-        // Dodaj Kubę jako agenta (jeśli istnieje)
-        $stmt = $this->db->prepare("SELECT agent_id FROM agenci WHERE LOWER(imie) = 'jakub' LIMIT 1");
+        // 2. Dodatkowo – zawsze dodajemy sprawę do agenta o imieniu Kuba.
+        // Możemy najpierw wyszukać jego ID:
+        error_log("WizardController::store - Wyszukiwanie agenta Kuba");
+        $stmt = $this->db->prepare("SELECT agent_id FROM agenci WHERE LOWER(imie) IN ('jakub', 'kuba') LIMIT 1");
         $stmt->execute();
         $kuba = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($kuba) {
+            error_log("WizardController::store - Znaleziono Kubę, agent_id: " . $kuba['agent_id']);
+            // Sprawdź, czy Kuba nie jest już przypisany do tej sprawy
             $stmt = $this->db->prepare(
-                "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola) 
-                 VALUES (?, ?, 'kuba')"
+                "SELECT COUNT(*) FROM sprawa_agent 
+                 WHERE sprawa_id = ? AND agent_id = ?"
             );
             $stmt->execute([$newCaseId, $kuba['agent_id']]);
+            $exists = (int)$stmt->fetchColumn();
+            error_log("WizardController::store - Kuba już przypisany do tej sprawy: " . ($exists ? 'Tak' : 'Nie'));
+            
+            if ($exists === 0) {
+                error_log("WizardController::store - Dodawanie Kuby z rolą 'kuba' i procentem: " . $kubaPercentage);
+                // Dodaj Kubę z rolą 'kuba' i procentem z formularza
+                $stmt = $this->db->prepare(
+                    "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola, percentage) 
+                     VALUES (?, ?, 'kuba', ?)"
+                );
+                $stmt->execute([$newCaseId, $kuba['agent_id'], $kubaPercentage]);
+                
+                // Zaktualizuj jego pole sprawy w tabeli agenci
+                error_log("WizardController::store - Aktualizacja pola 'sprawy' dla Kuby");
+                $stmt = $this->db->prepare(
+                    "UPDATE agenci 
+                     SET sprawy = JSON_ARRAY_APPEND(sprawy, '$', ?)
+                     WHERE agent_id = ?"
+                );
+                $stmt->execute([$newCaseId, $kuba['agent_id']]);
+                error_log("WizardController::store - Zaktualizowano dane Kuby");
+            }
+        } else {
+            error_log("WizardController::store - UWAGA: Nie znaleziono agenta Kuba w bazie danych");
         }
 
+        error_log("WizardController::store - Zakończono dodawanie sprawy, przekierowanie do /wizard");
         header('Location: /wizard?success=1', true, 302);
         exit;
     }

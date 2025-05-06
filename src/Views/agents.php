@@ -2,6 +2,7 @@
 // agents.php (View)
 // Include this file in your AgentController@index method
 
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_agent'])) {
     // Sanitize input
@@ -76,11 +77,11 @@ $count = count($agents);
 <div class="agent-form-container">
     <h1 class="agent-form-heading">Dodaj nowego agenta</h1>
 
-    <?php if (!empty($error)): ?>
+    <?php if (isset($error) && !empty($error)): ?>
         <p class="agent-error-message"><?php echo htmlspecialchars($error); ?></p>
     <?php endif; ?>
 
-    <form method="post" action="" class="agent-form">
+    <form method="post" action="/agents" class="agent-form">
         <label class="agent-form-label" for="imie">Imię:</label>
         <input class="agent-form-input" type="text" id="imie" name="imie" required>
         <br>
@@ -88,30 +89,36 @@ $count = count($agents);
         <label class="agent-form-label" for="nazwisko">Nazwisko:</label>
         <input class="agent-form-input" type="text" id="nazwisko" name="nazwisko" required>
         <br><br>
-        <button type="submit" name="add_agent" id="addAgent" class="agent-submit-button">Dodaj Agenta</button>
+        <button type="submit" class="agent-submit-button">Dodaj Agenta</button>
     </form>
 
-    <h2 class="agent-list-heading">Lista Agentów (<?php echo $count; ?>)</h2>
-    <?php if ($count > 0): ?>
+    <h2 class="agent-list-heading">Lista Agentów (<?php echo count($agents); ?>)</h2>
+    <?php if (!empty($agents)): ?>
         <ul class="agent-list">
             <?php foreach ($agents as $agent): ?>
                 <li class="agent-list-item">
                     <strong class="agent-name"><?php echo htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko']); ?></strong>
                     <div class="agent-cases-container">
                         <?php
-                        $cases = json_decode($agent['sprawy'], true);
-                        if (is_array($cases) && count($cases) > 0) {
-                            foreach ($cases as $case) {
-                                $url = sprintf(
-                                    'table?agent_id=2',
-                                    $agent['agent_id'],
-                                    urlencode($case)
-                                );
-                                echo '<a class="agent-case-link" href="' . $url . '">' . htmlspecialchars($case) . '</a>';
-                            }
-                        } else {
+                        if (!empty($agent['sprawy'])):
+                            $sprawy = is_string($agent['sprawy']) ? json_decode($agent['sprawy'], true) : $agent['sprawy'];
+                            if (is_array($sprawy) && !empty($sprawy)):
+                                foreach ($sprawy as $sprawa):
+                                    if (is_array($sprawa) && isset($sprawa['case_name']) && isset($sprawa['rola']) && isset($sprawa['percentage'])):
+                                        ?>
+                                        <span class="agent-case-link">
+                                            <?php echo htmlspecialchars($sprawa['case_name'] . ' (' . $sprawa['rola'] . ')'); ?>
+                                            <br><small><?php echo number_format((float)$sprawa['percentage'], 2, ',', ' '); ?>%</small>
+                                        </span>
+                                        <?php
+                                    endif;
+                                endforeach;
+                            else:
+                                echo '<em class="agent-no-cases">Brak przypisanych spraw</em>';
+                            endif;
+                        else:
                             echo '<em class="agent-no-cases">Brak przypisanych spraw</em>';
-                        }
+                        endif;
                         ?>
                     </div>
                 </li>
@@ -121,8 +128,6 @@ $count = count($agents);
         <p class="agent-no-cases">Brak agentów w bazie.</p>
     <?php endif; ?>
 </div>
-
-
 
 </body>
 

@@ -18,6 +18,64 @@
     .input-error {
       border: 1px solid red;
     }
+
+    /* Style for calculation results */
+    .calculation-result {
+      display: inline-block;
+      margin-left: 10px;
+      padding: 5px 10px;
+      background-color: #e3f2fd;
+      border-radius: 4px;
+      font-weight: 500;
+      color: #1976D2;
+    }
+
+    .field-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .field-group label {
+      width: 100%;
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .calculation-section {
+      background-color: #f5f5f5;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+      border-left: 4px solid #1976D2;
+    }
+
+    .calculation-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #1976D2;
+    }
+
+    .installment-split {
+      margin-top: 10px;
+      padding: 8px;
+      background-color: #eef7ff;
+      border-radius: 6px;
+    }
+
+    .split-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px dashed #ccc;
+    }
+
+    .split-item:last-child {
+      border-bottom: none;
+    }
   </style>
 </head>
 
@@ -73,40 +131,69 @@
 
     <fieldset>
       <legend>Podstawowe dane</legend>
-      <label>
-        Nazwa sprawy:
-        <input type="text" name="case_name" required>
-        <span class="error-message" id="error_case_name"></span>
-      </label>
-      <br>
-      <label>
-        Zakończona:
-        <input type="checkbox" name="is_completed">
-      </label>
-      <br>
-      <label>
-        Wywalczona kwota:
-        <input type="number" step="0.01" name="amount_won">
-        <span class="error-message" id="error_amount_won"></span>
-      </label>
-      <br>
-      <label>
-        Opłata wstępna:
-        <input type="number" step="0.01" name="upfront_fee">
-        <span class="error-message" id="error_upfront_fee"></span>
-      </label>
-      <br>
-      <label>
-        Procent success fee:
-        <input type="number" step="0.01" name="success_fee_percentage">
-        <span class="error-message" id="error_success_fee_percentage"></span>
-      </label>
-      <br>
-      <label>
-        Prowizja Kuby:
-        <input type="number" step="0.01" name="kuba_percentage">
-        <span class="error-message" id="error_kuba_percentage"></span>
-      </label>
+      <div class="field-group">
+        <label>
+          <span class="field-label">Nazwa sprawy:</span>
+          <input type="text" name="case_name" required>
+          <span class="error-message" id="error_case_name"></span>
+        </label>
+      </div>
+      
+      <div class="field-group">
+        <label>
+          <span class="field-label">Zakończona:</span>
+          <input type="checkbox" name="is_completed">
+        </label>
+      </div>
+      
+      <div class="field-group">
+        <label>
+          <span class="field-label">Wywalczona kwota:</span>
+          <input type="number" step="0.01" name="amount_won" id="amount_won">
+          <span class="error-message" id="error_amount_won"></span>
+        </label>
+      </div>
+      
+      <div class="field-group">
+        <label>
+          <span class="field-label">Opłata wstępna:</span>
+          <input type="number" step="0.01" name="upfront_fee" id="upfront_fee">
+          <span class="error-message" id="error_upfront_fee"></span>
+        </label>
+      </div>
+      
+      <div class="field-group">
+        <label>
+          <span class="field-label">Procent success fee:</span>
+          <input type="number" step="0.01" name="success_fee_percentage" id="success_fee_percentage">
+          <span class="error-message" id="error_success_fee_percentage"></span>
+        </label>
+      </div>
+      
+      <div class="field-group">
+        <label>
+          <span class="field-label">Prowizja Kuby:</span>
+          <input type="number" step="0.01" name="kuba_percentage" id="kuba_percentage">
+          <span class="error-message" id="error_kuba_percentage"></span>
+        </label>
+      </div>
+
+      <!-- Sekcja wyświetlająca wyniki obliczeń -->
+      <div class="calculation-section">
+        <div class="calculation-title">Wyniki obliczeń:</div>
+        <div class="split-item">
+          <span>Całość prowizji:</span>
+          <span id="total_commission">0.00 zł</span>
+        </div>
+        <div class="split-item">
+          <span>Do wypłaty Kuba:</span>
+          <span id="kuba_payout_percentage">0.00%</span>
+        </div>
+        <div class="split-item">
+          <span>Kwota do wypłaty Kuba:</span>
+          <span id="kuba_payout_amount">0.00 zł</span>
+        </div>
+      </div>
     </fieldset>
 
     <fieldset class="controls">
@@ -134,6 +221,16 @@
       <legend>Raty</legend>
       <!-- Dynamicznie generowane pola rat -->
     </fieldset>
+    
+    <!-- Sekcja podsumowania rat -->
+    <fieldset id="installmentSummarySection" style="display: none;">
+      <legend>Podsumowanie rat</legend>
+      <div id="installmentSummary"></div>
+      <div class="split-item">
+        <span>Ostatnia rata:</span>
+        <span id="final_installment">0.00 zł</span>
+      </div>
+    </fieldset>
 
     <button type="submit" class="btn" id="submitButton">Zapisz rekord</button>
   </form>
@@ -143,6 +240,7 @@
     const instInput = document.getElementById('installmentsCount');
     const agentsSection = document.getElementById('agentsSection');
     const instSection = document.getElementById('installmentsSection');
+    const installmentSummarySection = document.getElementById('installmentSummarySection');
 
     // Lista agentów pobrana z PHP
     const agents = <?php echo json_encode($agents); ?>;
@@ -171,7 +269,7 @@
       agentsContainer.id = 'agentsContainer';
       for (let i = 1; i <= count; i++) {
         const container = document.createElement('div');
-        container.className = 'agent-container';
+        container.className = 'agent-container field-group';
 
         // Dropdown do wyboru agenta
         const selectContainer = document.createElement('label');
@@ -179,6 +277,7 @@
         const select = document.createElement('select');
         select.name = `agent${i}_id`;
         select.id = `agent${i}_id`;
+        select.className = 'agent-select';
 
         // Pusta opcja
         const emptyOption = document.createElement('option');
@@ -197,21 +296,31 @@
         selectContainer.appendChild(select);
         container.appendChild(selectContainer);
 
-        // Pole procentu dla agenta - nie tworzymy już indywidualnych spanów dla błędów
+        // Pole procentu dla agenta
         const percentContainer = document.createElement('label');
         percentContainer.innerHTML = ` Procent: `;
         const percentInput = document.createElement('input');
         percentInput.type = 'number';
         percentInput.step = '0.01';
         percentInput.name = `agent${i}_percentage`;
-        percentInput.addEventListener('input', validateForm);
+        percentInput.id = `agent${i}_percentage`;
+        percentInput.className = 'agent-percentage';
+        percentInput.addEventListener('input', calculateAll);
         percentContainer.appendChild(percentInput);
+
+        // Dodanie elementu dla wyświetlania kwoty agenta
+        const amountDisplay = document.createElement('div');
+        amountDisplay.className = 'calculation-result';
+        amountDisplay.id = `agent${i}_amount`;
+        amountDisplay.textContent = '0.00 zł';
+        percentContainer.appendChild(amountDisplay);
 
         container.appendChild(percentContainer);
         agentsContainer.appendChild(container);
       }
       agentsSection.appendChild(agentsContainer);
-      // Dodajemy wspólny kontener (jeśli nie został jeszcze dodany) – ale go zawsze resetujemy w validateForm
+      
+      // Dodajemy wspólny kontener (jeśli nie został jeszcze dodany)
       if (!document.getElementById('error_agents')) {
         const agentErrorContainer = document.createElement('div');
         agentErrorContainer.id = 'error_agents';
@@ -224,14 +333,20 @@
     function renderInstallments() {
       instSection.innerHTML = '<legend>Raty</legend>';
       const count = Number(instInput.value);
+      
       for (let i = 1; i <= count; i++) {
+        const container = document.createElement('div');
+        container.className = 'field-group';
+        
         const lbl = document.createElement('label');
-        lbl.innerHTML = `Rata ${i} kwota: `;
+        lbl.innerHTML = `<span class="field-label">Rata ${i} kwota:</span>`;
         const input = document.createElement('input');
         input.type = 'number';
         input.step = '0.01';
         input.name = `installment${i}_amount`;
-        input.addEventListener('input', validateForm);
+        input.id = `installment${i}_amount`;
+        input.className = 'installment-amount';
+        input.addEventListener('input', calculateAll);
         lbl.appendChild(input);
 
         // Dodajemy span dla komunikatu błędu dla raty
@@ -239,12 +354,37 @@
         errorSpan.className = 'error-message';
         errorSpan.id = `error_installment${i}`;
         lbl.appendChild(errorSpan);
-
-        instSection.appendChild(lbl);
+        
+        container.appendChild(lbl);
+        
+        // Dodanie sekcji podziału raty
+        const splitContainer = document.createElement('div');
+        splitContainer.className = 'installment-split';
+        splitContainer.id = `installment${i}_split`;
+        splitContainer.innerHTML = `
+          <div class="split-item">
+            <span>Kuba (do wypłaty):</span>
+            <span id="installment${i}_kuba">0.00 zł</span>
+          </div>
+          <div id="installment${i}_agents_split"></div>
+        `;
+        
+        container.appendChild(splitContainer);
+        instSection.appendChild(container);
       }
+      
+      // Pokaż sekcję podsumowania rat jeśli są jakieś raty
+      if (count > 0) {
+        installmentSummarySection.style.display = 'block';
+      } else {
+        installmentSummarySection.style.display = 'none';
+      }
+      
+      // Wywołaj obliczenia, aby zaktualizować wartości
+      calculateAll();
     }
 
-    // Funkcja walidacyjna – wyświetla komunikaty przy polach oraz zbiorczo dla agentów
+    // Funkcja walidacyjna z dodatkowymi obliczeniami
     function validateForm() {
       let formValid = true;
 
@@ -357,17 +497,162 @@
       return formValid;
     }
 
+    // Funkcja wykonująca wszystkie obliczenia
+    function calculateAll() {
+      // 1. Obliczenie całkowitej prowizji (F = D + (C * E))
+      const amountWon = parseFloat(document.getElementById('amount_won').value) || 0;
+      const upfrontFee = parseFloat(document.getElementById('upfront_fee').value) || 0;
+      const successFeePercentage = parseFloat(document.getElementById('success_fee_percentage').value) || 0;
+      
+      const totalCommission = upfrontFee + (amountWon * (successFeePercentage / 100));
+      document.getElementById('total_commission').textContent = formatCurrency(totalCommission);
+      
+      // 2. Obliczenie prowizji Kuby i agentów
+      const kubaPercentage = parseFloat(document.getElementById('kuba_percentage').value) || 0;
+      let sumAgentPercents = 0;
+      
+      // Suma procentów agentów
+      const agentInputs = document.querySelectorAll('.agent-percentage');
+      agentInputs.forEach(input => {
+        if (input.value) {
+          sumAgentPercents += parseFloat(input.value) || 0;
+        }
+      });
+      
+      // Do wypłaty Kuba (H = G - SUM(I:K))
+      const kubaPayoutPercentage = Math.max(0, kubaPercentage - sumAgentPercents);
+      document.getElementById('kuba_payout_percentage').textContent = formatPercent(kubaPayoutPercentage);
+      
+      // Kwota do wypłaty dla Kuby
+      const kubaPayoutAmount = totalCommission * (kubaPayoutPercentage / 100);
+      document.getElementById('kuba_payout_amount').textContent = formatCurrency(kubaPayoutAmount);
+      
+      // 3. Obliczenie wartości dla każdego agenta
+      agentInputs.forEach((input, index) => {
+        const agentId = index + 1;
+        const agentPercentage = parseFloat(input.value) || 0;
+        const agentAmount = totalCommission * (agentPercentage / 100);
+        
+        const amountDisplay = document.getElementById(`agent${agentId}_amount`);
+        if (amountDisplay) {
+          amountDisplay.textContent = formatCurrency(agentAmount);
+        }
+      });
+      
+      // 4. Obliczenie rat i ich podziału
+      let totalInstallments = 0;
+      const installmentInputs = document.querySelectorAll('.installment-amount');
+      
+      // Obliczenie sumy rat
+      installmentInputs.forEach(input => {
+        if (input.value) {
+          totalInstallments += parseFloat(input.value) || 0;
+        }
+      });
+      
+      // Obliczenie ostatniej raty (T = F - SUM(N:R))
+      const finalInstallment = Math.max(0, totalCommission - totalInstallments);
+      document.getElementById('final_installment').textContent = formatCurrency(finalInstallment);
+      
+      // 5. Aktualizacja podziału rat dla Kuby i agentów
+      installmentInputs.forEach((input, index) => {
+        const installmentId = index + 1;
+        const installmentAmount = parseFloat(input.value) || 0;
+        
+        // Kwota dla Kuby z tej raty
+        const kubaInstallment = installmentAmount * (kubaPayoutPercentage / 100);
+        document.getElementById(`installment${installmentId}_kuba`).textContent = formatCurrency(kubaInstallment);
+        
+        // Kwoty dla agentów z tej raty
+        const agentsSplitContainer = document.getElementById(`installment${installmentId}_agents_split`);
+        agentsSplitContainer.innerHTML = '';
+        
+        agentInputs.forEach((agentInput, agentIndex) => {
+          const agentId = agentIndex + 1;
+          const agentPercentage = parseFloat(agentInput.value) || 0;
+          if (agentPercentage > 0) {
+            const agentInstallment = installmentAmount * (agentPercentage / 100);
+            
+            const agentSplitItem = document.createElement('div');
+            agentSplitItem.className = 'split-item';
+            agentSplitItem.innerHTML = `
+              <span>Agent ${agentId}:</span>
+              <span>${formatCurrency(agentInstallment)}</span>
+            `;
+            
+            agentsSplitContainer.appendChild(agentSplitItem);
+          }
+        });
+      });
+      
+      // 6. Aktualizacja podziału ostatniej raty
+      if (finalInstallment > 0) {
+        // Dodaj sekcję podziału ostatniej raty do sekcji podsumowania
+        const finalInstallmentSplit = document.createElement('div');
+        finalInstallmentSplit.className = 'installment-split';
+        finalInstallmentSplit.innerHTML = `
+          <div class="split-item">
+            <span>Kuba (ostatnia rata):</span>
+            <span>${formatCurrency(finalInstallment * (kubaPayoutPercentage / 100))}</span>
+          </div>
+        `;
+        
+        // Dodaj podział dla agentów
+        const agentsFinalSplit = document.createElement('div');
+        
+        agentInputs.forEach((agentInput, agentIndex) => {
+          const agentId = agentIndex + 1;
+          const agentPercentage = parseFloat(agentInput.value) || 0;
+          if (agentPercentage > 0) {
+            const agentFinalInstallment = finalInstallment * (agentPercentage / 100);
+            
+            const agentSplitItem = document.createElement('div');
+            agentSplitItem.className = 'split-item';
+            agentSplitItem.innerHTML = `
+              <span>Agent ${agentId} (ostatnia rata):</span>
+              <span>${formatCurrency(agentFinalInstallment)}</span>
+            `;
+            
+            agentsFinalSplit.appendChild(agentSplitItem);
+          }
+        });
+        
+        // Wyczyść i dodaj zaktualizowany podział
+        const installmentSummary = document.getElementById('installmentSummary');
+        installmentSummary.innerHTML = '';
+        finalInstallmentSplit.appendChild(agentsFinalSplit);
+        installmentSummary.appendChild(finalInstallmentSplit);
+      }
+    }
+
+    // Funkcje pomocnicze do formatowania wartości
+    function formatCurrency(value) {
+      return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ") + ' zł';
+    }
+    
+    function formatPercent(value) {
+      return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ") + '%';
+    }
+
     // Inicjalizacja dynamicznych pól oraz eventy
     agentsInput.addEventListener('input', () => {
       clampInput(agentsInput);
       renderAgents();
+      calculateAll();
       validateForm();
     });
+    
     instInput.addEventListener('input', () => {
       clampInput(instInput);
       renderInstallments();
       validateForm();
     });
+
+    // Dodanie eventów do pól podstawowych dla obliczeń na żywo
+    document.getElementById('amount_won').addEventListener('input', calculateAll);
+    document.getElementById('upfront_fee').addEventListener('input', calculateAll);
+    document.getElementById('success_fee_percentage').addEventListener('input', calculateAll);
+    document.getElementById('kuba_percentage').addEventListener('input', calculateAll);
 
     // Walidacja formularza na każdej zmianie
     document.getElementById('wizardForm').addEventListener('input', validateForm);
@@ -375,6 +660,7 @@
     // Renderuj pola przy starcie
     renderAgents();
     renderInstallments();
+    calculateAll();
 
     // Zapobieganie przesłaniu formularza, jeśli nie jest poprawny
     document.getElementById('wizardForm').addEventListener('submit', function(e) {

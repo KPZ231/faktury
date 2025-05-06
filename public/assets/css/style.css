@@ -577,7 +577,6 @@ th.sortable.desc::after {
   top: 0;
   left: 0;
   width: 100%;
-  backdrop-filter: blur(8px); /* efekt rozmycia tła pod spodem */
   padding: 0.75rem 1rem;
   box-shadow: 0 2px 4px var(--shadow-light);
   
@@ -637,4 +636,43 @@ th.sortable.desc::after {
 
 .cleannav__link:hover::after {
   width: 100%;
+}
+
+/* Dodaj style dla nazw agentów w tabeli */
+.agent-name-highlight {
+    color: var(--text-secondary);
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.agent-name-highlight:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+}
+
+/* Style dla podświetlenia danych wybranego agenta */
+.selected-agent {
+    color: #2196F3 !important; /* Jasny niebieski */
+    font-weight: 600;
+    background-color: rgba(33, 150, 243, 0.1); /* Delikatne niebieskie tło */
+    border-radius: 3px;
+    padding: 2px 5px;
+    display: inline-block;
+}
+
+/* Styl dla nazwy agenta w nagłówku */
+.selected-agent-name {
+    color: #1976D2; /* Ciemniejszy niebieski */
+    font-weight: 700;
+    text-decoration: underline;
+    background-color: rgba(33, 150, 243, 0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.agent-info {
+    margin-top: -10px;
+    margin-bottom: 20px;
+    font-style: italic;
+    color: #555;
 }
