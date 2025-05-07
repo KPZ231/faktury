@@ -43,10 +43,6 @@ class WizardController
                 error_log("WizardController::store - BŁĄD: Prowizja Kuby poza zakresem 0-100");
                 $errors[] = "Prowizja Kuby musi być wartością z przedziału 0-100.";
             }
-            if ($kubaPercentage > 25) {
-                error_log("WizardController::store - BŁĄD: Prowizja Kuby > 25%");
-                $errors[] = "Prowizja Kuby nie może być większa niż 25%.";
-            }
         } else {
             error_log("WizardController::store - BŁĄD: Brak prowizji Kuby");
             $errors[] = "Prowizja Kuby jest wymagana.";

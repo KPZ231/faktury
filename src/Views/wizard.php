@@ -106,6 +106,12 @@
           Kreator Rekordu
         </a>
       </li>
+      <li class="cleannav__item">
+        <a href="/logout" class="cleannav__link">
+          <i class="fa-solid fa-sign-out-alt cleannav__icon"></i>
+          Wyloguj (<?= htmlspecialchars($_SESSION['user'] ?? 'Gość') ?>)
+        </a>
+      </li>
     </ul>
   </nav>
 
@@ -396,6 +402,15 @@
       document.getElementById('error_kuba_percentage').innerText = "";
       // Czyszczenie zbiorczego kontenera błędów agentów
       document.getElementById('error_agents').innerText = "";
+      
+      // Czyszczenie komunikatów o błędach dla rat
+      const installmentInputs = document.querySelectorAll('input[name^="installment"][name$="_amount"]');
+      installmentInputs.forEach((input, index) => {
+        const errorSpan = document.getElementById(`error_installment${index + 1}`);
+        if (errorSpan) {
+          errorSpan.innerText = "";
+        }
+      });
 
       // 1. Walidacja pola nazwy sprawy
       const caseNameInput = document.querySelector('input[name="case_name"]');
@@ -428,7 +443,7 @@
         }
       });
 
-      // 3. Walidacja prowizji Kuby – musi być liczba w przedziale 0-25%
+      // 3. Walidacja prowizji Kuby – musi być liczba w przedziale 0-100%
       const kubaInput = document.querySelector('input[name="kuba_percentage"]');
       const errorKuba = document.getElementById('error_kuba_percentage');
       let kubaValue = parseFloat(kubaInput.value);
@@ -476,7 +491,7 @@
       }
 
       // 5. Walidacja rat – każda rata musi być liczbą nieujemną
-      const installmentInputs = document.querySelectorAll('input[name^="installment"][name$="_amount"]');
+      let sumInstallments = 0;
       installmentInputs.forEach((input, index) => {
         const errorSpan = document.getElementById(`error_installment${index + 1}`);
         errorSpan.innerText = "";
@@ -488,9 +503,24 @@
             formValid = false;
           } else {
             input.classList.remove('input-error');
+            sumInstallments += num;
           }
         }
       });
+      
+      // 6. Nowa walidacja: suma rat nie może przekraczać opłaty wstępnej
+      const upfrontFee = parseFloat(document.getElementById('upfront_fee').value) || 0;
+      if (sumInstallments > upfrontFee) {
+        const errorMessage = `Suma rat (${sumInstallments.toFixed(2)} zł) nie może przekraczać opłaty wstępnej (${upfrontFee.toFixed(2)} zł).`;
+        installmentInputs.forEach((input, index) => {
+          const errorSpan = document.getElementById(`error_installment${index + 1}`);
+          if (errorSpan && errorSpan.innerText === "") {
+            errorSpan.innerText = errorMessage;
+            input.classList.add('input-error');
+          }
+        });
+        formValid = false;
+      }
 
       // Blokujemy przycisk wysyłania, jeśli formularz zawiera błędy
       document.getElementById('submitButton').disabled = !formValid;

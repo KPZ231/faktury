@@ -37,6 +37,12 @@
                     Kreator Rekordu
                 </a>
             </li>
+            <li class="cleannav__item">
+                <a href="/logout" class="cleannav__link">
+                    <i class="fa-solid fa-sign-out-alt cleannav__icon"></i>
+                    Wyloguj (<?= htmlspecialchars($_SESSION['user'] ?? 'Gość') ?>)
+                </a>
+            </li>
         </ul>
     </nav>
 

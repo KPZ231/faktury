@@ -13,6 +13,19 @@ use function FastRoute\simpleDispatcher;
 use Dell\Faktury\Controllers\HomeController;
 use Dell\Faktury\Controllers\WizardController;
 use Dell\Faktury\Controllers\TableController;
+use Dell\Faktury\Controllers\LoginController;
+
+// Sprawdź, czy użytkownik jest zalogowany i przekieruj na stronę logowania jeśli nie
+$uri = $_SERVER['REQUEST_URI'];
+// Usuwamy parametry z URI przed sprawdzeniem czy to trasa publiczna
+$uriWithoutQuery = parse_url($uri, PHP_URL_PATH);
+$publicRoutes = ['/login', '/logout']; // Trasy dostępne bez logowania
+
+if (!isset($_SESSION['user']) && !in_array($uriWithoutQuery, $publicRoutes)) {
+    error_log("Unauthorized access attempt to {$uri}, redirecting to login");
+    header('Location: /login?required=1');
+    exit;
+}
 
 error_log("Setting up routes...");
 $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
@@ -30,11 +43,14 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
 
     $r->addRoute('GET', "/agents", [AgentController::class, 'index']);
     $r->addRoute('POST', "/agents", [AgentController::class, 'addAgent']);
+
+    $r->addRoute('GET',    '/login',       [LoginController::class, 'showLoginForm']);
+    $r->addRoute('POST',   '/login',       [LoginController::class, 'login']);
+    $r->addRoute('GET',    '/logout',      [LoginController::class, 'logout']);
 });
 error_log("Routes setup complete");
 
 $httpMethod = $_SERVER['REQUEST_METHOD'];
-$uri = $_SERVER['REQUEST_URI'];
 if (false !== $pos = strpos($uri, '?')) {
     $uri = substr($uri, 0, $pos);
     error_log("URI with query string removed: " . $uri);
