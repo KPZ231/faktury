@@ -2,3 +2,5 @@
 .env
 *.xlsx
 *.csv
+
+*/vendor

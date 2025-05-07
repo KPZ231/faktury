@@ -65,43 +65,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
     <!-- <base href="/zestawienie11/"> -->
     <title>Podejrzyj Faktury</title>
     <link rel="stylesheet" href="../../assets/css/style.css">
-    
-<!-- Dodaj w <head> strony, aby załadować Font Awesome: -->
-<link rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
     <nav class="cleannav">
         <ul class="cleannav__list">
             <li class="cleannav__item">
-                <a href="/" class="cleannav__link">
+                <a href="/" class="cleannav__link" data-tooltip="Strona główna">
                     <i class="fa-solid fa-house cleannav__icon"></i>
-                    Home
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/agents" class="cleannav__link">
-                    <i class="fa-solid fa-plus cleannav__icon"></i>
-                    Dodaj Agenta
+                <a href="/agents" class="cleannav__link" data-tooltip="Dodaj agenta">
+                    <i class="fa-solid fa-user-plus cleannav__icon"></i>
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/table" class="cleannav__link">
-                    <i class="fa-solid fa-briefcase cleannav__icon"></i>
-                    Tabela Z Danymi
+                <a href="/table" class="cleannav__link" data-tooltip="Tabela z danymi">
+                    <i class="fa-solid fa-table cleannav__icon"></i>
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/wizard" class="cleannav__link">
+                <a href="/wizard" class="cleannav__link" data-tooltip="Kreator rekordu">
+                    <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
+                </a>
+            </li>
+            <li class="cleannav__item">
+                <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
                     <i class="fa-solid fa-database cleannav__icon"></i>
-                    Kreator Rekordu
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/logout" class="cleannav__link">
+                <a href="/logout" class="cleannav__link" data-tooltip="Wyloguj">
                     <i class="fa-solid fa-sign-out-alt cleannav__icon"></i>
-                    Wyloguj (<?= htmlspecialchars($_SESSION['user'] ?? 'Gość') ?>)
                 </a>
             </li>
         </ul>
@@ -112,29 +109,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
 
     <div id="uploadFile">
         <form id="uploadForm" method="POST" enctype="multipart/form-data">
-            <label for="file">Wybierz plik CSV:</label><br>
-            <input type="file" id="file" name="file" accept=".csv" required><br><br>
-            <button type="submit">Importuj do bazy</button>
+            <label for="file">Wybierz plik (CSV, Excel, OpenDocument):</label>
+            <input type="file" id="file" name="file" accept=".csv,.xlsx,.xls,.ods" required>
+            <div class="file-tips">
+                <p><i class="fa-solid fa-lightbulb"></i> Preferowany format: <strong>CSV</strong> - najbardziej niezawodny</p>
+                <p><i class="fa-solid fa-info-circle"></i> Pliki Excel (.xlsx, .xls) wymagają rozszerzenia PHP ZIP na serwerze</p>
+                <p><i class="fa-solid fa-shield-alt"></i> Pliki są sprawdzane pod kątem bezpieczeństwa <span class="security-badge">CHRONIONE</span></p>
+            </div>
+            <button type="submit">
+                <i class="fa-solid fa-upload"></i> 
+                Importuj do bazy
+            </button>
         </form>
     </div>
 
     <div class="sort-controls">
-        <select id="monthSelect">
-            <option value="">Wszystkie miesiące</option>
-            <option value="01">Styczeń</option>
-            <option value="02">Luty</option>
-            <option value="03">Marzec</option>
-            <option value="04">Kwiecień</option>
-            <option value="05">Maj</option>
-            <option value="06">Czerwiec</option>
-            <option value="07">Lipiec</option>
-            <option value="08">Sierpień</option>
-            <option value="09">Wrzesień</option>
-            <option value="10">Październik</option>
-            <option value="11">Listopad</option>
-            <option value="12">Grudzień</option>
-        </select>
-        <button id="sortByAmount">Sortuj po kwocie</button>
+        <div class="date-filter">
+            <div class="filter-group">
+                <span class="filter-label">Rok</span>
+                <select id="yearSelect">
+                    <option value="">Wszystko</option>
+                    <option value="2025">2025</option>
+                    <option value="2024" selected>2024</option>
+                    <option value="2023">2023</option>
+                    <option value="2022">2022</option>
+                    <option value="2021">2021</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">Miesiąc</span>
+                <select id="monthSelect">
+                    <option value="">Wszystko</option>
+                    <option value="01">Styczeń</option>
+                    <option value="02">Luty</option>
+                    <option value="03">Marzec</option>
+                    <option value="04">Kwiecień</option>
+                    <option value="05">Maj</option>
+                    <option value="06">Czerwiec</option>
+                    <option value="07">Lipiec</option>
+                    <option value="08">Sierpień</option>
+                    <option value="09">Wrzesień</option>
+                    <option value="10">Październik</option>
+                    <option value="11">Listopad</option>
+                    <option value="12">Grudzień</option>
+                </select>
+            </div>
+            <button id="applyDateFilter">
+                <i class="fa-solid fa-filter"></i>
+                Filtruj dane
+            </button>
+        </div>
     </div>
 
     <section id="dataTable">
@@ -148,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             $stmt = $pdo->query("SELECT $colsEsc FROM `test` ORDER BY `LP` DESC");
 
             if ($stmt->rowCount() > 0) {
-                echo '<table><thead><tr>';
+                echo '<table class="data-table"><thead><tr>';
                 foreach ($columns as $col) {
                     echo '<th class="sortable" data-column="' . htmlspecialchars($col, ENT_QUOTES) . '">' .
                         htmlspecialchars($col, ENT_QUOTES) . '</th>';
@@ -156,15 +180,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 echo '</tr></thead><tbody>';
                 while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
                     echo '<tr>';
-                    foreach ($row as $cell) echo '<td>' . htmlspecialchars($cell, ENT_QUOTES) . '</td>';
+                    foreach ($row as $index => $cell) {
+                        // Sprawdź czy to kolumna kwota i zastosuj odpowiednią klasę
+                        $className = '';
+                        if (strtolower($columns[$index]) === 'kwota' || 
+                            strpos(strtolower($columns[$index]), 'kwot') !== false) {
+                            $className = 'currency';
+                        }
+                        
+                        echo '<td' . ($className ? ' class="'.$className.'"' : '') . '>' . 
+                             htmlspecialchars($cell, ENT_QUOTES) . '</td>';
+                    }
                     echo '</tr>';
                 }
                 echo '</tbody></table>';
             } else {
-                echo '<p style="text-align:center;">Brak danych.</p>';
+                echo '<div class="no-data">
+                        <i class="fa-solid fa-database fa-3x"></i>
+                        <p>Brak danych. Zaimportuj plik, aby wyświetlić dane.</p>
+                      </div>';
             }
         } catch (PDOException $e) {
-            echo '<p style="color:red; text-align:center;">Błąd: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
+            echo '<div class="error-message">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <p>Błąd: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>
+                  </div>';
         }
         ?>
     </section>
@@ -173,120 +213,453 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
     <script>
         document.getElementById('uploadForm').addEventListener('submit', async e => {
             e.preventDefault();
+            
+            // Walidacja pliku po stronie klienta
+            const fileInput = document.getElementById('file');
+            if (!fileInput.files || !fileInput.files[0]) {
+                showNotification('Proszę wybrać plik do zaimportowania.', 'error');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const fileName = file.name || '';
+            const fileExt = fileName.split('.').pop().toLowerCase();
+            const allowedExtensions = ['csv', 'xlsx', 'xls', 'ods'];
+            
+            if (!allowedExtensions.includes(fileExt)) {
+                showExtendedError(`Nieobsługiwany format pliku: ${fileExt}`, 
+                                  `Dozwolone formaty: ${allowedExtensions.join(', ')}`);
+                return;
+            }
+            
+            // Sprawdź rozmiar pliku (max 10MB)
+            const maxFileSize = 10 * 1024 * 1024; // 10MB
+            if (file.size > maxFileSize) {
+                showExtendedError('Plik jest zbyt duży', 
+                                 `Maksymalny rozmiar pliku: 10MB. Wybrany plik ma ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
+                return;
+            }
+            
             const data = new FormData(e.currentTarget);
+            
             try {
+                showNotification('Trwa przetwarzanie pliku...' + (fileExt !== 'csv' ? ' Konwersja do formatu CSV.' : ''));
+                
                 const res = await fetch('', {
                     method: 'POST',
                     body: data
                 });
+                
+                if (!res.ok) {
+                    throw new Error(`Błąd serwera: ${res.status} ${res.statusText}`);
+                }
+                
                 const json = await res.json();
-                showNotification(json.message);
-                setTimeout(() => location.reload(), 1000);
-            } catch {
-                showNotification('Błąd podczas importu.');
+                
+                // Sprawdź czy to błąd związany z ZipArchive
+                if (json.message && json.message.includes('brakuje rozszerzenia PHP')) {
+                    showExtendedError(sanitizeHTML(json.message));
+                } 
+                // Sprawdź czy to błąd związany z brakiem kolumny "numer"
+                else if (json.message && json.message.includes('Nie znaleziono kolumny z numerem faktury')) {
+                    showExtendedError(sanitizeHTML(json.message), sanitizeHTML(json.details));
+                }
+                else {
+                    showNotification(sanitizeHTML(json.message));
+                    setTimeout(() => location.reload(), 1500);
+                }
+            } catch (error) {
+                console.error('Import error:', error);
+                showNotification('Błąd podczas importu: ' + sanitizeHTML(error.message), 'error');
             }
         });
 
-        function showNotification(msg) {
+        // Sanityzacja HTML do ochrony przed XSS
+        function sanitizeHTML(text) {
+            if (!text) return '';
+            const element = document.createElement('div');
+            element.textContent = text;
+            return element.innerHTML;
+        }
+
+        function showNotification(msg, type = 'info') {
             const cont = document.getElementById('notificationContainer');
             const n = document.createElement('div');
-            n.className = 'notification';
-            n.textContent = msg;
+            n.className = `notification ${type}`;
+            
+            const icon = type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+            n.innerHTML = `<i class="fa-solid ${icon}"></i> ${msg}`;
+            
             cont.appendChild(n);
             setTimeout(() => n.classList.add('show'), 50);
             setTimeout(() => {
                 n.classList.remove('show');
-                setTimeout(() => cont.removeChild(n), 500);
-            }, 5050);
+                setTimeout(() => n.remove(), 500);
+            }, type === 'error' ? 7000 : 5050); // Dłuższy czas dla błędów
+        }
+        
+        // Funkcja do wyświetlania rozszerzonych błędów
+        function showExtendedError(msg, details) {
+            // Usuń istniejący komunikat o błędzie, jeśli istnieje
+            const existing = document.getElementById('extendedErrorMessage');
+            if (existing) {
+                existing.remove();
+            }
+            
+            // Utwórz nowy element błędu
+            const errorDiv = document.createElement('div');
+            errorDiv.id = 'extendedErrorMessage';
+            errorDiv.className = 'extended-error';
+            
+            let detailsHtml = '';
+            if (details) {
+                detailsHtml = `
+                    <div class="error-details">
+                        <p><strong>Szczegóły:</strong></p>
+                        <div class="details-content">${details}</div>
+                    </div>
+                `;
+            }
+            
+            errorDiv.innerHTML = `
+                <div class="error-header">
+                    <i class="fa-solid fa-exclamation-triangle"></i>
+                    <h3>Błąd przetwarzania pliku</h3>
+                </div>
+                <p>${msg}</p>
+                ${detailsHtml}
+                <div class="error-instructions">
+                    <p><strong>Jak rozwiązać problem:</strong></p>
+                    <ol>
+                        <li>Upewnij się, że plik zawiera kolumnę z numerem faktury (może być nazwana "Numer", "Nr faktury", itp.)</li>
+                        <li>Sprawdź, czy pierwszy wiersz zawiera prawidłowe nagłówki kolumn</li>
+                        <li>Zapisz plik w formacie CSV i spróbuj ponownie</li>
+                    </ol>
+                </div>
+                <button onclick="this.parentNode.remove();" class="btn-close">
+                    <i class="fa-solid fa-times"></i> Zamknij
+                </button>
+            `;
+            
+            // Umieść element na stronie
+            const uploadForm = document.getElementById('uploadFile');
+            uploadForm.parentNode.insertBefore(errorDiv, uploadForm.nextSibling);
+            
+            // Pokaż powiadomienie
+            showNotification('Wykryto problem z formatem pliku', 'error');
         }
 
         // Sortowanie tabeli
         const table = document.querySelector('table');
-        const tbody = table.querySelector('tbody');
-        const headers = table.querySelectorAll('th.sortable');
-        let currentSort = {
-            column: null,
-            direction: 'asc'
-        };
+        if (table) {
+            const tbody = table.querySelector('tbody');
+            const headers = table.querySelectorAll('th.sortable');
+            let currentSort = {
+                column: null,
+                direction: 'asc'
+            };
 
-        headers.forEach(header => {
-            header.addEventListener('click', () => {
-                const column = header.dataset.column;
-                const direction = currentSort.column === column && currentSort.direction === 'asc' ? 'desc' : 'asc';
+            headers.forEach(header => {
+                header.addEventListener('click', () => {
+                    const column = header.dataset.column;
+                    const direction = currentSort.column === column && currentSort.direction === 'asc' ? 'desc' : 'asc';
 
-                // Usuń klasy sortowania ze wszystkich nagłówków
-                headers.forEach(h => h.classList.remove('asc', 'desc'));
+                    // Usuń klasy sortowania ze wszystkich nagłówków
+                    headers.forEach(h => h.classList.remove('asc', 'desc'));
 
-                // Dodaj klasę sortowania do aktualnego nagłówka
-                header.classList.add(direction);
+                    // Dodaj klasę sortowania do aktualnego nagłówka
+                    header.classList.add(direction);
 
-                // Sortuj tabelę
-                sortTable(column, direction);
+                    // Sortuj tabelę
+                    sortTable(column, direction);
 
-                // Zapisz aktualne sortowanie
-                currentSort = {
-                    column,
-                    direction
-                };
-            });
-        });
-
-        function sortTable(column, direction) {
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            const index = Array.from(headers).findIndex(h => h.dataset.column === column);
-
-            rows.sort((a, b) => {
-                const aValue = a.cells[index].textContent;
-                const bValue = b.cells[index].textContent;
-
-                if (direction === 'asc') {
-                    return aValue.localeCompare(bValue, 'pl', {
-                        numeric: true
-                    });
-                } else {
-                    return bValue.localeCompare(aValue, 'pl', {
-                        numeric: true
-                    });
-                }
+                    // Zapisz aktualne sortowanie
+                    currentSort = {
+                        column,
+                        direction
+                    };
+                    
+                    // Pokaż informację o sortowaniu
+                    showNotification(`Posortowano według ${column} ${direction === 'asc' ? 'rosnąco' : 'malejąco'}`);
+                });
             });
 
-            tbody.innerHTML = '';
-            rows.forEach(row => tbody.appendChild(row));
+            function sortTable(column, direction) {
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const index = Array.from(headers).findIndex(h => h.dataset.column === column);
+
+                rows.sort((a, b) => {
+                    const aValue = a.cells[index].textContent;
+                    const bValue = b.cells[index].textContent;
+
+                    // Sprawdź, czy wartości mogą być liczbami
+                    const aNum = parseFloat(aValue.replace(/[^0-9.-]+/g, ''));
+                    const bNum = parseFloat(bValue.replace(/[^0-9.-]+/g, ''));
+
+                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                        return direction === 'asc' ? aNum - bNum : bNum - aNum;
+                    } else {
+                        if (direction === 'asc') {
+                            return aValue.localeCompare(bValue, 'pl', { numeric: true });
+                        } else {
+                            return bValue.localeCompare(aValue, 'pl', { numeric: true });
+                        }
+                    }
+                });
+
+                tbody.innerHTML = '';
+                rows.forEach(row => tbody.appendChild(row));
+            }
         }
 
-        // Sortowanie po kwocie w wybranym miesiącu
-        document.getElementById('sortByAmount').addEventListener('click', () => {
-            const month = document.getElementById('monthSelect').value;
-            const rows = Array.from(tbody.querySelectorAll('tr'));
+        // Po załadowaniu strony zapisz oryginalne dane tabeli
+        let originalTableRows = [];
+        document.addEventListener('DOMContentLoaded', () => {
+            const table = document.querySelector('table');
+            if (table && table.querySelector('tbody')) {
+                originalTableRows = Array.from(table.querySelectorAll('tbody tr'));
+            }
+        });
 
-            // Znajdź indeks kolumny z datą i kwotą
-            const dateIndex = Array.from(headers).findIndex(h => h.dataset.column.toLowerCase().includes('data'));
-            const amountIndex = Array.from(headers).findIndex(h => h.dataset.column.toLowerCase().includes('kwota'));
-
-            if (dateIndex === -1 || amountIndex === -1) {
-                showNotification('Nie znaleziono kolumn z datą lub kwotą.');
+        // Filtrowanie po dacie
+        document.getElementById('applyDateFilter').addEventListener('click', () => {
+            const table = document.querySelector('table');
+            const tbody = table?.querySelector('tbody');
+            if (!table || !tbody) {
+                showNotification('Nie znaleziono tabeli z danymi.', 'error');
                 return;
             }
 
-            // Filtruj i sortuj wiersze
-            const filteredRows = rows.filter(row => {
-                if (!month) return true;
-                const date = row.cells[dateIndex].textContent;
-                return date.includes(`-${month}-`);
+            // Jeśli nie zapisano oryginalnych danych, zrób to teraz
+            if (originalTableRows.length === 0) {
+                originalTableRows = Array.from(tbody.querySelectorAll('tr'));
+            }
+
+            const headers = Array.from(table.querySelectorAll('th'));
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+
+            // Jeśli nie wybrano filtrów, przywróć wszystkie dane
+            if (!year && !month) {
+                tbody.innerHTML = '';
+                originalTableRows.forEach(row => tbody.appendChild(row.cloneNode(true)));
+                showNotification('Wyświetlono wszystkie dane');
+                return;
+            }
+
+            // Znajdź indeks kolumny z datą - szukaj różnych wariantów nazwy
+            let dateIndex = -1;
+            for (let i = 0; i < headers.length; i++) {
+                const colName = headers[i].textContent.toLowerCase().trim();
+                if (colName.includes('data') || colName === 'data-wystawienia' || 
+                    colName === 'datawystawienia' || colName.includes('date')) {
+                    dateIndex = i;
+                    console.log("Znaleziona kolumna daty:", colName, "index:", i);
+                    break;
+                }
+            }
+
+            if (dateIndex === -1) {
+                showNotification('Nie znaleziono kolumny z datą. Sprawdź nazwę kolumny z datą.', 'error');
+                return;
+            }
+
+            // Filtruj wiersze z oryginalnych danych
+            const filteredRows = originalTableRows.filter(row => {
+                const dateCell = row.cells[dateIndex];
+                if (!dateCell) return false;
+                
+                const dateText = dateCell.textContent.trim();
+                
+                // Dopasuj format YYYY-MM-DD
+                if (dateText.match(/^\d{4}-\d{2}-\d{2}/)) {
+                    const parts = dateText.split('-');
+                    const rowYear = parts[0];
+                    const rowMonth = parts[1];
+                    
+                    const yearMatches = !year || rowYear === year;
+                    const monthMatches = !month || rowMonth === month;
+                    
+                    return yearMatches && monthMatches;
+                }
+                
+                return false;
             });
 
-            filteredRows.sort((a, b) => {
-                const aAmount = parseFloat(a.cells[amountIndex].textContent.replace(/[^0-9.-]+/g, '')) || 0;
-                const bAmount = parseFloat(b.cells[amountIndex].textContent.replace(/[^0-9.-]+/g, '')) || 0;
-                return bAmount - aAmount; // Od największej do najmniejszej
-            });
-
+            // Wyczyść tabelę i dodaj tylko odfiltrowane wiersze
             tbody.innerHTML = '';
-            filteredRows.forEach(row => tbody.appendChild(row));
-
-            showNotification(`Posortowano po kwocie${month ? ` dla miesiąca ${month}` : ''}`);
+            if (filteredRows.length > 0) {
+                filteredRows.forEach(row => tbody.appendChild(row.cloneNode(true)));
+                
+                // Pokaż informację o filtrowaniu
+                let message = 'Wyświetlono dane';
+                if (year) message += ` z roku ${year}`;
+                if (month) {
+                    const monthName = document.querySelector(`#monthSelect option[value="${month}"]`).textContent;
+                    message += year ? ` i miesiąca ${monthName}` : ` z miesiąca ${monthName}`;
+                }
+                showNotification(message);
+            } else {
+                showNotification('Brak danych dla wybranych kryteriów', 'info');
+                
+                // Dodaj wiersz informujący o braku danych
+                const emptyRow = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = headers.length;
+                cell.textContent = 'Brak danych dla wybranych kryteriów';
+                cell.style.textAlign = 'center';
+                cell.style.padding = '20px';
+                cell.style.color = 'var(--text-secondary)';
+                emptyRow.appendChild(cell);
+                tbody.appendChild(emptyRow);
+            }
         });
     </script>
+    
+    <style>
+        .no-data, .error-message {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--shadow-light);
+            margin: 20px auto;
+            color: var(--text-secondary);
+        }
+        
+        .no-data i, .error-message i {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            opacity: 0.7;
+        }
+        
+        .error-message {
+            border-left: 4px solid var(--error-color);
+            color: var(--error-color);
+        }
+        
+        .error-message i {
+            color: var(--error-color);
+        }
+        
+        /* Style dla rozszerzonego komunikatu o błędzie */
+        .extended-error {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(239, 83, 80, 0.15);
+            margin: 20px auto;
+            max-width: 600px;
+            padding: 25px;
+            position: relative;
+            border-left: 5px solid var(--error-color);
+        }
+        
+        .error-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            color: var(--error-color);
+        }
+        
+        .error-header i {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .error-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        
+        .error-instructions {
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        
+        .error-instructions ol {
+            margin: 10px 0 0 20px;
+            padding: 0;
+        }
+        
+        .error-instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .btn-close {
+            background-color: #f5f5f5;
+            border: none;
+            border-radius: 4px;
+            color: #555;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 8px 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-close:hover {
+            background-color: #e0e0e0;
+        }
+        
+        /* Style dla wskazówek odnośnie plików */
+        .file-tips {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            font-size: 13px;
+            margin: 10px 0 15px;
+            padding: 10px 15px;
+            color: var(--text-secondary);
+            border-left: 3px solid var(--primary-light);
+        }
+        
+        .file-tips p {
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .file-tips i {
+            color: var(--primary-color);
+            margin-right: 8px;
+            font-size: 14px;
+        }
+        
+        .file-tips strong {
+            color: var(--primary-dark);
+        }
+        
+        /* Style dla szczegółów błędu */
+        .error-details {
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            margin: 10px 0;
+            padding: 10px;
+        }
+        
+        .details-content {
+            font-family: monospace;
+            color: #555;
+            margin-top: 5px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border-left: 3px solid #ddd;
+            overflow-x: auto;
+        }
+        
+        /* Dodatkowe styles bezpieczeństwa */
+        .security-badge {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+    </style>
 </body>
 
 </html>

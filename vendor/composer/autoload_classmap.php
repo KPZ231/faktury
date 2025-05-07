@@ -9,7 +9,10 @@ return array(
     'Attribute' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
     'PhpToken' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/PhpToken.php',
+    'RelativePath' => $vendorDir . '/grandt/relativepath/RelativePath.php',
     'Stringable' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
     'UnhandledMatchError' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/UnhandledMatchError.php',
     'ValueError' => $vendorDir . '/symfony/polyfill-php80/Resources/stubs/ValueError.php',
+    'com\\grandt\\BinString' => $vendorDir . '/grandt/binstring/BinString.php',
+    'com\\grandt\\BinStringStatic' => $vendorDir . '/grandt/binstring/BinStringStatic.php',
 );

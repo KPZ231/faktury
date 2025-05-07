@@ -83,33 +83,33 @@
   <nav class="cleannav">
     <ul class="cleannav__list">
       <li class="cleannav__item">
-        <a href="/" class="cleannav__link">
+        <a href="/" class="cleannav__link" data-tooltip="Strona główna">
           <i class="fa-solid fa-house cleannav__icon"></i>
-          Home
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/agents" class="cleannav__link">
-          <i class="fa-solid fa-plus cleannav__icon"></i>
-          Dodaj Agenta
+        <a href="/agents" class="cleannav__link" data-tooltip="Dodaj agenta">
+          <i class="fa-solid fa-user-plus cleannav__icon"></i>
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/table" class="cleannav__link">
-          <i class="fa-solid fa-briefcase cleannav__icon"></i>
-          Tabela Z Danymi
+        <a href="/table" class="cleannav__link" data-tooltip="Tabela z danymi">
+          <i class="fa-solid fa-table cleannav__icon"></i>
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/wizard" class="cleannav__link">
+        <a href="/wizard" class="cleannav__link" data-tooltip="Kreator rekordu">
+          <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
+        </a>
+      </li>
+      <li class="cleannav__item">
+        <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
           <i class="fa-solid fa-database cleannav__icon"></i>
-          Kreator Rekordu
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/logout" class="cleannav__link">
+        <a href="/logout" class="cleannav__link" data-tooltip="Wyloguj">
           <i class="fa-solid fa-sign-out-alt cleannav__icon"></i>
-          Wyloguj (<?= htmlspecialchars($_SESSION['user'] ?? 'Gość') ?>)
         </a>
       </li>
     </ul>
@@ -284,6 +284,13 @@
         select.name = `agent${i}_id`;
         select.id = `agent${i}_id`;
         select.className = 'agent-select';
+        
+        // Dodajemy event do obsługi zmiany agenta
+        select.addEventListener('change', function() {
+          updateAgentDropdowns();
+          calculateAll();
+          validateForm();
+        });
 
         // Pusta opcja
         const emptyOption = document.createElement('option');
@@ -332,6 +339,44 @@
         agentErrorContainer.id = 'error_agents';
         agentErrorContainer.className = 'error-message';
         agentsSection.appendChild(agentErrorContainer);
+      }
+      
+      // Aktualizujemy dropdowny, aby wyłączyć już wybrane opcje
+      updateAgentDropdowns();
+    }
+    
+    // Funkcja aktualizująca dostępność opcji w dropdownach agentów
+    function updateAgentDropdowns() {
+      const count = Number(agentsInput.value);
+      if (count <= 1) return; // Nie ma potrzeby walidacji, gdy jest tylko jeden agent
+      
+      // Pobierz wszystkie wybrane wartości
+      const selectedAgents = [];
+      for (let i = 1; i <= count; i++) {
+        const select = document.getElementById(`agent${i}_id`);
+        if (select && select.value) {
+          selectedAgents.push(select.value);
+        }
+      }
+      
+      // Dla każdego selecta, zaktualizuj dostępność opcji
+      for (let i = 1; i <= count; i++) {
+        const select = document.getElementById(`agent${i}_id`);
+        if (!select) continue;
+        
+        const currentValue = select.value;
+        
+        // Aktualizuj opcje
+        Array.from(select.options).forEach(option => {
+          if (option.value === '') return; // Pomiń pustą opcję
+          
+          // Jeśli opcja jest już wybrana w innym dropdownie, wyłącz ją
+          if (option.value !== currentValue && selectedAgents.includes(option.value)) {
+            option.disabled = true;
+          } else {
+            option.disabled = false;
+          }
+        });
       }
     }
 
@@ -463,8 +508,30 @@
       // 4. Walidacja procentów agentów – wszystkie komunikaty zbieramy w jednym kontenerze
       let agentErrors = [];
       let sumAgentPercents = 0;
+      
+      // Sprawdzamy czy ten sam agent nie został wybrany więcej niż raz
+      const selectedAgents = new Set();
+      const duplicateAgents = [];
+      
       const agentInputs = document.querySelectorAll('input[name^="agent"][name$="_percentage"]');
       agentInputs.forEach((input, index) => {
+        // Sprawdzanie zduplikowanych agentów
+        const agentId = index + 1;
+        const agentSelect = document.getElementById(`agent${agentId}_id`);
+        
+        if (agentSelect && agentSelect.value) {
+          const agentValue = agentSelect.value;
+          
+          if (selectedAgents.has(agentValue)) {
+            duplicateAgents.push(agentId);
+            agentSelect.classList.add('input-error');
+          } else {
+            selectedAgents.add(agentValue);
+            agentSelect.classList.remove('input-error');
+          }
+        }
+        
+        // Walidacja procentów (istniejący kod)
         if (input.value !== "") {
           const num = parseFloat(input.value);
           if (isNaN(num) || num < 0 || num > 100) {
@@ -480,6 +547,13 @@
           }
         }
       });
+      
+      // Dodaj błąd, jeśli znaleziono zduplikowanych agentów
+      if (duplicateAgents.length > 0) {
+        agentErrors.push(`Agenci ${duplicateAgents.join(', ')} są zduplikowani. Każdy agent może być wybrany tylko raz.`);
+        formValid = false;
+      }
+      
       if (!isNaN(kubaValue) && sumAgentPercents > kubaValue) {
         agentErrors.push(`Suma agentów (${sumAgentPercents}%) nie może przekraczać prowizji Kuby (${kubaValue}%).`);
       }
@@ -508,10 +582,10 @@
         }
       });
       
-      // 6. Nowa walidacja: suma rat nie może przekraczać opłaty wstępnej
+      // 6. Nowa walidacja: suma rat musi być równa opłacie wstępnej
       const upfrontFee = parseFloat(document.getElementById('upfront_fee').value) || 0;
-      if (sumInstallments > upfrontFee) {
-        const errorMessage = `Suma rat (${sumInstallments.toFixed(2)} zł) nie może przekraczać opłaty wstępnej (${upfrontFee.toFixed(2)} zł).`;
+      if (sumInstallments !== upfrontFee) {
+        const errorMessage = `Suma rat (${sumInstallments.toFixed(2)} zł) musi być równa opłacie wstępnej (${upfrontFee.toFixed(2)} zł).`;
         installmentInputs.forEach((input, index) => {
           const errorSpan = document.getElementById(`error_installment${index + 1}`);
           if (errorSpan && errorSpan.innerText === "") {

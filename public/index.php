@@ -14,6 +14,7 @@ use Dell\Faktury\Controllers\HomeController;
 use Dell\Faktury\Controllers\WizardController;
 use Dell\Faktury\Controllers\TableController;
 use Dell\Faktury\Controllers\LoginController;
+use Dell\Faktury\Controllers\DatabaseManageController;
 
 // Sprawdź, czy użytkownik jest zalogowany i przekieruj na stronę logowania jeśli nie
 $uri = $_SERVER['REQUEST_URI'];
@@ -43,6 +44,13 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
 
     $r->addRoute('GET', "/agents", [AgentController::class, 'index']);
     $r->addRoute('POST', "/agents", [AgentController::class, 'addAgent']);
+
+    // Database Management routes
+    $r->addRoute('GET',    '/database',         [DatabaseManageController::class, 'index']);
+    $r->addRoute('POST',   '/database/backup',  [DatabaseManageController::class, 'backupTable']);
+    $r->addRoute('POST',   '/database/truncate',[DatabaseManageController::class, 'truncateTable']);
+    $r->addRoute('POST',   '/database/drop',    [DatabaseManageController::class, 'dropTable']);
+    $r->addRoute('POST',   '/database/connect', [DatabaseManageController::class, 'testConnection']);
 
     $r->addRoute('GET',    '/login',       [LoginController::class, 'showLoginForm']);
     $r->addRoute('POST',   '/login',       [LoginController::class, 'login']);

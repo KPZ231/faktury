@@ -29,11 +29,19 @@ class TableController
         error_log("TableController::index - Znaleziono " . count($agents) . " agentów");
 
         // Jeśli wybrano agenta, wyświetl sprawy tego agenta
-        $selectedAgentId = isset($_GET['agent_id']) ? intval($_GET['agent_id']) : null;
+        $selectedAgentId = isset($_GET['agent_id']) ? $_GET['agent_id'] : null;
         $selectedAgent = null;
         error_log("TableController::index - Wybrany agent ID: " . ($selectedAgentId ?: 'brak'));
 
-        if ($selectedAgentId) {
+        // Handle the special Jakub case
+        if ($selectedAgentId === 'jakub' || $selectedAgentId === 'Jakub') {
+            $selectedAgent = [
+                'imie' => 'Jakub',
+                'nazwisko' => 'Kowalski',
+                'agent_id' => 'jakub'
+            ];
+            error_log("TableController::index - Wybrano specjalnego agenta Jakub");
+        } elseif ($selectedAgentId) {
             foreach ($agents as $agent) {
                 if ($agent['agent_id'] == $selectedAgentId) {
                     $selectedAgent = $agent;
@@ -285,6 +293,16 @@ class TableController
     public function getAgentCases($agentId): array
     {
         try {
+            // For the special Jakub agent, return all cases
+            if ($agentId === 'jakub' || $agentId === 'Jakub') {
+                $query = "SELECT t.*, NULL as rola, NULL as percentage FROM test2 t ORDER BY t.id DESC";
+                $stmt = $this->pdo->query($query);
+                return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+            
+            // Convert to integer for normal agent IDs
+            $agentId = (int)$agentId;
+            
             // Pobierz wszystkie sprawy przypisane do tego agenta z tabeli sprawa_agent
             $query = "
                 SELECT t.*, sa.rola, sa.percentage 
@@ -316,6 +334,10 @@ class TableController
             echo '<h3>Wybierz agenta:</h3>';
             echo '<div class="agent-list">';
     
+            // Add special static Jakub button at the top
+            echo '<a href="/table?agent_id=jakub" class="agent-button jakub-agent-button">' .
+                 'Jakub Kowalski (Administrator)</a>';
+    
             // Używamy absolutnej ścieżki (/table), aby zapewnić właściwe przekierowanie
             foreach ($agents as $agent) {
                 $url = '/table?agent_id=' . $agent['agent_id'];
@@ -335,14 +357,26 @@ class TableController
         }
     }
     
+    // Update the method to use CSS classes for agent highlighting
+    private function getAgentHighlightClass($agentId) {
+        // Get the last digit of the agent ID to determine which class to use
+        $digit = $agentId % 10;
+        return "agent-highlight-{$digit}";
+    }
+
+    // Modify renderTable method to use the CSS classes for agent highlighting in Jakub's view
     public function renderTable($agentId = null): void
     {
         try {
+            // Check if we're viewing special Jakub view
+            $isJakubView = ($agentId === 'jakub' || $agentId === 'Jakub');
+            
             // Przelicz prowizje
             $this->calculateCommissions();
 
             // Jeśli podano ID agenta, pobierz tylko jego sprawy
-            if ($agentId) {
+            if ($agentId && !$isJakubView) {
+                // Regular agent view - no highlighting for Kuba's data
                 $cases = $this->getAgentCases($agentId);
                 
                 // Pobierz dane wybranego agenta
@@ -397,8 +431,8 @@ class TableController
                         'Opłata wstępna' => $case['upfront_fee'],
                         'Success fee %' => $case['success_fee_percentage'],
                         'Całość prowizji' => $case['total_commission'],
-                        'Prowizja % Kuba' => $case['kuba_percentage'],
-                        'Do wypłaty Kuba' => $case['kuba_payout']
+                        'Prowizja % Kuba' => $case['kuba_percentage'] . '%',
+                        'Do wypłaty Kuba' => $case['kuba_payout'] . '%',
                     ];
                     
                     error_log("Dane sprawy ID {$case['id']}: Kuba%={$case['kuba_percentage']}, DoWypłaty={$case['kuba_payout']}");
@@ -425,7 +459,7 @@ class TableController
                             // Dodaj klasę również do komórki z procentem prowizji
                             $percentValue = $agentsData[$agentRole]['percentage'];
                             $row["Prowizja % Agent {$i}"] = $isSelected ? 
-                                sprintf('<span class="selected-agent">%s</span>', $percentValue) : 
+                                sprintf('<span class="selected-agent">%s%%</span>', $percentValue) : 
                                 $percentValue;
                         } else {
                             $row["Agent {$i}"] = '';
@@ -433,8 +467,15 @@ class TableController
                         }
                     }
                     
-                    // Dodaj pozostałe dane
+                    // Remove highlighting for Kuba's data in regular agent view
                     $row = array_merge($row, [
+                        // Moved agent rates and commission percentages to appear before installment rates
+                        'Rata 1 – Kuba' => $case['kuba_installment1_amount'],
+                        'Rata 2 – Kuba' => $case['kuba_installment2_amount'],
+                        'Rata 3 – Kuba' => $case['kuba_installment3_amount'],
+                        'Rata 4 – Kuba' => $case['kuba_final_installment_amount'],
+                        'Nr faktury' => $case['kuba_invoice_number'],
+                        // Now add the installment columns
                         'Rata 1' => $case['installment1_amount'],
                         'Opłacona 1' => $case['installment1_paid'] ? 'Tak' : 'Nie',
                         'Rata 2' => $case['installment2_amount'],
@@ -443,13 +484,9 @@ class TableController
                         'Opłacona 3' => $case['installment3_paid'] ? 'Tak' : 'Nie',
                         'Rata 4' => $case['final_installment_amount'],
                         'Opłacona 4' => $case['final_installment_paid'] ? 'Tak' : 'Nie',
-                        'Rata 1 – Kuba' => $case['kuba_installment1_amount'],
-                        'Nr faktury' => $case['kuba_invoice_number'],
-                        'Rata 2 – Kuba' => $case['kuba_installment2_amount'],
-                        'Rata 3 – Kuba' => $case['kuba_installment3_amount'],
-                        'Rata 4 – Kuba' => $case['kuba_final_installment_amount']
                     ]);
                     
+                    // Add back the agent rates highlighting
                     // Dodaj raty dla agentów z odpowiednim podświetleniem
                     for ($i = 1; $i <= 3; $i++) {
                         $agentRole = "agent_{$i}";
@@ -464,7 +501,7 @@ class TableController
                                 
                                 $rataValue = $case[$valueKey];
                                 $row[$keyName] = $isSelected ? 
-                                    sprintf('<span class="selected-agent">%s</span>', $rataValue) : 
+                                    sprintf('<span class="selected-agent">%s zł</span>', number_format((float)$rataValue, 2, ',', ' ')) : 
                                     $rataValue;
                             }
                         }
@@ -485,19 +522,11 @@ class TableController
                         t.total_commission AS 'Całość prowizji',
                         t.kuba_percentage AS 'Prowizja % Kuba',
                         t.kuba_payout AS 'Do wypłaty Kuba',
-                        t.installment1_amount AS 'Rata 1',
-                        CASE WHEN t.installment1_paid = 1 THEN 'Tak' WHEN t.installment1_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 1',
-                        t.installment2_amount AS 'Rata 2',
-                        CASE WHEN t.installment2_paid = 1 THEN 'Tak' WHEN t.installment2_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 2',
-                        t.installment3_amount AS 'Rata 3',
-                        CASE WHEN t.installment3_paid = 1 THEN 'Tak' WHEN t.installment3_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 3',
-                        t.final_installment_amount AS 'Rata 4',
-                        CASE WHEN t.final_installment_paid = 1 THEN 'Tak' WHEN t.final_installment_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 4',
                         t.kuba_installment1_amount AS 'Rata 1 – Kuba',
-                        t.kuba_invoice_number AS 'Nr faktury',
                         t.kuba_installment2_amount AS 'Rata 2 – Kuba',
                         t.kuba_installment3_amount AS 'Rata 3 – Kuba',
                         t.kuba_final_installment_amount AS 'Rata 4 – Kuba',
+                        t.kuba_invoice_number AS 'Nr faktury',
                         t.agent1_installment1_amount AS 'Rata 1 – Agent 1',
                         t.agent1_installment2_amount AS 'Rata 2 – Agent 1',
                         t.agent1_installment3_amount AS 'Rata 3 – Agent 1',
@@ -509,7 +538,15 @@ class TableController
                         t.agent3_installment1_amount AS 'Rata 1 – Agent 3',
                         t.agent3_installment2_amount AS 'Rata 2 – Agent 3',
                         t.agent3_installment3_amount AS 'Rata 3 – Agent 3',
-                        t.agent3_final_installment_amount AS 'Rata 4 – Agent 3'
+                        t.agent3_final_installment_amount AS 'Rata 4 – Agent 3',
+                        t.installment1_amount AS 'Rata 1',
+                        CASE WHEN t.installment1_paid = 1 THEN 'Tak' WHEN t.installment1_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 1',
+                        t.installment2_amount AS 'Rata 2',
+                        CASE WHEN t.installment2_paid = 1 THEN 'Tak' WHEN t.installment2_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 2',
+                        t.installment3_amount AS 'Rata 3',
+                        CASE WHEN t.installment3_paid = 1 THEN 'Tak' WHEN t.installment3_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 3',
+                        t.final_installment_amount AS 'Rata 4',
+                        CASE WHEN t.final_installment_paid = 1 THEN 'Tak' WHEN t.final_installment_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 4'
                     FROM test2 t
                     ORDER BY t.id DESC";
 
@@ -521,9 +558,12 @@ class TableController
                     $caseId = $case['id'];
                     unset($case['id']); // Usuń ID z danych do wyświetlenia
                     
+                    // Debug log to see all available keys in the case row
+                    error_log("Keys in case row for case ID {$caseId}: " . implode(", ", array_keys($case)));
+                    
                     // Pobierz informacje o agentach dla tej sprawy
                     $agentsQuery = "
-                        SELECT a.imie, a.nazwisko, sa.rola, sa.percentage
+                        SELECT a.imie, a.nazwisko, sa.rola, sa.percentage, sa.agent_id
                         FROM sprawa_agent sa
                         JOIN agenci a ON sa.agent_id = a.agent_id
                         WHERE sa.sprawa_id = :sprawa_id
@@ -533,15 +573,103 @@ class TableController
                     $agentsStmt->execute([':sprawa_id' => $caseId]);
                     $agents = $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
                     
-                    // Dodaj informacje o agentach do wiersza
+                    // Add agent information to the row
                     foreach ($agents as $agent) {
                         if (preg_match('/agent_(\d+)/', $agent['rola'], $matches)) {
                             $agentNum = $matches[1];
-                            $case["Agent {$agentNum}"] = sprintf(
-                                '<span class="agent-name-highlight">%s</span>', 
-                                htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'])
-                            );
-                            $case["Prowizja % Agent {$agentNum}"] = $agent['percentage'];
+                            
+                            if ($isJakubView) {
+                                // For Jakub view - apply agent highlight classes
+                                $highlightClass = $this->getAgentHighlightClass($agent['agent_id']);
+                                
+                                // Highlight agent name
+                                $case["Agent {$agentNum}"] = sprintf(
+                                    '<span class="%s">%s</span>', 
+                                    $highlightClass,
+                                    htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'])
+                                );
+                                
+                                // Highlight agent percentage
+                                $case["Prowizja % Agent {$agentNum}"] = sprintf(
+                                    '<span class="%s">%s%%</span>',
+                                    $highlightClass,
+                                    $agent['percentage']
+                                );
+                                
+                                // Highlight all rate columns for this agent by checking all possible column names
+                                $rateColumns = [
+                                    "Rata 1 – Agent {$agentNum}",
+                                    "Rata 2 – Agent {$agentNum}",
+                                    "Rata 3 – Agent {$agentNum}",
+                                    "Rata 4 – Agent {$agentNum}"
+                                ];
+                                
+                                foreach ($rateColumns as $rateColumn) {
+                                    if (isset($case[$rateColumn])) {
+                                        $value = $case[$rateColumn];
+                                        $case[$rateColumn] = sprintf(
+                                            '<span class="%s">%s</span>',
+                                            $highlightClass,
+                                            $value
+                                        );
+                                        error_log("Highlighted agent rate: {$rateColumn} = {$value}");
+                                    } else {
+                                        error_log("Rate column not found: {$rateColumn}");
+                                    }
+                                }
+                            } else {
+                                // For normal view - just basic formatting
+                                $case["Agent {$agentNum}"] = sprintf(
+                                    '<span class="agent-name-highlight">%s</span>', 
+                                    htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'])
+                                );
+                                
+                                // No highlighting for agent percentage
+                                $case["Prowizja % Agent {$agentNum}"] = $agent['percentage'] . '%';
+                            }
+                        }
+                    }
+                    
+                    // Handle Kuba's data formatting
+                    if ($isJakubView) {
+                        // Only apply Kuba highlighting when in Jakub view
+                        if (isset($case['Prowizja % Kuba'])) {
+                            $case['Prowizja % Kuba'] = '<span class="kuba-highlight">' . $case['Prowizja % Kuba'] . '%</span>';
+                        }
+                        if (isset($case['Do wypłaty Kuba'])) {
+                            $case['Do wypłaty Kuba'] = '<span class="kuba-highlight">' . $case['Do wypłaty Kuba'] . '%</span>';
+                        }
+                        if (isset($case['Rata 1 – Kuba'])) {
+                            $case['Rata 1 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$case['Rata 1 – Kuba'], 2, ',', ' ') . ' zł</span>';
+                        }
+                        if (isset($case['Rata 2 – Kuba'])) {
+                            $case['Rata 2 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$case['Rata 2 – Kuba'], 2, ',', ' ') . ' zł</span>';
+                        }
+                        if (isset($case['Rata 3 – Kuba'])) {
+                            $case['Rata 3 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$case['Rata 3 – Kuba'], 2, ',', ' ') . ' zł</span>';
+                        }
+                        if (isset($case['Rata 4 – Kuba'])) {
+                            $case['Rata 4 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$case['Rata 4 – Kuba'], 2, ',', ' ') . ' zł</span>';
+                        }
+                    } else {
+                        // Just format numbers without highlighting when not in Jakub view
+                        if (isset($case['Prowizja % Kuba'])) {
+                            $case['Prowizja % Kuba'] = $case['Prowizja % Kuba'] . '%';
+                        }
+                        if (isset($case['Do wypłaty Kuba'])) {
+                            $case['Do wypłaty Kuba'] = $case['Do wypłaty Kuba'] . '%';
+                        }
+                        if (isset($case['Rata 1 – Kuba'])) {
+                            $case['Rata 1 – Kuba'] = number_format((float)$case['Rata 1 – Kuba'], 2, ',', ' ') . ' zł';
+                        }
+                        if (isset($case['Rata 2 – Kuba'])) {
+                            $case['Rata 2 – Kuba'] = number_format((float)$case['Rata 2 – Kuba'], 2, ',', ' ') . ' zł';
+                        }
+                        if (isset($case['Rata 3 – Kuba'])) {
+                            $case['Rata 3 – Kuba'] = number_format((float)$case['Rata 3 – Kuba'], 2, ',', ' ') . ' zł';
+                        }
+                        if (isset($case['Rata 4 – Kuba'])) {
+                            $case['Rata 4 – Kuba'] = number_format((float)$case['Rata 4 – Kuba'], 2, ',', ' ') . ' zł';
                         }
                     }
                     
@@ -554,18 +682,58 @@ class TableController
                 return;
             }
 
-            // Pełna lista nagłówków w kolejności SELECT
-            $allHeaders = array_keys($rows[0]);
+            // Define all headers before filtering
+            $allHeaders = array_keys(reset($rows));
 
             // FILTR: zostawiamy tylko te nagłówki, które mają choć jeden nie-pusty rekord
+            // AND filter out agent rate columns that contain only zeros
             $visibleHeaders = array_filter($allHeaders, function ($title) use ($rows) {
+                // For non-rate columns or Kuba's rates, keep the original logic
+                if (!(strpos($title, 'Rata') !== false && strpos($title, 'Agent') !== false)) {
+                    // Check if column has any non-empty values (original logic)
+                    foreach ($rows as $row) {
+                        if (isset($row[$title]) && $row[$title] !== '' && $row[$title] !== null) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+                
+                // For agent rate columns, check if they have any non-zero values
+                $hasNonZeroValue = false;
+                
                 foreach ($rows as $row) {
-                    if (isset($row[$title]) && $row[$title] !== '' && $row[$title] !== null) {
-                        return true;
+                    if (!isset($row[$title])) continue;
+                    
+                    $value = $row[$title];
+                    $numericValue = 0;
+                    
+                    // Extract numeric value from possibly formatted or HTML content
+                    if (is_string($value)) {
+                        // Remove HTML tags if present
+                        $plainValue = strip_tags($value);
+                        
+                        // Extract first number from the string
+                        if (preg_match('/[0-9,.]+/', $plainValue, $matches)) {
+                            // Clean up and convert to float
+                            $cleanedValue = str_replace([',', ' ', 'zł'], ['', '', ''], $matches[0]);
+                            $numericValue = floatval(str_replace(',', '.', $cleanedValue));
+                        }
+                    } elseif (is_numeric($value)) {
+                        $numericValue = floatval($value);
+                    }
+                    
+                    // If column has a non-zero value, include it
+                    if ($numericValue > 0) {
+                        $hasNonZeroValue = true;
+                        break;
                     }
                 }
-                return false;
+                
+                return $hasNonZeroValue;
             });
+
+            error_log("Filtered out empty rate columns. Before: " . count($allHeaders) . ", After: " . count($visibleHeaders));
 
             echo '<table class="data-table"><thead><tr>';
             foreach ($visibleHeaders as $title) {
@@ -574,7 +742,7 @@ class TableController
             }
             echo '</tr></thead><tbody>';
 
-            // Wyświetlanie wierszy – tylko kolumny z $visibleHeaders
+            // Display rows using only the visible headers
             foreach ($rows as $row) {
                 echo '<tr>';
                 foreach ($visibleHeaders as $title) {
@@ -582,24 +750,48 @@ class TableController
 
                     if (is_numeric($value)) {
                         if ($title === 'Do wypłaty Kuba') { 
-                            echo '<td>' . number_format((float)$value, 2, ',', ' ') . '%</td>';
+                            echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . '%</td>';
                         } elseif (strpos($title, '%') !== false) {
-                            echo '<td>' . number_format((float)$value, 2, ',', ' ') . '%</td>';
+                            echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . '%</td>';
                         } elseif (strpos($title, 'Wywalczona kwota') !== false ||
                                   strpos($title, 'Opłata wstępna') !== false ||
                                   strpos($title, 'Całość prowizji') !== false ||
                                   strpos($title, 'Rata') !== false) {
                             // Dodaj znak złotówki do wartości pieniężnych
-                            echo '<td>' . number_format((float)$value, 2, ',', ' ') . ' zł</td>';
+                            echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . ' zł</td>';
                         } else {
-                            echo '<td>' . number_format((float)$value, 2, ',', ' ') . '</td>';
+                            echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . '</td>';
                         }
                     } elseif ($value === 'Tak' || $value === 'Nie') {
                         // Obsługa wartości boolean
-                        $color = ($value === 'Tak') ? 'green' : 'red';
-                        echo '<td style="color:' . $color . ';">' . htmlspecialchars($value, ENT_QUOTES) . '</td>';
+                        $statusClass = ($value === 'Tak') ? 'status-yes' : 'status-no';
+                        echo '<td><span class="status ' . $statusClass . '">' . htmlspecialchars($value, ENT_QUOTES) . '</span></td>';
                     } else {
                         // Zezwól na HTML w komórkach (np. dla nazw agentów)
+                        // Sprawdzenie czy zawiera span z klasą selected-agent i czy potrzebuje formatowania
+                        if (strpos($value, 'class="selected-agent"') !== false) {
+                            // Dodaj formatowanie dla wybranego agenta jeśli jest to wartość liczbowa
+                            if (preg_match('/<span class="selected-agent">([0-9.,]+)<\/span>/', $value, $matches)) {
+                                $numVal = $matches[1];
+                                
+                                if (strpos($title, '%') !== false) {
+                                    // Dla wartości procentowych
+                                    $value = str_replace(
+                                        '<span class="selected-agent">' . $numVal . '</span>', 
+                                        '<span class="selected-agent">' . number_format((float)$numVal, 2, ',', ' ') . '%</span>', 
+                                        $value
+                                    );
+                                } elseif (strpos($title, 'Rata') !== false || strpos($title, 'kwota') !== false || 
+                                          strpos($title, 'prowizji') !== false || strpos($title, 'Opłata') !== false) {
+                                    // Dla wartości pieniężnych
+                                    $value = str_replace(
+                                        '<span class="selected-agent">' . $numVal . '</span>', 
+                                        '<span class="selected-agent">' . number_format((float)$numVal, 2, ',', ' ') . ' zł</span>', 
+                                        $value
+                                    );
+                                }
+                            }
+                        }
                         echo '<td>' . $value . '</td>';
                     }
                 }

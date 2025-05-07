@@ -47,33 +47,33 @@ $count = count($agents);
 <nav class="cleannav">
     <ul class="cleannav__list">
       <li class="cleannav__item">
-        <a href="/" class="cleannav__link">
+        <a href="/" class="cleannav__link" data-tooltip="Strona główna">
           <i class="fa-solid fa-house cleannav__icon"></i>
-          Home
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/agents" class="cleannav__link">
-          <i class="fa-solid fa-plus cleannav__icon"></i>
-          Dodaj Agenta
+        <a href="/agents" class="cleannav__link" data-tooltip="Dodaj agenta">
+          <i class="fa-solid fa-user-plus cleannav__icon"></i>
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/table" class="cleannav__link">
-          <i class="fa-solid fa-briefcase cleannav__icon"></i>
-          Tabela Z Danymi
+        <a href="/table" class="cleannav__link" data-tooltip="Tabela z danymi">
+          <i class="fa-solid fa-table cleannav__icon"></i>
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/wizard" class="cleannav__link">
+        <a href="/wizard" class="cleannav__link" data-tooltip="Kreator rekordu">
+          <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
+        </a>
+      </li>
+      <li class="cleannav__item">
+        <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
           <i class="fa-solid fa-database cleannav__icon"></i>
-          Kreator Rekordu
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/logout" class="cleannav__link">
+        <a href="/logout" class="cleannav__link" data-tooltip="Wyloguj">
           <i class="fa-solid fa-sign-out-alt cleannav__icon"></i>
-          Wyloguj (<?= htmlspecialchars($_SESSION['user'] ?? 'Gość') ?>)
         </a>
       </li>
     </ul>
@@ -99,11 +99,14 @@ $count = count($agents);
     </form>
 
     <h2 class="agent-list-heading">Lista Agentów (<?php echo count($agents); ?>)</h2>
+
     <?php if (!empty($agents)): ?>
         <ul class="agent-list">
             <?php foreach ($agents as $agent): ?>
                 <li class="agent-list-item">
-                    <strong class="agent-name"><?php echo htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko']); ?></strong>
+                    <a href="/table?agent_id=<?php echo $agent['agent_id']; ?>" class="agent-name-link">
+                        <strong class="agent-name"><?php echo htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko']); ?></strong>
+                    </a>
                     <div class="agent-cases-container">
                         <?php
                         if (!empty($agent['sprawy'])):

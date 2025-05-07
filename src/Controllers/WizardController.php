@@ -88,6 +88,7 @@ class WizardController
         }
 
         // 4. Walidacja pól rat (jeśli są podane)
+        $totalInstallments = 0;
         for ($i = 1; $i <= 3; $i++) {
             $installmentField = "installment{$i}_amount";
             if (isset($data[$installmentField]) && $data[$installmentField] !== '') {
@@ -95,13 +96,22 @@ class WizardController
                 if (!is_numeric($data[$installmentField]) || floatval($data[$installmentField]) < 0) {
                     error_log("WizardController::store - BŁĄD: Rata {$i} ma nieprawidłową wartość");
                     $errors[] = "Rata {$i} musi być liczbą nieujemną.";
+                } else {
+                    $totalInstallments += floatval($data[$installmentField]);
                 }
             } else {
                 error_log("WizardController::store - Rata {$i} nie jest ustawiona");
             }
         }
-
-        // (Możesz dodać kolejne walidacje – np. czy nazwa sprawy nie jest pusta, walidację dla opłaconych rat itp.)
+        
+        // 5. Sprawdzenie czy suma rat jest równa opłacie wstępnej
+        if (isset($data['upfront_fee']) && $data['upfront_fee'] !== '') {
+            $upfrontFee = floatval($data['upfront_fee']);
+            if ($totalInstallments != $upfrontFee) {
+                error_log("WizardController::store - BŁĄD: Suma rat ($totalInstallments) nie jest równa opłacie wstępnej ($upfrontFee)");
+                $errors[] = "Suma rat ({$totalInstallments} zł) musi być równa opłacie wstępnej ({$upfrontFee} zł).";
+            }
+        }
 
         // Jeśli wykryto błąd walidacji, wypisz je i zatrzymaj działanie
         if (count($errors) > 0) {

@@ -14,33 +14,33 @@
     <nav class="cleannav">
         <ul class="cleannav__list">
             <li class="cleannav__item">
-                <a href="/" class="cleannav__link">
+                <a href="/" class="cleannav__link" data-tooltip="Strona główna">
                     <i class="fa-solid fa-house cleannav__icon"></i>
-                    Home
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/agents" class="cleannav__link">
-                    <i class="fa-solid fa-plus cleannav__icon"></i>
-                    Dodaj Agenta
+                <a href="/agents" class="cleannav__link" data-tooltip="Dodaj agenta">
+                    <i class="fa-solid fa-user-plus cleannav__icon"></i>
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/table" class="cleannav__link">
-                    <i class="fa-solid fa-briefcase cleannav__icon"></i>
-                    Tabela Z Danymi
+                <a href="/table" class="cleannav__link" data-tooltip="Tabela z danymi">
+                    <i class="fa-solid fa-table cleannav__icon"></i>
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/wizard" class="cleannav__link">
+                <a href="/wizard" class="cleannav__link" data-tooltip="Kreator rekordu">
+                    <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
+                </a>
+            </li>
+            <li class="cleannav__item">
+                <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
                     <i class="fa-solid fa-database cleannav__icon"></i>
-                    Kreator Rekordu
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/logout" class="cleannav__link">
+                <a href="/logout" class="cleannav__link" data-tooltip="Wyloguj">
                     <i class="fa-solid fa-sign-out-alt cleannav__icon"></i>
-                    Wyloguj (<?= htmlspecialchars($_SESSION['user'] ?? 'Gość') ?>)
                 </a>
             </li>
         </ul>
@@ -66,16 +66,87 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const sortables = document.querySelectorAll('.sortable');
+            
+            // Obsługa sortowania
             sortables.forEach(th => {
                 th.addEventListener('click', function() {
                     const column = this.dataset.column;
-                    // Implementacja sortowania - można rozwinąć w przyszłości
-                    console.log('Sortowanie według kolumny:', column);
+                    const table = document.querySelector('.data-table');
+                    const tbody = table.querySelector('tbody');
+                    const headerRow = table.querySelector('thead tr');
+                    
+                    // Resetujemy klasy sortowania dla wszystkich nagłówków
+                    headerRow.querySelectorAll('th').forEach(header => {
+                        if (header !== this) {
+                            header.classList.remove('asc', 'desc');
+                        }
+                    });
+                    
+                    // Ustalamy kierunek sortowania
+                    let sortDirection = 'asc';
+                    if (this.classList.contains('asc')) {
+                        this.classList.remove('asc');
+                        this.classList.add('desc');
+                        sortDirection = 'desc';
+                    } else {
+                        this.classList.remove('desc');
+                        this.classList.add('asc');
+                    }
+                    
+                    // Pobieramy indeks kolumny
+                    const columnIdx = Array.from(headerRow.children).indexOf(this);
+                    
+                    // Sortujemy wiersze
+                    const rows = Array.from(tbody.querySelectorAll('tr'));
+                    const sortedRows = rows.sort((a, b) => {
+                        const aVal = a.children[columnIdx].innerText.trim();
+                        const bVal = b.children[columnIdx].innerText.trim();
+                        
+                        // Obsługa różnych typów danych
+                        if (!isNaN(parseFloat(aVal)) && !isNaN(parseFloat(bVal))) {
+                            // Liczby - wyciągamy wartość liczbową z tekstu
+                            const aNum = parseFloat(aVal.replace(/[^\d.,]/g, '').replace(',', '.'));
+                            const bNum = parseFloat(bVal.replace(/[^\d.,]/g, '').replace(',', '.'));
+                            return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+                        } else if (aVal === 'Tak' || aVal === 'Nie' || bVal === 'Tak' || bVal === 'Nie') {
+                            // Wartości logiczne
+                            const aVal2 = aVal === 'Tak' ? 1 : 0;
+                            const bVal2 = bVal === 'Tak' ? 1 : 0;
+                            return sortDirection === 'asc' ? aVal2 - bVal2 : bVal2 - aVal2;
+                        } else {
+                            // Tekst
+                            return sortDirection === 'asc' 
+                                ? aVal.localeCompare(bVal, 'pl', {sensitivity: 'base'}) 
+                                : bVal.localeCompare(aVal, 'pl', {sensitivity: 'base'});
+                        }
+                    });
+                    
+                    // Dodajemy efekt sortowania z animacją
+                    sortedRows.forEach(row => {
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateY(10px)';
+                        setTimeout(() => {
+                            tbody.appendChild(row);
+                            // Animacja wejścia
+                            setTimeout(() => {
+                                row.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                                row.style.opacity = '1';
+                                row.style.transform = 'translateY(0)';
+                            }, 10);
+                        }, 50);
+                    });
+                    
+                    console.log('Sortowanie według kolumny:', column, 'kierunek:', sortDirection);
                 });
             });
 
             // Implementacja modelu obliczeniowego dla tabeli
             recalculateValues();
+            
+            // Dodanie klasy aktywnej dla pierwszej kolumny sortowania
+            if (sortables.length > 0) {
+                sortables[0].classList.add('asc');
+            }
         });
 
         // Funkcja do przeliczania wartości w tabeli
@@ -251,7 +322,6 @@
                 tooltip.style.color = 'white';
                 tooltip.style.padding = '3px 8px';
                 tooltip.style.borderRadius = '4px';
-                tooltip.style.fontSize = '12px';
                 tooltip.style.zIndex = '10';
                 tooltip.style.whiteSpace = 'nowrap';
                 tooltip.style.opacity = '0';
@@ -299,6 +369,57 @@
         
         .calculation-tooltip {
             animation: pulse 1.5s infinite;
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            z-index: 100;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .calculation-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        
+        /* Poprawa stylu dla komórek z różniącą się obliczoną wartością */
+        td[data-calculated] {
+            position: relative;
+            background-color: rgba(255, 235, 59, 0.2) !important;
+            border-bottom: 1px dashed #FFB300 !important;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        td[data-calculated]:hover {
+            background-color: rgba(255, 235, 59, 0.3) !important;
+        }
+        
+        /* Dodatkowe styles dla wyróżnienia agentów */
+        .agent-name-highlight {
+            padding: 3px 8px;
+            border-radius: 4px;
+            background-color: rgba(224, 224, 224, 0.3);
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        
+        .agent-name-highlight:hover {
+            background-color: rgba(224, 224, 224, 0.6);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
     </style>
 
