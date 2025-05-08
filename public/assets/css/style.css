@@ -30,6 +30,7 @@ body {
   font-family: "Poppins", sans-serif;
   color: var(--text-primary);
   line-height: 1.6;
+  min-height: 100vh;
 }
 
 header {
@@ -58,6 +59,46 @@ header h1 {
   letter-spacing: 1.5px;
   margin: 0;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* User info in header */
+.user-info {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(255, 255, 255, 0.15);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1001;
+}
+
+.user-info i {
+  font-size: 1rem;
+}
+
+.username {
+  font-weight: 500;
+}
+
+.user-role {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.role-admin {
+  background-color: #2286c3;
+}
+
+.role-superadmin {
+  background-color: #ff9800;
+  color: #333;
 }
 
 #uploadFile {
@@ -461,7 +502,9 @@ form#wizardForm select:focus {
   gap: 1rem;
   margin: 1.5rem auto;
   max-width: 92%;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .date-filter {
@@ -1214,4 +1257,194 @@ form#wizardForm select:focus {
     padding: 4px 8px;
     border-radius: 4px;
     display: inline-block;
+}
+
+/* Column visibility toggle styles */
+.column-visibility {
+  position: relative;
+}
+
+.toggle-columns-btn {
+  background: var(--primary-color);
+  color: white;
+  padding: 0.8rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-columns-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(100, 181, 246, 0.3);
+}
+
+.toggle-columns-btn i {
+  font-size: 0.9rem;
+}
+
+.column-selector {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  width: 300px;
+  z-index: 100;
+  max-height: 400px;
+  display: none;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.column-selector.show {
+  display: block;
+  animation: fadeInDown 0.3s ease;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.column-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--primary-light);
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.column-selector-body {
+  padding: 10px 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.column-checkbox {
+  display: flex;
+  align-items: center;
+  padding: 8px 15px;
+  transition: background-color 0.2s;
+}
+
+.column-checkbox:hover {
+  background-color: rgba(100, 181, 246, 0.1);
+}
+
+.column-checkbox.hidden-column {
+  opacity: 0.7;
+  text-decoration: line-through;
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.column-checkbox input {
+  margin-right: 10px;
+}
+
+.column-selector-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 15px;
+  border-top: 1px solid var(--border-color);
+  background-color: #f9f9f9;
+}
+
+.btn-small {
+  background: var(--background);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+  transition: all 0.2s ease;
+}
+
+.btn-small:hover {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+/* Hide/show table columns functionality */
+table.data-table th.hidden-column,
+table.data-table td.hidden-column {
+  display: none;
+}
+
+/* Superadmin badge */
+.superadmin-badge {
+  background-color: #ff9800;
+  color: white;
+  padding: 8px 15px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 15px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 2px 5px rgba(255, 152, 0, 0.3);
+  max-width: fit-content;
+}
+
+.superadmin-badge i {
+  font-size: 1.1rem;
+}
+
+.panel-header {
+  margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  header h1 {
+    font-size: 1.6rem;
+  }
+
+  .user-info {
+    top: auto;
+    bottom: 15px;
+    right: 15px;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+  }
+
+  .user-role {
+    padding: 1px 6px;
+    font-size: 0.7rem;
+  }
 }

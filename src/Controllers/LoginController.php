@@ -3,6 +3,20 @@ namespace Dell\Faktury\Controllers;
 
 class LoginController
 {
+    // Definiuje dostępnych użytkowników i ich role
+    private $users = [
+        'admin' => [
+            'password' => 'admin',
+            'role' => 'admin',
+            'id' => 1
+        ],
+        'root' => [
+            'password' => 'superadmin',
+            'role' => 'superadmin',
+            'id' => 2
+        ]
+    ];
+
     public function showLoginForm()
     {
         // Sprawdź, czy użytkownik został przekierowany z powodu braku autoryzacji
@@ -16,14 +30,17 @@ class LoginController
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
 
-        // Przykładowa autoryzacja (do rozbudowy)
-        if ($username === 'admin' && $password === 'admin') {
+        // Sprawdź, czy użytkownik istnieje
+        if (isset($this->users[$username]) && $this->users[$username]['password'] === $password) {
+            $user = $this->users[$username];
+            
             $_SESSION['user'] = $username;
-            $_SESSION['user_id'] = 1; // Przykładowe ID użytkownika
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_role'] = $user['role'];
             $_SESSION['login_time'] = time();
             
             // Zapisz ostatnie logowanie
-            error_log("User {$username} logged in successfully");
+            error_log("User {$username} logged in successfully with role {$user['role']}");
             
             // Przekieruj na stronę główną
             header('Location: /');

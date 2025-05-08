@@ -28,6 +28,15 @@ if (!isset($_SESSION['user']) && !in_array($uriWithoutQuery, $publicRoutes)) {
     exit;
 }
 
+// Sprawdź uprawnienia do stron zastrzeżonych dla superadmina
+$superadminRoutes = ['/database']; // Trasy dostępne tylko dla superadminów 
+if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'superadmin' && 
+    (in_array($uriWithoutQuery, $superadminRoutes) || strpos($uriWithoutQuery, '/database/') === 0)) {
+    error_log("Access denied to {$uri} for role: " . $_SESSION['user_role']);
+    header('Location: /?access_denied=1');
+    exit;
+}
+
 error_log("Setting up routes...");
 $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     // Home routes – CSV import

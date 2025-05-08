@@ -69,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
 </head>
 
 <body>
+    <?php include_once __DIR__ . '/components/user_info.php'; ?>
     <nav class="cleannav">
         <ul class="cleannav__list">
             <li class="cleannav__item">
@@ -91,11 +92,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                     <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
                 </a>
             </li>
+            <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
             <li class="cleannav__item">
                 <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
                     <i class="fa-solid fa-database cleannav__icon"></i>
                 </a>
             </li>
+            <?php endif; ?>
             <li class="cleannav__item">
                 <a href="/logout" class="cleannav__link" data-tooltip="Wyloguj">
                     <i class="fa-solid fa-sign-out-alt cleannav__icon"></i>
@@ -159,6 +162,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 Filtruj dane
             </button>
         </div>
+        
+        <div class="column-visibility">
+            <button id="toggleColumnSelector" class="toggle-columns-btn">
+                <i class="fa-solid fa-table-columns"></i>
+                Pokaż/ukryj kolumny
+            </button>
+            <div id="columnSelector" class="column-selector">
+                <div class="column-selector-header">
+                    <span>Widoczność kolumn</span>
+                    <button id="closeColumnSelector" class="close-btn"><i class="fa-solid fa-times"></i></button>
+                </div>
+                <div class="column-selector-body" id="columnList">
+                    <!-- Kolumny zostaną dodane dynamicznie przez JavaScript -->
+                </div>
+                <div class="column-selector-footer">
+                    <button id="selectAllColumns" class="btn-small">Zaznacz wszystkie</button>
+                    <button id="deselectAllColumns" class="btn-small">Odznacz wszystkie</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <section id="dataTable">
@@ -211,6 +234,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
 
     <div id="notificationContainer"></div>
     <script>
+        <?php if (isset($_GET['access_denied'])): ?>
+        // Show access denied notification when redirected from a restricted page
+        document.addEventListener('DOMContentLoaded', function() {
+            showNotification('Brak dostępu do żądanej strony. Ta funkcja wymaga uprawnień superadmin.', 'error');
+        });
+        <?php endif; ?>
+        
         document.getElementById('uploadForm').addEventListener('submit', async e => {
             e.preventDefault();
             
@@ -418,8 +448,161 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             const table = document.querySelector('table');
             if (table && table.querySelector('tbody')) {
                 originalTableRows = Array.from(table.querySelectorAll('tbody tr'));
+                
+                // Inicjalizacja przełącznika widoczności kolumn
+                initColumnVisibility(table);
             }
         });
+        
+        // Funkcja inicjalizująca system pokazywania/ukrywania kolumn
+        function initColumnVisibility(table) {
+            if (!table) return;
+            
+            const headers = Array.from(table.querySelectorAll('th'));
+            const columnList = document.getElementById('columnList');
+            const columnSelector = document.getElementById('columnSelector');
+            const toggleButton = document.getElementById('toggleColumnSelector');
+            const closeButton = document.getElementById('closeColumnSelector');
+            const selectAllBtn = document.getElementById('selectAllColumns');
+            const deselectAllBtn = document.getElementById('deselectAllColumns');
+            
+            // Sprawdź, czy istnieje zapis widoczności kolumn w localStorage
+            let columnVisibility = {};
+            const savedVisibility = localStorage.getItem('columnVisibility');
+            
+            if (savedVisibility) {
+                try {
+                    columnVisibility = JSON.parse(savedVisibility);
+                } catch (e) {
+                    console.error('Błąd odczytu zapisanych ustawień kolumn:', e);
+                    columnVisibility = {};
+                }
+            }
+            
+            // Utwórz listę kolumn z checkboxami
+            headers.forEach((header, index) => {
+                const columnName = header.textContent.trim();
+                const columnId = `column-${index}`;
+                
+                // Utwórz element z checkboxem
+                const item = document.createElement('div');
+                item.className = 'column-checkbox';
+                item.dataset.columnIndex = index;
+                
+                // Sprawdź, czy kolumna powinna być widoczna
+                const isVisible = columnVisibility[columnId] !== false; // domyślnie wszystkie są widoczne
+                
+                // Jeśli kolumna jest ukryta, dodaj odpowiednią klasę do elementów tabeli
+                if (!isVisible) {
+                    applyColumnVisibility(table, index, false);
+                    item.classList.add('hidden-column');
+                }
+                
+                item.innerHTML = `
+                    <input type="checkbox" id="${columnId}" 
+                           data-column-index="${index}" 
+                           ${isVisible ? 'checked' : ''}>
+                    <label for="${columnId}">${columnName}</label>
+                `;
+                
+                // Obsługa kliknięcia w checkbox
+                const checkbox = item.querySelector('input');
+                checkbox.addEventListener('change', function() {
+                    const isChecked = this.checked;
+                    const columnIndex = parseInt(this.dataset.columnIndex);
+                    
+                    // Zapisz stan widoczności
+                    columnVisibility[columnId] = isChecked;
+                    localStorage.setItem('columnVisibility', JSON.stringify(columnVisibility));
+                    
+                    // Zaktualizuj wygląd elementu w selectorze
+                    if (isChecked) {
+                        item.classList.remove('hidden-column');
+                    } else {
+                        item.classList.add('hidden-column');
+                    }
+                    
+                    // Aktualizuj widoczność kolumn w tabeli
+                    applyColumnVisibility(table, columnIndex, isChecked);
+                    
+                    // Pokaż powiadomienie
+                    showNotification(`Kolumna "${columnName}" została ${isChecked ? 'pokazana' : 'ukryta'}`);
+                });
+                
+                // Obsługa kliknięcia w cały obszar (dla wygody)
+                item.addEventListener('click', function(e) {
+                    if (e.target !== checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        checkbox.dispatchEvent(new Event('change'));
+                    }
+                });
+                
+                columnList.appendChild(item);
+            });
+            
+            // Obsługa przycisku "Pokaż/ukryj kolumny"
+            toggleButton.addEventListener('click', function() {
+                columnSelector.classList.toggle('show');
+            });
+            
+            // Obsługa przycisku zamknięcia
+            closeButton.addEventListener('click', function() {
+                columnSelector.classList.remove('show');
+            });
+            
+            // Zamknij selektor po kliknięciu poza nim
+            document.addEventListener('click', function(e) {
+                if (!columnSelector.contains(e.target) && e.target !== toggleButton) {
+                    columnSelector.classList.remove('show');
+                }
+            });
+            
+            // Obsługa przycisków "Zaznacz wszystkie" i "Odznacz wszystkie"
+            selectAllBtn.addEventListener('click', function() {
+                const checkboxes = columnList.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(checkbox => {
+                    if (!checkbox.checked) {
+                        checkbox.checked = true;
+                        checkbox.dispatchEvent(new Event('change'));
+                    }
+                });
+            });
+            
+            deselectAllBtn.addEventListener('click', function() {
+                const checkboxes = columnList.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        checkbox.checked = false;
+                        checkbox.dispatchEvent(new Event('change'));
+                    }
+                });
+            });
+        }
+        
+        // Funkcja aktualizująca widoczność kolumny w tabeli
+        function applyColumnVisibility(table, columnIndex, isVisible) {
+            if (!table) return;
+            
+            // Ukryj/pokaż nagłówek
+            const header = table.querySelector(`th:nth-child(${columnIndex + 1})`);
+            if (header) {
+                if (isVisible) {
+                    header.classList.remove('hidden-column');
+                } else {
+                    header.classList.add('hidden-column');
+                }
+            }
+            
+            // Ukryj/pokaż komórki danych
+            const cells = table.querySelectorAll(`td:nth-child(${columnIndex + 1})`);
+            cells.forEach(cell => {
+                if (isVisible) {
+                    cell.classList.remove('hidden-column');
+                } else {
+                    cell.classList.add('hidden-column');
+                }
+            });
+        }
 
         // Filtrowanie po dacie
         document.getElementById('applyDateFilter').addEventListener('click', () => {

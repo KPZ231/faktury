@@ -1,8 +1,13 @@
+<?php if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'superadmin'): ?>
+    <script>window.location.href = '/?access_denied=1';</script>
+<?php endif; ?>
+
 <!DOCTYPE html>
 <html lang="pl">
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zarządzanie bazą danych</title>
     <link rel="stylesheet" href="../../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -259,6 +264,7 @@
 </head>
 
 <body>
+    <?php include_once __DIR__ . '/components/user_info.php'; ?>
     <nav class="cleannav">
         <ul class="cleannav__list">
             <li class="cleannav__item">
@@ -282,7 +288,7 @@
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/database" class="cleannav__link cleannav__link--active" data-tooltip="Zarządzaj bazą">
+                <a href="/database" class="cleannav__manage-btn active" data-tooltip="Zarządzaj bazą">
                     <i class="fa-solid fa-database cleannav__icon"></i>
                 </a>
             </li>
@@ -296,6 +302,10 @@
 
     <header>
         <h1>Zarządzanie bazą danych</h1>
+        <div class="superadmin-badge">
+            <i class="fa-solid fa-shield-alt"></i>
+            <span>Panel administratora bazy danych</span>
+        </div>
     </header>
 
     <div class="database-panel">

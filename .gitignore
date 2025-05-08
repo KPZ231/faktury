@@ -2,5 +2,7 @@
 .env
 *.xlsx
 *.csv
+*.cursorignore
 
-*/vendor
+
+vendor/*

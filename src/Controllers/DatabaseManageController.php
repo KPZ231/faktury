@@ -10,6 +10,14 @@ class DatabaseManageController {
      */
     public function index(): void {
         error_log("DatabaseManageController::index - Start");
+        
+        // Sprawdź uprawnienia użytkownika - tylko superadmin ma dostęp
+        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'superadmin') {
+            error_log("DatabaseManageController::index - Access denied for user: " . ($_SESSION['user'] ?? 'unknown'));
+            header('Location: /?access_denied=1');
+            exit;
+        }
+        
         require_once __DIR__ . '/../../config/database.php';
         global $pdo;
         
@@ -165,6 +173,13 @@ class DatabaseManageController {
         error_log("DatabaseManageController::backupTable - Start");
         header('Content-Type: application/json; charset=UTF-8');
         
+        // Sprawdź uprawnienia użytkownika - tylko superadmin ma dostęp
+        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'superadmin') {
+            error_log("DatabaseManageController::backupTable - Access denied for user: " . ($_SESSION['user'] ?? 'unknown'));
+            echo json_encode(['success' => false, 'message' => 'Brak uprawnień do wykonania tej operacji']);
+            return;
+        }
+        
         if (!isset($_POST['table']) || empty($_POST['table'])) {
             echo json_encode(['success' => false, 'message' => 'Nie podano nazwy tabeli']);
             return;
@@ -196,6 +211,13 @@ class DatabaseManageController {
     public function truncateTable(): void {
         error_log("DatabaseManageController::truncateTable - Start");
         header('Content-Type: application/json; charset=UTF-8');
+        
+        // Sprawdź uprawnienia użytkownika - tylko superadmin ma dostęp
+        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'superadmin') {
+            error_log("DatabaseManageController::truncateTable - Access denied for user: " . ($_SESSION['user'] ?? 'unknown'));
+            echo json_encode(['success' => false, 'message' => 'Brak uprawnień do wykonania tej operacji']);
+            return;
+        }
         
         if (!isset($_POST['table']) || empty($_POST['table'])) {
             echo json_encode(['success' => false, 'message' => 'Nie podano nazwy tabeli']);
@@ -265,6 +287,13 @@ class DatabaseManageController {
     public function dropTable(): void {
         error_log("DatabaseManageController::dropTable - Start");
         header('Content-Type: application/json; charset=UTF-8');
+        
+        // Sprawdź uprawnienia użytkownika - tylko superadmin ma dostęp
+        if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'superadmin') {
+            error_log("DatabaseManageController::dropTable - Access denied for user: " . ($_SESSION['user'] ?? 'unknown'));
+            echo json_encode(['success' => false, 'message' => 'Brak uprawnień do wykonania tej operacji']);
+            return;
+        }
         
         if (!isset($_POST['table']) || empty($_POST['table'])) {
             echo json_encode(['success' => false, 'message' => 'Nie podano nazwy tabeli']);

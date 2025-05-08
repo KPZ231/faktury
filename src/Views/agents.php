@@ -43,6 +43,7 @@ $count = count($agents);
 </head>
 
 <body>
+<?php include_once __DIR__ . '/components/user_info.php'; ?>
 
 <nav class="cleannav">
     <ul class="cleannav__list">
@@ -66,11 +67,13 @@ $count = count($agents);
           <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
         </a>
       </li>
+      <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
       <li class="cleannav__item">
         <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
           <i class="fa-solid fa-database cleannav__icon"></i>
         </a>
       </li>
+      <?php endif; ?>
       <li class="cleannav__item">
         <a href="/logout" class="cleannav__link" data-tooltip="Wyloguj">
           <i class="fa-solid fa-sign-out-alt cleannav__icon"></i>
