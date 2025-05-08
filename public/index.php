@@ -51,6 +51,10 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     $r->addRoute('GET', '/table',          [TableController::class, 'index']);
     $r->addRoute('GET', '/recalculate', [TableController::class, 'recalculateCase']);
     
+    // Add new route for syncing payment statuses
+    $r->addRoute('GET', '/sync-payments', [TableController::class, 'syncPaymentStatuses']);
+    $r->addRoute('POST', '/sync-payments-ajax', [TableController::class, 'syncPaymentsAjax']);
+    
     // Case edit routes
     $r->addRoute('GET',    '/case/edit/{id:\d+}', [TableController::class, 'edit']);
     $r->addRoute('POST',   '/case/edit/{id:\d+}', [TableController::class, 'update']);

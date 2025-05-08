@@ -23,20 +23,6 @@ class TableController
         $this->pdo = $pdo;
         error_log("TableController::index - Połączenie z bazą danych zainicjalizowane");
 
-        // Check if payment statuses should be synchronized automatically
-        // Do this only once per hour to avoid excessive database operations
-        $lastSync = isset($_SESSION['last_payment_sync']) ? $_SESSION['last_payment_sync'] : 0;
-        $currentTime = time();
-        $oneHourInSeconds = 3600;
-        
-        if ($currentTime - $lastSync > $oneHourInSeconds) {
-            error_log("TableController::index - Auto-syncing payment statuses (last sync was " . 
-                     ($lastSync > 0 ? date('Y-m-d H:i:s', $lastSync) : 'never') . ")");
-            $this->syncPaymentStatusesInternal();
-        } else {
-            error_log("TableController::index - Skipping auto-sync, last sync was less than an hour ago");
-        }
-
         // Pobierz listę agentów
         error_log("TableController::index - Pobieranie listy agentów");
         $agents = $this->getAgents();
@@ -109,7 +95,7 @@ class TableController
                 $updates = [];
                 $params = [];
                 $id = $case['id'];
-                error_log("--- Przeliczanie sprawy ID: {$id}, nazwa: " . ($case['case_name'] ?? 'brak') . " ---");
+                error_log("--- Przeliczanie sprawy ID: {$id}, nazwa: " . ($case['case_name'] ?? 'brak nazwy') . " ---");
 
                 // 1. Całość prowizji (F = D + (C * E))
                 $upfrontFee = !empty($case['upfront_fee']) ? floatval($case['upfront_fee']) : 0;
@@ -294,193 +280,12 @@ class TableController
             }
             
             error_log("=== ZAKOŃCZENIE OBLICZEŃ PROWIZJI ===");
-            
-            // After calculating commissions, also sync payment statuses
-            $this->syncPaymentStatusesInternal();
-            
         } catch (PDOException $e) {
             error_log("BŁĄD KRYTYCZNY calculating commissions: " . $e->getMessage());
             error_log("Stack trace: " . $e->getTraceAsString());
         }
     }
     
-    /**
-     * Internal method to sync payment statuses without UI feedback
-     * Used when calculating commissions
-     */
-    private function syncPaymentStatusesInternal(): void
-    {
-        error_log("TableController::syncPaymentStatusesInternal - Start");
-        
-        try {
-            // Get all cases from test2 table
-            $casesQuery = "SELECT id, case_name FROM test2";
-            $casesStmt = $this->pdo->query($casesQuery);
-            $cases = $casesStmt->fetchAll(PDO::FETCH_ASSOC);
-            error_log("TableController::syncPaymentStatusesInternal - Found " . count($cases) . " cases");
-
-            // Process each case
-            foreach ($cases as $case) {
-                $caseId = $case['id'];
-                $caseName = $case['case_name'];
-                
-                if (empty($caseName)) {
-                    error_log("TableController::syncPaymentStatusesInternal - Case ID {$caseId} has no name, skipping");
-                    continue;
-                }
-                
-                error_log("TableController::syncPaymentStatusesInternal - Processing case ID {$caseId}: {$caseName}");
-                
-                // Find paid invoices in test table that match the case name
-                // Use LIKE for more flexible matching and ensure proper ordering
-                $invoicesQuery = "
-                    SELECT *, STR_TO_DATE(`Data płatności`, '%Y-%m-%d') as paid_date 
-                    FROM test 
-                    WHERE (Nabywca = :case_name OR Nabywca LIKE :case_name_partial OR :case_name LIKE CONCAT('%', Nabywca, '%')) 
-                        AND Status = 'Opłacona'
-                    ORDER BY paid_date ASC, numer ASC";
-                $invoicesStmt = $this->pdo->prepare($invoicesQuery);
-                $invoicesStmt->execute([
-                    ':case_name' => $caseName,
-                    ':case_name_partial' => "%{$caseName}%"
-                ]);
-                $invoices = $invoicesStmt->fetchAll(PDO::FETCH_ASSOC);
-                
-                error_log("TableController::syncPaymentStatusesInternal - Found " . count($invoices) . " matching paid invoices for case {$caseName}");
-                
-                // Reset payment status for this case (to avoid duplicate markings)
-                $resetQuery = "
-                    UPDATE test2 
-                    SET installment1_paid = 0, installment2_paid = 0, installment3_paid = 0, final_installment_paid = 0,
-                        installment1_paid_invoice = NULL, installment2_paid_invoice = NULL, 
-                        installment3_paid_invoice = NULL, final_installment_paid_invoice = NULL
-                    WHERE id = :case_id";
-                $resetStmt = $this->pdo->prepare($resetQuery);
-                $resetStmt->execute([':case_id' => $caseId]);
-                
-                // Get installment amounts for this case
-                $installmentsQuery = "
-                    SELECT 
-                        installment1_amount, 
-                        installment2_amount, 
-                        installment3_amount, 
-                        final_installment_amount 
-                    FROM test2 
-                    WHERE id = :case_id";
-                $installmentsStmt = $this->pdo->prepare($installmentsQuery);
-                $installmentsStmt->execute([':case_id' => $caseId]);
-                $installments = $installmentsStmt->fetch(PDO::FETCH_ASSOC);
-                
-                // Store installment amounts for direct comparisons
-                $installmentAmounts = [
-                    'installment1_paid' => floatval($installments['installment1_amount'] ?? 0),
-                    'installment2_paid' => floatval($installments['installment2_amount'] ?? 0),
-                    'installment3_paid' => floatval($installments['installment3_amount'] ?? 0),
-                    'final_installment_paid' => floatval($installments['final_installment_amount'] ?? 0)
-                ];
-                
-                // First attempt - match invoices with installments by amount
-                $alreadyMatchedInvoices = [];
-                $installmentMatched = [
-                    'installment1_paid' => false,
-                    'installment2_paid' => false,
-                    'installment3_paid' => false,
-                    'final_installment_paid' => false
-                ];
-                
-                // Try to match invoices with installments by exact amount
-                foreach ($invoices as $invoiceIndex => $invoice) {
-                    $invoiceAmount = floatval($invoice['Kwota opłacona']);
-                    
-                    // Skip already matched invoices
-                    if (in_array($invoiceIndex, $alreadyMatchedInvoices)) {
-                        continue;
-                    }
-                    
-                    // Try to find exact amount match
-                    foreach ($installmentAmounts as $field => $amount) {
-                        if ($amount > 0 && abs($invoiceAmount - $amount) < 0.01 && !$installmentMatched[$field]) {
-                            // We found an exact match
-                            error_log("TableController::syncPaymentStatusesInternal - Found exact amount match for {$field}: invoice amount {$invoiceAmount}, installment amount {$amount}");
-                            
-                            // Update the payment status
-                            $updateQuery = "UPDATE test2 SET {$field} = 1, {$field}_invoice = :invoice_number WHERE id = :case_id";
-                            $updateStmt = $this->pdo->prepare($updateQuery);
-                            $updateStmt->execute([
-                                ':case_id' => $caseId,
-                                ':invoice_number' => $invoice['numer']
-                            ]);
-                            
-                            error_log("TableController::syncPaymentStatusesInternal - Found exact amount match for {$field}: invoice amount {$invoiceAmount}, installment amount {$amount}, invoice: " . $invoice['numer']);
-                            
-                            $installmentMatched[$field] = true;
-                            $alreadyMatchedInvoices[] = $invoiceIndex;
-                            break;
-                        }
-                    }
-                }
-                
-                // Second attempt - for invoices that weren't matched by amount, match them in chronological order
-                $installmentFields = ['installment1_paid', 'installment2_paid', 'installment3_paid', 'final_installment_paid'];
-                $nextUnmatchedInstallment = 0;
-                
-                // Find next unmatched installment
-                while ($nextUnmatchedInstallment < count($installmentFields) && 
-                       $installmentMatched[$installmentFields[$nextUnmatchedInstallment]]) {
-                    $nextUnmatchedInstallment++;
-                }
-                
-                // Process remaining invoices in chronological order
-                foreach ($invoices as $invoiceIndex => $invoice) {
-                    // Skip already matched invoices
-                    if (in_array($invoiceIndex, $alreadyMatchedInvoices)) {
-                        continue;
-                    }
-                    
-                    $invoiceNumber = $invoice['numer'];
-                    $invoiceDate = $invoice['Data płatności'];
-                    $invoiceAmount = $invoice['Kwota opłacona'];
-                    
-                    error_log("TableController::syncPaymentStatusesInternal - Processing unmatched invoice {$invoiceNumber} from {$invoiceDate} for amount {$invoiceAmount}");
-                    
-                    // If we still have unmatched installments, mark the next one as paid
-                    if ($nextUnmatchedInstallment < count($installmentFields)) {
-                        $installmentField = $installmentFields[$nextUnmatchedInstallment];
-                        
-                        // Update the payment status
-                        $updateQuery = "UPDATE test2 SET {$installmentField} = 1, {$installmentField}_invoice = :invoice_number WHERE id = :case_id";
-                        $updateStmt = $this->pdo->prepare($updateQuery);
-                        $updateStmt->execute([
-                            ':case_id' => $caseId,
-                            ':invoice_number' => $invoice['numer']
-                        ]);
-                        
-                        error_log("TableController::syncPaymentStatusesInternal - Marked {$installmentField} as paid for case ID {$caseId} (chronological order), invoice: " . $invoice['numer']);
-                        
-                        $installmentMatched[$installmentField] = true;
-                        $nextUnmatchedInstallment++;
-                        
-                        // Find next unmatched installment
-                        while ($nextUnmatchedInstallment < count($installmentFields) && 
-                              $installmentMatched[$installmentFields[$nextUnmatchedInstallment]]) {
-                            $nextUnmatchedInstallment++;
-                        }
-                    } else {
-                        error_log("TableController::syncPaymentStatusesInternal - No more unmatched installments available for case {$caseName}");
-                        break;
-                    }
-                }
-            }
-            
-            error_log("TableController::syncPaymentStatusesInternal - Payment statuses synchronized successfully");
-            
-            // Store the last synchronization timestamp in session
-            $_SESSION['last_payment_sync'] = time();
-        } catch (PDOException $e) {
-            error_log("TableController::syncPaymentStatusesInternal - ERROR: " . $e->getMessage());
-            error_log("TableController::syncPaymentStatusesInternal - Stack trace: " . $e->getTraceAsString());
-        }
-    }
 
     /**
      * Pobierz sprawy przypisane do danego agenta
@@ -490,21 +295,7 @@ class TableController
         try {
             // For the special Jakub agent, return all cases
             if ($agentId === 'jakub' || $agentId === 'Jakub') {
-                $query = "SELECT t.id, t.case_name, t.is_completed, t.amount_won, t.upfront_fee, 
-                    t.success_fee_percentage, t.total_commission, t.kuba_percentage, t.kuba_payout, 
-                    t.kuba_installment1_amount, t.kuba_installment2_amount, t.kuba_installment3_amount, 
-                    t.kuba_final_installment_amount, t.kuba_invoice_number, 
-                    t.agent1_installment1_amount, t.agent1_installment2_amount, t.agent1_installment3_amount, 
-                    t.agent1_final_installment_amount, t.agent2_installment1_amount, t.agent2_installment2_amount, 
-                    t.agent2_installment3_amount, t.agent2_final_installment_amount, t.agent3_installment1_amount, 
-                    t.agent3_installment2_amount, t.agent3_installment3_amount, t.agent3_final_installment_amount, 
-                    t.installment1_amount, t.installment1_paid, t.installment1_paid_invoice, 
-                    t.installment2_amount, t.installment2_paid, t.installment2_paid_invoice, 
-                    t.installment3_amount, t.installment3_paid, t.installment3_paid_invoice, 
-                    t.final_installment_amount, t.final_installment_paid, t.final_installment_paid_invoice, 
-                    NULL as rola, NULL as percentage 
-                    FROM test2 t 
-                    ORDER BY t.id DESC";
+                $query = "SELECT t.*, NULL as rola, NULL as percentage FROM test2 t ORDER BY t.id DESC";
                 $stmt = $this->pdo->query($query);
                 return $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
@@ -632,7 +423,6 @@ class TableController
                         ];
                     }
                     
-                    // First case - when an agent is selected
                     // Buduj wiersz danych z informacjami o sprawie i agentach
                     $row = [
                         'ID' => $case['id'], // Dodajemy ID do wiersza dla przycisku edycji
@@ -731,12 +521,6 @@ class TableController
                         'Opłacona 4' => $case['final_installment_paid'] ? 'Tak' : 'Nie',
                     ]);
                     
-                    // Store invoice data in the row without creating visible columns
-                    $row['installment1_paid_invoice'] = $case['installment1_paid_invoice'] ?? '';
-                    $row['installment2_paid_invoice'] = $case['installment2_paid_invoice'] ?? '';
-                    $row['installment3_paid_invoice'] = $case['installment3_paid_invoice'] ?? '';
-                    $row['final_installment_paid_invoice'] = $case['final_installment_paid_invoice'] ?? '';
-                    
                     $rows[] = $row;
                 }
             } else {
@@ -771,16 +555,12 @@ class TableController
                         t.agent3_final_installment_amount AS 'Rata 4 – Agent 3',
                         t.installment1_amount AS 'Rata 1',
                         CASE WHEN t.installment1_paid = 1 THEN 'Tak' WHEN t.installment1_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 1',
-                        t.installment1_paid_invoice,
                         t.installment2_amount AS 'Rata 2',
                         CASE WHEN t.installment2_paid = 1 THEN 'Tak' WHEN t.installment2_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 2',
-                        t.installment2_paid_invoice,
                         t.installment3_amount AS 'Rata 3',
                         CASE WHEN t.installment3_paid = 1 THEN 'Tak' WHEN t.installment3_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 3',
-                        t.installment3_paid_invoice,
                         t.final_installment_amount AS 'Rata 4',
-                        CASE WHEN t.final_installment_paid = 1 THEN 'Tak' WHEN t.final_installment_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 4',
-                        t.final_installment_paid_invoice
+                        CASE WHEN t.final_installment_paid = 1 THEN 'Tak' WHEN t.final_installment_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 4'
                     FROM test2 t
                     ORDER BY t.id DESC";
 
@@ -972,12 +752,6 @@ class TableController
             // Define all headers before filtering
             $allHeaders = array_keys(reset($rows));
 
-            // Filter out the invoice fields from the headers
-            $invoiceFields = ['installment1_paid_invoice', 'installment2_paid_invoice', 'installment3_paid_invoice', 'final_installment_paid_invoice'];
-            $allHeaders = array_filter($allHeaders, function($header) use ($invoiceFields) {
-                return !in_array($header, $invoiceFields);
-            });
-
             // FILTR: zostawiamy tylko te nagłówki, które mają choć jeden nie-pusty rekord
             // AND filter out agent rate columns that contain only zeros
             $visibleHeaders = array_filter($allHeaders, function ($title) use ($rows) {
@@ -1064,7 +838,7 @@ class TableController
                 $collapseIcon = $isCollapsible ? '<i class="fa-solid fa-chevron-right collapse-icon"></i>' : '';
                 
                 echo '<th class="' . $collapseClass . '" data-column="' . htmlspecialchars($title, ENT_QUOTES) . '">'
-                    . htmlspecialchars($title, ENT_QUOTES) . '</th>';
+                    . $collapseIcon . htmlspecialchars($title, ENT_QUOTES) . '</th>';
             }
             echo '</tr></thead><tbody>';
 
@@ -1081,77 +855,30 @@ class TableController
                         // Dla kolumny ID, po prostu wyświetl wartość
                         echo '<td>' . $value . '</td>';
                     } elseif (is_array($value)) {
-                        // Kolumna z danymi agenta - używamy nowego formatu dla rozwijania w prawo
-                        if ($title === 'Kuba' || strpos($title, 'Agent') === 0) {
-                            // Wyciągnij dane agenta z tablicy
-                            $name = '';
-                            $percent = '';
-                            $wypłata = '';
-                            $rata1 = '';
-                            $rata2 = '';
-                            $rata3 = '';
-                            $rata4 = '';
-                            $invoice = '';
-                            
-                            foreach ($value as $key => $val) {
-                                if ($key === 'Nazwa') {
-                                    $name = $val;
-                                } elseif ($key === 'Prowizja %') {
-                                    $percent = $val;
-                                } elseif ($key === 'Do wypłaty') {
-                                    $wypłata = $val;
-                                } elseif ($key === 'Rata 1') {
-                                    $rata1 = $val;
-                                } elseif ($key === 'Rata 2') {
-                                    $rata2 = $val;
-                                } elseif ($key === 'Rata 3') {
-                                    $rata3 = $val;
-                                } elseif ($key === 'Rata 4') {
-                                    $rata4 = $val;
-                                } elseif ($key === 'Nr faktury') {
-                                    $invoice = $val;
-                                }
+                        // Kolumna z zagnieżdżonymi danymi (kolapsowalna)
+                        echo '<td class="has-nested-data">';
+                        echo '<div class="nested-data-trigger">';
+                        echo '<i class="fa-solid fa-chevron-right nested-icon"></i>';
+                        
+                        // Wyświetl pierwszą wartość (zazwyczaj nazwę) jako trigger
+                        $firstKey = array_key_first($value);
+                        $firstName = array_key_exists($firstKey, $value) ? $value[$firstKey] : '';
+                        
+                        echo $firstName;
+                        echo '</div>';
+                        
+                        // Dodaj ukryty kontener na dane zagnieżdżone
+                        echo '<div class="nested-data-container">';
+                        foreach ($value as $nestedKey => $nestedValue) {
+                            if ($nestedKey !== $firstKey) { // Pomiń pierwszą wartość (już wyświetlona)
+                                echo '<div class="nested-data-row">';
+                                echo '<span class="nested-label">' . htmlspecialchars($nestedKey, ENT_QUOTES) . ':</span>';
+                                echo '<span class="nested-value">' . $nestedValue . '</span>';
+                                echo '</div>';
                             }
-                            
-                            // Specjalne wyświetlanie dla Kuby
-                            if ($title === 'Kuba') {
-                                $displayName = 'Kuba';
-                                
-                                echo '<td class="agent-column" ' .
-                                     'data-name="' . htmlspecialchars($displayName, ENT_QUOTES) . '" ' .
-                                     'data-percent="' . strip_tags($percent) . '" ' .
-                                     'data-wypłata="' . strip_tags($wypłata) . '" ' .
-                                     'data-rata1="' . strip_tags($rata1) . '" ' .
-                                     'data-rata2="' . strip_tags($rata2) . '" ' .
-                                     'data-rata3="' . strip_tags($rata3) . '" ' .
-                                     'data-rata4="' . strip_tags($rata4) . '" ' .
-                                     'data-invoice="' . htmlspecialchars($invoice, ENT_QUOTES) . '">' .
-                                     $displayName .
-                                     '</td>';
-                            } else {
-                                // Standardowy przypadek dla Agentów 1-3
-                                // Pobierz nazwę agenta z wartości name
-                                $agentDisplayName = '';
-                                if (!empty($name)) {
-                                    $agentDisplayName = strip_tags($name);
-                                } else {
-                                    $agentDisplayName = $title; // Użyj tytułu kolumny jako nazwy
-                                }
-                                
-                                echo '<td class="agent-column" ' .
-                                     'data-name="' . htmlspecialchars($agentDisplayName, ENT_QUOTES) . '" ' .
-                                     'data-percent="' . strip_tags($percent) . '" ' .
-                                     'data-rata1="' . strip_tags($rata1) . '" ' .
-                                     'data-rata2="' . strip_tags($rata2) . '" ' .
-                                     'data-rata3="' . strip_tags($rata3) . '" ' .
-                                     'data-rata4="' . strip_tags($rata4) . '">' .
-                                     $name .
-                                     '</td>';
-                            }
-                        } else {
-                            // Obsługa innych kolumn z zagnieżdżonymi danymi (jeśli istnieją)
-                            echo '<td>' . print_r($value, true) . '</td>';
                         }
+                        echo '</div>';
+                        echo '</td>';
                     } elseif (is_numeric($value)) {
                         if (strpos($title, 'Do wypłaty') !== false || 
                             strpos($title, 'Prowizja %') !== false || 
@@ -1162,35 +889,7 @@ class TableController
                                   strpos($title, 'Całość prowizji') !== false ||
                                   strpos($title, 'Rata') !== false) {
                             // Dodaj znak złotówki do wartości pieniężnych
-                            // Sprawdź czy to jest rata z przypisaną fakturą
-                            $invoiceInfo = '';
-                            if (strpos($title, 'Rata') !== false) {
-                                $installmentNum = substr($title, -1); // Get the last character (the number)
-                                $paidKey = 'Opłacona ' . $installmentNum;
-                                
-                                // Check if installment is paid
-                                if (isset($row[$paidKey]) && $row[$paidKey] === 'Tak') {
-                                    // Determine invoice field name based on installment number
-                                    $invoiceField = '';
-                                    if ($installmentNum == '1') {
-                                        $invoiceField = 'installment1_paid_invoice';
-                                    } else if ($installmentNum == '2') {
-                                        $invoiceField = 'installment2_paid_invoice';
-                                    } else if ($installmentNum == '3') {
-                                        $invoiceField = 'installment3_paid_invoice';
-                                    } else if ($installmentNum == '4') {
-                                        $invoiceField = 'final_installment_paid_invoice';
-                                    }
-                                    
-                                    // If we have invoice data for this installment, display it
-                                    if (isset($row[$invoiceField]) && !empty($row[$invoiceField])) {
-                                        $invoiceNumber = htmlspecialchars($row[$invoiceField], ENT_QUOTES);
-                                        $invoiceInfo = '<div class="invoice-number">' . $invoiceNumber . '</div>';
-                                    }
-                                }
-                            }
-                            
-                            echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . ' zł' . $invoiceInfo . '</td>';
+                            echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . ' zł</td>';
                         } else {
                             echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . '</td>';
                         }
@@ -1200,6 +899,30 @@ class TableController
                         echo '<td><span class="status ' . $statusClass . '">' . htmlspecialchars($value, ENT_QUOTES) . '</span></td>';
                     } else {
                         // Zezwól na HTML w komórkach (np. dla nazw agentów)
+                        // Sprawdzenie czy zawiera span z klasą selected-agent i czy potrzebuje formatowania
+                        if (strpos($value, 'class="selected-agent"') !== false) {
+                            // Dodaj formatowanie dla wybranego agenta jeśli jest to wartość liczbowa
+                            if (preg_match('/<span class="selected-agent">([0-9.,]+)<\/span>/', $value, $matches)) {
+                                $numVal = $matches[1];
+                                
+                                if (strpos($title, '%') !== false) {
+                                    // Dla wartości procentowych
+                                    $value = str_replace(
+                                        '<span class="selected-agent">' . $numVal . '</span>', 
+                                        '<span class="selected-agent">' . number_format((float)$numVal, 2, ',', ' ') . '%</span>', 
+                                        $value
+                                    );
+                                } elseif (strpos($title, 'Rata') !== false || strpos($title, 'kwota') !== false || 
+                                          strpos($title, 'prowizji') !== false || strpos($title, 'Opłata') !== false) {
+                                    // Dla wartości pieniężnych
+                                    $value = str_replace(
+                                        '<span class="selected-agent">' . $numVal . '</span>', 
+                                        '<span class="selected-agent">' . number_format((float)$numVal, 2, ',', ' ') . ' zł</span>', 
+                                        $value
+                                    );
+                                }
+                            }
+                        }
                         echo '<td>' . $value . '</td>';
                     }
                 }
@@ -1668,9 +1391,6 @@ class TableController
             // Przelicz prowizje po aktualizacji
             $this->recalculateCase($id);
             
-            // Synchronize payment statuses after update
-            $this->syncPaymentStatusesInternal();
-            
             // Przekieruj z powrotem do tabeli z komunikatem sukcesu
             header('Location: /table?success=1');
             exit;
@@ -1680,81 +1400,6 @@ class TableController
             error_log("TableController::update - Stack trace: " . $e->getTraceAsString());
             header('Location: /table?error=update_failed');
             exit;
-        }
-    }
-
-    /**
-     * Synchronize payment statuses between test and test2 tables
-     * This method checks if invoices in the test table match cases in test2
-     * and marks installments as paid in chronological order
-     */
-    public function syncPaymentStatuses(): void
-    {
-        error_log("TableController::syncPaymentStatuses - Start");
-        require_once __DIR__ . '/../../config/database.php';
-        global $pdo;
-        $this->pdo = $pdo;
-        
-        try {
-            // Call the internal method that does the actual work
-            $this->syncPaymentStatusesInternal();
-            
-            // Display success message and redirect
-            error_log("TableController::syncPaymentStatuses - Payment statuses synchronized successfully");
-            echo '<div class="notification info show">
-                    <i class="fa-solid fa-check-circle"></i>
-                    Statusy płatności zostały zsynchronizowane pomyślnie!
-                  </div>';
-            
-            // Redirect back to table
-            header("Refresh: 2; URL=/table");
-        } catch (PDOException $e) {
-            error_log("TableController::syncPaymentStatuses - ERROR: " . $e->getMessage());
-            error_log("TableController::syncPaymentStatuses - Stack trace: " . $e->getTraceAsString());
-            echo '<div class="notification error show">
-                    <i class="fa-solid fa-exclamation-circle"></i>
-                    Błąd podczas synchronizacji statusów płatności: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '
-                  </div>';
-        }
-    }
-    
-    /**
-     * AJAX endpoint for payment status synchronization
-     * Returns JSON response instead of redirecting
-     */
-    public function syncPaymentsAjax(): void
-    {
-        error_log("TableController::syncPaymentsAjax - Start");
-        header('Content-Type: application/json');
-        require_once __DIR__ . '/../../config/database.php';
-        global $pdo;
-        $this->pdo = $pdo;
-        
-        try {
-            // Call the internal method that does the actual work
-            $this->syncPaymentStatusesInternal();
-            
-            // Return success message
-            error_log("TableController::syncPaymentsAjax - Payment statuses synchronized successfully");
-            $response = [
-                'success' => true,
-                'message' => 'Statusy płatności zostały zsynchronizowane pomyślnie!'
-            ];
-            
-            // Include last sync time if available
-            if (isset($_SESSION['last_payment_sync'])) {
-                $response['last_sync_time'] = date('d.m.Y H:i:s', $_SESSION['last_payment_sync']);
-            }
-            
-            echo json_encode($response);
-        } catch (PDOException $e) {
-            error_log("TableController::syncPaymentsAjax - ERROR: " . $e->getMessage());
-            error_log("TableController::syncPaymentsAjax - Stack trace: " . $e->getTraceAsString());
-            
-            echo json_encode([
-                'success' => false,
-                'message' => 'Błąd podczas synchronizacji statusów płatności: ' . $e->getMessage()
-            ]);
         }
     }
 }
