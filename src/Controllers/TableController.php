@@ -425,6 +425,8 @@ class TableController
                     
                     // Buduj wiersz danych z informacjami o sprawie i agentach
                     $row = [
+                        'ID' => $case['id'], // Dodajemy ID do wiersza dla przycisku edycji
+                        'Akcje' => $this->renderActionButtons($case['id']), // Dodajemy przycisk edycji
                         'Sprawa' => $case['case_name'],
                         'Zakończona?' => $case['is_completed'] ? 'Tak' : 'Nie',
                         'Wywalczona kwota' => $case['amount_won'],
@@ -556,7 +558,16 @@ class TableController
                 $rows = [];
                 foreach ($casesTemp as $case) {
                     $caseId = $case['id'];
+                    
+                    // Dodajemy kolumnę akcji z przyciskiem edycji
+                    $actionButtons = $this->renderActionButtons($caseId);
+                    $newCase = [
+                        'ID' => $caseId,
+                        'Akcje' => $actionButtons
+                    ];
+                    
                     unset($case['id']); // Usuń ID z danych do wyświetlenia
+                    $newCase = array_merge($newCase, $case); // Dodaj pozostałe dane
                     
                     // Debug log to see all available keys in the case row
                     error_log("Keys in case row for case ID {$caseId}: " . implode(", ", array_keys($case)));
@@ -583,14 +594,14 @@ class TableController
                                 $highlightClass = $this->getAgentHighlightClass($agent['agent_id']);
                                 
                                 // Highlight agent name
-                                $case["Agent {$agentNum}"] = sprintf(
+                                $newCase["Agent {$agentNum}"] = sprintf(
                                     '<span class="%s">%s</span>', 
                                     $highlightClass,
                                     htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'])
                                 );
                                 
                                 // Highlight agent percentage
-                                $case["Prowizja % Agent {$agentNum}"] = sprintf(
+                                $newCase["Prowizja % Agent {$agentNum}"] = sprintf(
                                     '<span class="%s">%s%%</span>',
                                     $highlightClass,
                                     $agent['percentage']
@@ -605,9 +616,9 @@ class TableController
                                 ];
                                 
                                 foreach ($rateColumns as $rateColumn) {
-                                    if (isset($case[$rateColumn])) {
-                                        $value = $case[$rateColumn];
-                                        $case[$rateColumn] = sprintf(
+                                    if (isset($newCase[$rateColumn])) {
+                                        $value = $newCase[$rateColumn];
+                                        $newCase[$rateColumn] = sprintf(
                                             '<span class="%s">%s</span>',
                                             $highlightClass,
                                             $value
@@ -619,13 +630,13 @@ class TableController
                                 }
                             } else {
                                 // For normal view - just basic formatting
-                                $case["Agent {$agentNum}"] = sprintf(
+                                $newCase["Agent {$agentNum}"] = sprintf(
                                     '<span class="agent-name-highlight">%s</span>', 
                                     htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'])
                                 );
                                 
                                 // No highlighting for agent percentage
-                                $case["Prowizja % Agent {$agentNum}"] = $agent['percentage'] . '%';
+                                $newCase["Prowizja % Agent {$agentNum}"] = $agent['percentage'] . '%';
                             }
                         }
                     }
@@ -633,47 +644,47 @@ class TableController
                     // Handle Kuba's data formatting
                     if ($isJakubView) {
                         // Only apply Kuba highlighting when in Jakub view
-                        if (isset($case['Prowizja % Kuba'])) {
-                            $case['Prowizja % Kuba'] = '<span class="kuba-highlight">' . $case['Prowizja % Kuba'] . '%</span>';
+                        if (isset($newCase['Prowizja % Kuba'])) {
+                            $newCase['Prowizja % Kuba'] = '<span class="kuba-highlight">' . $newCase['Prowizja % Kuba'] . '%</span>';
                         }
-                        if (isset($case['Do wypłaty Kuba'])) {
-                            $case['Do wypłaty Kuba'] = '<span class="kuba-highlight">' . $case['Do wypłaty Kuba'] . '%</span>';
+                        if (isset($newCase['Do wypłaty Kuba'])) {
+                            $newCase['Do wypłaty Kuba'] = '<span class="kuba-highlight">' . $newCase['Do wypłaty Kuba'] . '%</span>';
                         }
-                        if (isset($case['Rata 1 – Kuba'])) {
-                            $case['Rata 1 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$case['Rata 1 – Kuba'], 2, ',', ' ') . ' zł</span>';
+                        if (isset($newCase['Rata 1 – Kuba'])) {
+                            $newCase['Rata 1 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$newCase['Rata 1 – Kuba'], 2, ',', ' ') . ' zł</span>';
                         }
-                        if (isset($case['Rata 2 – Kuba'])) {
-                            $case['Rata 2 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$case['Rata 2 – Kuba'], 2, ',', ' ') . ' zł</span>';
+                        if (isset($newCase['Rata 2 – Kuba'])) {
+                            $newCase['Rata 2 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$newCase['Rata 2 – Kuba'], 2, ',', ' ') . ' zł</span>';
                         }
-                        if (isset($case['Rata 3 – Kuba'])) {
-                            $case['Rata 3 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$case['Rata 3 – Kuba'], 2, ',', ' ') . ' zł</span>';
+                        if (isset($newCase['Rata 3 – Kuba'])) {
+                            $newCase['Rata 3 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$newCase['Rata 3 – Kuba'], 2, ',', ' ') . ' zł</span>';
                         }
-                        if (isset($case['Rata 4 – Kuba'])) {
-                            $case['Rata 4 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$case['Rata 4 – Kuba'], 2, ',', ' ') . ' zł</span>';
+                        if (isset($newCase['Rata 4 – Kuba'])) {
+                            $newCase['Rata 4 – Kuba'] = '<span class="kuba-highlight">' . number_format((float)$newCase['Rata 4 – Kuba'], 2, ',', ' ') . ' zł</span>';
                         }
                     } else {
                         // Just format numbers without highlighting when not in Jakub view
-                        if (isset($case['Prowizja % Kuba'])) {
-                            $case['Prowizja % Kuba'] = $case['Prowizja % Kuba'] . '%';
+                        if (isset($newCase['Prowizja % Kuba'])) {
+                            $newCase['Prowizja % Kuba'] = $newCase['Prowizja % Kuba'] . '%';
                         }
-                        if (isset($case['Do wypłaty Kuba'])) {
-                            $case['Do wypłaty Kuba'] = $case['Do wypłaty Kuba'] . '%';
+                        if (isset($newCase['Do wypłaty Kuba'])) {
+                            $newCase['Do wypłaty Kuba'] = $newCase['Do wypłaty Kuba'] . '%';
                         }
-                        if (isset($case['Rata 1 – Kuba'])) {
-                            $case['Rata 1 – Kuba'] = number_format((float)$case['Rata 1 – Kuba'], 2, ',', ' ') . ' zł';
+                        if (isset($newCase['Rata 1 – Kuba'])) {
+                            $newCase['Rata 1 – Kuba'] = number_format((float)$newCase['Rata 1 – Kuba'], 2, ',', ' ') . ' zł';
                         }
-                        if (isset($case['Rata 2 – Kuba'])) {
-                            $case['Rata 2 – Kuba'] = number_format((float)$case['Rata 2 – Kuba'], 2, ',', ' ') . ' zł';
+                        if (isset($newCase['Rata 2 – Kuba'])) {
+                            $newCase['Rata 2 – Kuba'] = number_format((float)$newCase['Rata 2 – Kuba'], 2, ',', ' ') . ' zł';
                         }
-                        if (isset($case['Rata 3 – Kuba'])) {
-                            $case['Rata 3 – Kuba'] = number_format((float)$case['Rata 3 – Kuba'], 2, ',', ' ') . ' zł';
+                        if (isset($newCase['Rata 3 – Kuba'])) {
+                            $newCase['Rata 3 – Kuba'] = number_format((float)$newCase['Rata 3 – Kuba'], 2, ',', ' ') . ' zł';
                         }
-                        if (isset($case['Rata 4 – Kuba'])) {
-                            $case['Rata 4 – Kuba'] = number_format((float)$case['Rata 4 – Kuba'], 2, ',', ' ') . ' zł';
+                        if (isset($newCase['Rata 4 – Kuba'])) {
+                            $newCase['Rata 4 – Kuba'] = number_format((float)$newCase['Rata 4 – Kuba'], 2, ',', ' ') . ' zł';
                         }
                     }
                     
-                    $rows[] = $case;
+                    $rows[] = $newCase;
                 }
             }
 
@@ -748,7 +759,13 @@ class TableController
                 foreach ($visibleHeaders as $title) {
                     $value = $row[$title] ?? '';
 
-                    if (is_numeric($value)) {
+                    if ($title === 'Akcje') {
+                        // Dla kolumny akcji, po prostu wyświetl wartość HTML
+                        echo '<td class="action-buttons">' . $value . '</td>';
+                    } elseif ($title === 'ID') {
+                        // Dla kolumny ID, po prostu wyświetl wartość
+                        echo '<td>' . $value . '</td>';
+                    } elseif (is_numeric($value)) {
                         if ($title === 'Do wypłaty Kuba') { 
                             echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . '%</td>';
                         } elseif (strpos($title, '%') !== false) {
@@ -803,6 +820,25 @@ class TableController
             echo '<p style="color:red; text-align:center;">Błąd: '
                 . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
         }
+    }
+
+    /**
+     * Generuje przyciski akcji dla danego rekordu
+     */
+    private function renderActionButtons($caseId): string 
+    {
+        $buttons = [];
+        
+        // Przycisk edycji z ikoną długopisu
+        $editButton = sprintf(
+            '<a href="/case/edit/%d" class="edit-button" title="Edytuj rekord"><i class="fa-solid fa-pen-to-square"></i></a>',
+            $caseId
+        );
+        $buttons[] = $editButton;
+        
+        // Możesz dodać więcej przycisków w przyszłości
+        
+        return implode(' ', $buttons);
     }
 
     /**
@@ -964,6 +1000,292 @@ class TableController
             echo "<pre>";
             echo "Wystąpił błąd podczas przeliczania prowizji: " . $e->getMessage();
             echo "</pre>";
+        }
+    }
+
+    /**
+     * Wyświetl formularz edycji sprawy
+     */
+    public function edit($id): void
+    {
+        error_log("TableController::edit - Start");
+        require_once __DIR__ . '/../../config/database.php';
+        global $pdo;
+        $this->pdo = $pdo;
+
+        // Pobierz ID sprawy z parametru metody
+        $id = intval($id);
+        
+        if (!$id) {
+            header('Location: /table?error=no_id');
+            exit;
+        }
+        
+        error_log("TableController::edit - Edycja sprawy o ID: {$id}");
+        
+        // Pobierz dane sprawy
+        try {
+            $query = "SELECT * FROM test2 WHERE id = :id";
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute([':id' => $id]);
+            $case = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$case) {
+                error_log("TableController::edit - Nie znaleziono sprawy o ID: {$id}");
+                header('Location: /table?error=not_found');
+                exit;
+            }
+            
+            // Pobierz agentów przypisanych do tej sprawy
+            $agentsQuery = "
+                SELECT sa.agent_id, sa.rola, sa.percentage, a.imie, a.nazwisko
+                FROM sprawa_agent sa
+                JOIN agenci a ON sa.agent_id = a.agent_id
+                WHERE sa.sprawa_id = :sprawa_id
+                ORDER BY sa.rola";
+            
+            $agentsStmt = $this->pdo->prepare($agentsQuery);
+            $agentsStmt->execute([':sprawa_id' => $id]);
+            $caseAgents = $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Przypisz agentów do tablicy według ich ról dla łatwiejszego dostępu w widoku
+            $assignedAgents = [];
+            foreach ($caseAgents as $agent) {
+                $role = $agent['rola'];
+                $agentNum = 0;
+                
+                if (preg_match('/agent_(\d+)/', $role, $matches)) {
+                    $agentNum = (int)$matches[1];
+                    $assignedAgents[$agentNum] = $agent;
+                }
+            }
+            
+            // Pobierz wszystkich dostępnych agentów do wyboru
+            $agents = $this->getAgents();
+            
+            error_log("TableController::edit - Renderowanie formularza edycji");
+            include __DIR__ . '/../Views/edit_case.php';
+            
+        } catch (PDOException $e) {
+            error_log("TableController::edit - BŁĄD: " . $e->getMessage());
+            header('Location: /table?error=db_error');
+            exit;
+        }
+    }
+    
+    /**
+     * Aktualizuje dane sprawy po edycji
+     */
+    public function update($id): void
+    {
+        error_log("TableController::update - Start");
+        require_once __DIR__ . '/../../config/database.php';
+        global $pdo;
+        $this->pdo = $pdo;
+        
+        // Pobierz ID sprawy z parametru metody
+        $id = intval($id);
+        
+        if (!$id) {
+            header('Location: /table?error=no_id');
+            exit;
+        }
+        
+        $data = $_POST;
+        error_log("TableController::update - Aktualizacja sprawy ID: {$id}");
+        error_log("TableController::update - Otrzymane dane: " . print_r($data, true));
+        
+        try {
+            // Walidacja danych przed aktualizacją
+            $errors = [];
+            
+            // 1. Walidacja prowizji Kuby
+            if (isset($data['kuba_percentage']) && $data['kuba_percentage'] !== '') {
+                $kubaPercentage = floatval($data['kuba_percentage']);
+                error_log("TableController::update - Prowizja Kuby: {$kubaPercentage}");
+                if ($kubaPercentage < 0 || $kubaPercentage > 100) {
+                    error_log("TableController::update - BŁĄD: Prowizja Kuby poza zakresem 0-100");
+                    $errors[] = "Prowizja Kuby musi być wartością z przedziału 0-100.";
+                }
+            } else {
+                error_log("TableController::update - BŁĄD: Brak prowizji Kuby");
+                $errors[] = "Prowizja Kuby jest wymagana.";
+                $kubaPercentage = 0;
+            }
+            
+            // 2. Walidacja prowizji agentów
+            $agentPercents = [];
+            for ($i = 1; $i <= 3; $i++) {
+                if (isset($data["agent{$i}_percentage"]) && $data["agent{$i}_percentage"] !== '') {
+                    $agentValue = floatval($data["agent{$i}_percentage"]);
+                    error_log("TableController::update - Prowizja Agenta {$i}: {$agentValue}");
+                    if ($agentValue < 0 || $agentValue > 100) {
+                        error_log("TableController::update - BŁĄD: Prowizja Agenta {$i} poza zakresem 0-100");
+                        $errors[] = "Prowizja agenta {$i} musi być wartością z przedziału 0-100.";
+                    }
+                    if ($agentValue > $kubaPercentage) {
+                        error_log("TableController::update - BŁĄD: Prowizja Agenta {$i} > prowizja Kuby");
+                        $errors[] = "Prowizja agenta {$i} nie może być większa niż prowizja Kuby ({$kubaPercentage}%).";
+                    }
+                    $agentPercents[] = $agentValue;
+                } else {
+                    error_log("TableController::update - Agent {$i} nie ma określonej prowizji");
+                }
+            }
+            if (array_sum($agentPercents) > $kubaPercentage) {
+                error_log("TableController::update - BŁĄD: Suma prowizji agentów > prowizja Kuby");
+                $errors[] = "Suma prowizji agentów (" . array_sum($agentPercents) . "%) nie może być większa niż prowizja Kuby ({$kubaPercentage}%).";
+            }
+            
+            // 3. Walidacja innych pól numerycznych
+            $fieldsToValidate = ['amount_won', 'upfront_fee', 'success_fee_percentage'];
+            foreach ($fieldsToValidate as $field) {
+                if (isset($data[$field]) && $data[$field] !== '') {
+                    error_log("TableController::update - Walidacja pola {$field}: " . $data[$field]);
+                    if (!is_numeric($data[$field]) || floatval($data[$field]) < 0) {
+                        error_log("TableController::update - BŁĄD: Pole {$field} ma nieprawidłową wartość");
+                        $errors[] = "Pole '{$field}' musi być liczbą nieujemną.";
+                    }
+                } else {
+                    error_log("TableController::update - Pole {$field} nie jest ustawione");
+                }
+            }
+            
+            // 4. Walidacja pól rat (jeśli są podane)
+            $totalInstallments = 0;
+            for ($i = 1; $i <= 3; $i++) {
+                $installmentField = "installment{$i}_amount";
+                if (isset($data[$installmentField]) && $data[$installmentField] !== '') {
+                    error_log("TableController::update - Walidacja raty {$i}: " . $data[$installmentField]);
+                    if (!is_numeric($data[$installmentField]) || floatval($data[$installmentField]) < 0) {
+                        error_log("TableController::update - BŁĄD: Rata {$i} ma nieprawidłową wartość");
+                        $errors[] = "Rata {$i} musi być liczbą nieujemną.";
+                    } else {
+                        $totalInstallments += floatval($data[$installmentField]);
+                    }
+                } else {
+                    error_log("TableController::update - Rata {$i} nie jest ustawiona");
+                }
+            }
+            
+            // 5. Sprawdzenie czy suma rat jest równa opłacie wstępnej
+            if (isset($data['upfront_fee']) && $data['upfront_fee'] !== '') {
+                $upfrontFee = floatval($data['upfront_fee']);
+                if ($totalInstallments != $upfrontFee) {
+                    error_log("TableController::update - BŁĄD: Suma rat ($totalInstallments) nie jest równa opłacie wstępnej ($upfrontFee)");
+                    $errors[] = "Suma rat ({$totalInstallments} zł) musi być równa opłacie wstępnej ({$upfrontFee} zł).";
+                }
+            }
+            
+            // Jeśli wykryto błąd walidacji, wypisz je i zatrzymaj działanie
+            if (count($errors) > 0) {
+                error_log("TableController::update - Znaleziono " . count($errors) . " błędów walidacji");
+                echo "<div style='color:red;'><h3>Błędy walidacji:</h3><ul>";
+                foreach ($errors as $error) {
+                    echo "<li>" . htmlspecialchars($error, ENT_QUOTES) . "</li>";
+                }
+                echo "</ul></div>";
+                exit;
+            }
+            
+            // Przygotuj dane do aktualizacji
+            $updates = [];
+            $params = [':id' => $id];
+            
+            // Pola, które można aktualizować w tabeli test2
+            $editableFields = [
+                'case_name',
+                'is_completed',
+                'amount_won',
+                'upfront_fee',
+                'success_fee_percentage',
+                'kuba_percentage',
+                'installment1_amount',
+                'installment1_paid',
+                'installment2_amount',
+                'installment2_paid',
+                'installment3_amount',
+                'installment3_paid',
+                'final_installment_paid',
+                'kuba_invoice_number'
+            ];
+            
+            // Przetwórz checkbox na wartości 0/1
+            $checkboxFields = [
+                'is_completed',
+                'installment1_paid',
+                'installment2_paid',
+                'installment3_paid',
+                'final_installment_paid'
+            ];
+            
+            foreach ($editableFields as $field) {
+                if (array_key_exists($field, $data)) {
+                    if (in_array($field, $checkboxFields)) {
+                        // Checkbox - sprawdź czy zaznaczony
+                        $value = isset($data[$field]) ? 1 : 0;
+                        $updates[] = "{$field} = :{$field}";
+                        $params[":{$field}"] = $value;
+                    } else {
+                        // Pozostałe pola
+                        $updates[] = "{$field} = :{$field}";
+                        $params[":{$field}"] = $data[$field] !== '' ? $data[$field] : null;
+                    }
+                }
+            }
+            
+            // Aktualizuj dane sprawy
+            if (!empty($updates)) {
+                $updateQuery = "UPDATE test2 SET " . implode(", ", $updates) . " WHERE id = :id";
+                $updateStmt = $this->pdo->prepare($updateQuery);
+                $updateStmt->execute($params);
+                error_log("TableController::update - Zaktualizowano dane sprawy ID: {$id}");
+            }
+            
+            // Aktualizuj powiązania agentów
+            // Najpierw usuń istniejące powiązania
+            $deleteAgentsQuery = "DELETE FROM sprawa_agent WHERE sprawa_id = :sprawa_id";
+            $deleteAgentsStmt = $this->pdo->prepare($deleteAgentsQuery);
+            $deleteAgentsStmt->execute([':sprawa_id' => $id]);
+            error_log("TableController::update - Usunięto istniejące powiązania agentów");
+            
+            // Dodaj nowe powiązania dla agentów 1-3
+            $insertAgentQuery = "
+                INSERT INTO sprawa_agent (sprawa_id, agent_id, rola, percentage) 
+                VALUES (:sprawa_id, :agent_id, :rola, :percentage)";
+            $insertAgentStmt = $this->pdo->prepare($insertAgentQuery);
+            
+            for ($i = 1; $i <= 3; $i++) {
+                $agentIdKey = "agent{$i}_id";
+                $percentageKey = "agent{$i}_percentage";
+                
+                if (isset($data[$agentIdKey]) && $data[$agentIdKey] && isset($data[$percentageKey])) {
+                    $agentId = $data[$agentIdKey];
+                    $percentage = $data[$percentageKey];
+                    
+                    $insertAgentStmt->execute([
+                        ':sprawa_id' => $id,
+                        ':agent_id' => $agentId,
+                        ':rola' => "agent_{$i}",
+                        ':percentage' => $percentage
+                    ]);
+                    
+                    error_log("TableController::update - Dodano powiązanie dla agenta {$agentId} z rolą agent_{$i}");
+                }
+            }
+            
+            // Przelicz prowizje po aktualizacji
+            $this->recalculateCase($id);
+            
+            // Przekieruj z powrotem do tabeli z komunikatem sukcesu
+            header('Location: /table?success=1');
+            exit;
+            
+        } catch (PDOException $e) {
+            error_log("TableController::update - BŁĄD: " . $e->getMessage());
+            error_log("TableController::update - Stack trace: " . $e->getTraceAsString());
+            header('Location: /table?error=update_failed');
+            exit;
         }
     }
 }

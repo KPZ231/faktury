@@ -50,6 +50,10 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
 
     $r->addRoute('GET', '/table',          [TableController::class, 'index']);
     $r->addRoute('GET', '/recalculate', [TableController::class, 'recalculateCase']);
+    
+    // Case edit routes
+    $r->addRoute('GET',    '/case/edit/{id:\d+}', [TableController::class, 'edit']);
+    $r->addRoute('POST',   '/case/edit/{id:\d+}', [TableController::class, 'update']);
 
     $r->addRoute('GET', "/agents", [AgentController::class, 'index']);
     $r->addRoute('POST', "/agents", [AgentController::class, 'addAgent']);

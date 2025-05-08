@@ -53,6 +53,19 @@
         <h1>Podejrzyj Tabele</h1>
     </header>
 
+    <?php if (isset($_GET['success'])): ?>
+    <div class="notification info show">
+        <i class="fa-solid fa-check-circle"></i>
+        Rekord został pomyślnie zaktualizowany!
+    </div>
+    <script>
+        // Auto-hide notification after 3 seconds
+        setTimeout(function() {
+            document.querySelector('.notification').classList.remove('show');
+        }, 3000);
+    </script>
+    <?php endif; ?>
+
     <section id="dataTable">
         <?php if (isset($selectedAgent)): ?>
             <!-- Wyświetl dane dla wybranego agenta -->
@@ -423,6 +436,31 @@
             background-color: rgba(224, 224, 224, 0.6);
             transform: translateY(-1px);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Style dla przycisku edycji */
+        .edit-button {
+            display: inline-block;
+            padding: 5px 10px;
+            background-color: #2196F3;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 12px;
+            margin-right: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .edit-button:hover {
+            background-color: #0b7dda;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Kontener przycisków akcji */
+        .action-buttons {
+            white-space: nowrap;
+            text-align: center;
         }
     </style>
 

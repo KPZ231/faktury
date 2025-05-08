@@ -4,14 +4,11 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_role'])) {
     $username = htmlspecialchars($_SESSION['user'], ENT_QUOTES);
     $role = htmlspecialchars($_SESSION['user_role'], ENT_QUOTES);
     
-    // Dodaj odpowiednie klasy CSS i ikony dla różnych ról
+    // Dodaj odpowiednie klasy CSS dla różnych ról
     $roleClass = $role === 'superadmin' ? 'role-superadmin' : 'role-admin';
-    $icon = $role === 'superadmin' ? 'fa-user-shield' : 'fa-user';
     
     echo '<div class="user-info-container">';
-    echo '<i class="fa-solid ' . $icon . ' user-icon"></i>';
     echo '<div class="user-info">';
-    echo '<span class="user-name">Zalogowany jako: <strong>' . $username . '</strong></span>';
     echo '<span class="user-role ' . $roleClass . '">' . ($role === 'superadmin' ? 'Superadmin' : 'Admin') . '</span>';
     echo '</div>';
     echo '</div>';
@@ -23,19 +20,15 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_role'])) {
     position: fixed;
     top: 15px;
     right: 15px;
-    background-color: rgba(255, 255, 255, 0.95);
     border-radius: 8px;
     padding: 10px 15px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
     z-index: 1500;
     max-width: 250px;
     display: flex;
     align-items: center;
-    gap: 10px;
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(230, 230, 230, 0.8);
     transition: all 0.3s ease;
     animation: fade-in 0.5s ease;
+    color: white;
 }
 
 @keyframes fade-in {
@@ -44,7 +37,7 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_role'])) {
 }
 
 .user-info-container:hover {
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
     transform: translateY(-2px);
 }
 
@@ -52,21 +45,17 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_role'])) {
     display: flex;
     flex-direction: column;
     font-size: 14px;
-}
-
-.user-icon {
-    font-size: 20px;
-    color: #555;
+    align-items: center;
 }
 
 .user-name {
     margin-bottom: 5px;
-    color: #333;
+    color: white;
     font-weight: 500;
 }
 
 .user-name strong {
-    color: #1976D2;
+    color: white;
     font-weight: 700;
 }
 
@@ -99,10 +88,6 @@ if (isset($_SESSION['user']) && isset($_SESSION['user_role'])) {
         right: 15px;
         max-width: 200px;
         padding: 8px 12px;
-    }
-    
-    .user-icon {
-        font-size: 18px;
     }
     
     .user-info {
