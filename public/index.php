@@ -64,6 +64,12 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     // Add new route for updating commission payment status
     $r->addRoute('POST', '/update-commission-status', [TableController::class, 'updateCommissionStatusAjax']);
     
+    // Add new route for getting case agents
+    $r->addRoute('GET', '/get-case-agents', [TableController::class, 'getCaseAgentsAjax']);
+    
+    // Add new route for getting agent commission information
+    $r->addRoute('GET', '/get-agent-commission', [AgentController::class, 'getAgentCommission']);
+    
     // Case edit routes
     $r->addRoute('GET',    '/case/edit/{id:\d+}', [TableController::class, 'edit']);
     $r->addRoute('POST',   '/case/edit/{id:\d+}', [TableController::class, 'update']);

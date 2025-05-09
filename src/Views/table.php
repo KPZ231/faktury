@@ -4,10 +4,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="shortcut icon" href="../../assets/images/favicon.png" type="image/x-icon">
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <title>Tabela</title>
+    <style>
+        /* Agent selection in modal */
+        .agent-select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .agent-info-container {
+            display: none;
+            background-color: #f5f8ff;
+            border: 1px solid #c9d4f5;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .agent-info-container.show {
+            display: block;
+        }
+        
+        .agent-name-display {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #2a5bd7;
+        }
+        
+        .agent-info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            border-bottom: 1px dotted #c9d4f5;
+            padding-bottom: 5px;
+        }
+        
+        .agent-info-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .agent-info-label {
+            font-weight: 500;
+            color: #666;
+        }
+        
+        .agent-info-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* Fix modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .modal-close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: black;
+        }
+
+        /* Form elements styling */
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        /* Button styling */
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .save-button {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .save-button:hover {
+            background-color: #45a049;
+        }
+
+        .cancel-button {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .cancel-button:hover {
+            background-color: #d32f2f;
+        }
+
+        /* Table styling fixes */
+        .status-yes, .status-no {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+            text-align: center;
+            min-width: 60px;
+        }
+
+        .status-yes, .tak {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #a5d6a7;
+        }
+
+        .status-no, .nie {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef9a9a;
+        }
+
+        /* Highlighted agent styling */
+        .agent-highlight {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background-color: #ff9800;
+            color: white;
+            font-weight: 500;
+        }
+
+        /* Commission checkbox styling */
+        .commission-checkbox-container {
+            margin-top: 8px;
+            padding-top: 5px;
+            border-top: 1px dotted #ddd;
+        }
+
+        .commission-checkbox-label {
+            display: flex;
+            align-items: center;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+
+        .commission-checkbox-label input {
+            margin-right: 5px;
+        }
+
+        /* Fix for invoice number display */
+        .invoice-number {
+            font-size: 0.9em;
+            color: #666;
+            font-style: italic;
+            margin-top: 3px;
+        }
+        
+        /* New styles for row selection */
+        .data-table tbody tr {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .data-table tbody tr:hover {
+            background-color: #f5f9ff;
+        }
+        
+        .data-table tbody tr.selected-row {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196F3;
+        }
+        
+        /* Selection checkbox column */
+        .select-checkbox {
+            width: 30px;
+            text-align: center;
+        }
+        
+        /* Tooltip hover style */
+        .case-info-tooltip {
+            position: fixed;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            z-index: 1000;
+            max-width: 300px;
+            display: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        /* Disabled state for commission checkboxes */
+        .commission-checkbox:disabled + span {
+            color: #999;
+            cursor: not-allowed;
+        }
+        
+        /* Enhanced hover information styles */
+        .agent-payment-tooltip {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            z-index: 1000;
+            min-width: 200px;
+            max-width: 350px;
+            display: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .has-payment-info {
+            position: relative;
+        }
+        
+        .has-payment-info:after {
+            content: "ℹ️";
+            font-size: 12px;
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            opacity: 0.7;
+        }
+        
+        .tooltip-section {
+            padding: 5px 0;
+        }
+        
+        .tooltip-separator {
+            border-top: 1px dotted rgba(255, 255, 255, 0.3);
+            margin: 5px 0;
+        }
+    </style>
     <script>
         // Uruchom po załadowaniu DOM
         document.addEventListener('DOMContentLoaded', function() {
@@ -36,6 +322,44 @@
             
             // Hide commission paid columns
             hideCommissionColumns();
+            
+            // Initialize commission modal
+            setupCommissionModal();
+            
+            // Initialize row selection functionality
+            initRowSelection();
+            
+            // Initialize row hover tooltips
+            initRowHoverTooltips();
+            
+            // Add class to Tak/Nie cells that don't have styling
+            document.querySelectorAll('.data-table td').forEach(cell => {
+                if (cell.textContent.trim() === 'Tak' && !cell.querySelector('.status') && !cell.classList.contains('tak')) {
+                    cell.innerHTML = '<span class="tak">Tak</span>';
+                }
+                if (cell.textContent.trim() === 'Nie' && !cell.querySelector('.status') && !cell.classList.contains('nie')) {
+                    cell.innerHTML = '<span class="nie">Nie</span>';
+                }
+            });
+            
+            // Ensure tooltips work on has-payment-info elements
+            document.querySelectorAll('.has-payment-info').forEach(element => {
+                // Show tooltip on mouse enter
+                element.addEventListener('mouseenter', function() {
+                    const tooltip = this.querySelector('.agent-payment-tooltip');
+                    if (tooltip) {
+                        tooltip.style.display = 'block';
+                    }
+                });
+                
+                // Hide tooltip on mouse leave
+                element.addEventListener('mouseleave', function() {
+                    const tooltip = this.querySelector('.agent-payment-tooltip');
+                    if (tooltip) {
+                        tooltip.style.display = 'none';
+                    }
+                });
+            });
             
             // Function to handle sync button click
             function handleSyncClick(btn) {
@@ -100,6 +424,168 @@
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-sync"></i> Synchronizuj statusy płatności';
                 });
+            }
+            
+            // Function to initialize row selection
+            function initRowSelection() {
+                console.log("Initializing row selection");
+                
+                // Add selection column to the table header if it doesn't exist
+                const table = document.querySelector('.data-table');
+                if (!table) return;
+                
+                const headerRow = table.querySelector('thead tr');
+                if (!headerRow) return;
+                
+                // Insert selection column header if it doesn't exist
+                if (!headerRow.querySelector('.select-checkbox')) {
+                    const selectHeader = document.createElement('th');
+                    selectHeader.className = 'select-checkbox';
+                    selectHeader.innerHTML = '<i class="fa-solid fa-check-square"></i>';
+                    headerRow.insertBefore(selectHeader, headerRow.firstChild);
+                }
+                
+                // Add selection checkbox to each row
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    // Skip if the row already has a checkbox
+                    if (row.querySelector('.select-checkbox')) return;
+                    
+                    // Create a cell with a checkbox
+                    const selectCell = document.createElement('td');
+                    selectCell.className = 'select-checkbox';
+                    selectCell.innerHTML = '<input type="radio" name="selected-row" class="row-select-checkbox">';
+                    
+                    // Insert at the beginning of the row
+                    row.insertBefore(selectCell, row.firstChild);
+                    
+                    // Get case ID from the row
+                    const caseId = row.getAttribute('data-id');
+                    if (caseId) {
+                        selectCell.querySelector('input').dataset.caseId = caseId;
+                    }
+                    
+                    // Add click event for the entire row
+                    row.addEventListener('click', function(e) {
+                        // Don't select row if clicking on specific elements
+                        if (e.target.matches('.commission-checkbox, .edit-button, a, button, .agent-column, .agent-details, .agent-details-row')) {
+                            return;
+                        }
+                        
+                        // Check the radio button in this row
+                        const radio = this.querySelector('.row-select-checkbox');
+                        if (radio) {
+                            radio.checked = true;
+                            
+                            // Dispatch a change event to trigger handlers
+                            radio.dispatchEvent(new Event('change'));
+                        }
+                    });
+                    
+                    // Add click event for the checkbox itself
+                    selectCell.querySelector('input').addEventListener('change', function() {
+                        // Unselect all rows
+                        rows.forEach(r => r.classList.remove('selected-row'));
+                        
+                        // Select this row
+                        if (this.checked) {
+                            row.classList.add('selected-row');
+                            
+                            // Get case ID and store it globally for other functions
+                            const caseId = this.dataset.caseId;
+                            if (caseId) {
+                                window.selectedCaseId = caseId;
+                                console.log("Selected case ID:", caseId);
+                                
+                                // Enable commission checkboxes only for this case
+                                toggleCommissionCheckboxes(caseId);
+                                
+                                // Fetch and display agents for this case
+                                fetchAgentsForCase(caseId);
+                            }
+                        }
+                    });
+                });
+                
+                // Initially disable all commission checkboxes
+                toggleCommissionCheckboxes(null);
+            }
+            
+            // Function to toggle commission checkboxes based on selected case
+            function toggleCommissionCheckboxes(selectedCaseId) {
+                console.log("Toggling commission checkboxes for case ID:", selectedCaseId);
+                
+                document.querySelectorAll('.commission-checkbox').forEach(checkbox => {
+                    const caseId = checkbox.dataset.caseId;
+                    
+                    // Enable checkbox only if it belongs to the selected case
+                    if (selectedCaseId && caseId === selectedCaseId) {
+                        checkbox.disabled = false;
+                        checkbox.closest('label').title = "Oznacz prowizję jako wypłaconą";
+                    } else {
+                        checkbox.disabled = true;
+                        checkbox.closest('label').title = "Zaznacz wiersz, aby móc edytować status prowizji";
+                    }
+                });
+            }
+            
+            // Function to fetch agents for a specific case
+            function fetchAgentsForCase(caseId) {
+                console.log("Fetching agents for case ID:", caseId);
+                
+                // Make AJAX request to get agents assigned to this case
+                fetch(`/get-case-agents?case_id=${caseId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log("Agents for case:", data);
+                        
+                        // Update agent select in the commission modal
+                        updateAgentOptions(data.agents);
+                    })
+                    .catch(error => {
+                        console.error("Error fetching case agents:", error);
+                    });
+            }
+            
+            // Function to update agent options in the commission modal
+            function updateAgentOptions(agents) {
+                const agentSelect = document.getElementById('agentSelect');
+                if (!agentSelect) return;
+                
+                // Keep default option
+                const defaultOption = agentSelect.querySelector('option[value=""]');
+                
+                // Clear existing options except default
+                agentSelect.innerHTML = '';
+                
+                // Add default option back
+                if (defaultOption) {
+                    agentSelect.appendChild(defaultOption);
+                } else {
+                    const newDefaultOption = document.createElement('option');
+                    newDefaultOption.value = '';
+                    newDefaultOption.textContent = '-- Wybierz agenta --';
+                    agentSelect.appendChild(newDefaultOption);
+                }
+                
+                // Add agents for this case
+                if (agents && agents.length > 0) {
+                    agents.forEach(agent => {
+                        const option = document.createElement('option');
+                        option.value = agent.agent_id;
+                        option.textContent = `${agent.imie} ${agent.nazwisko}`;
+                        option.dataset.name = `${agent.imie} ${agent.nazwisko}`;
+                        option.dataset.role = agent.rola || '';
+                        option.dataset.percentage = agent.percentage || '';
+                        agentSelect.appendChild(option);
+                    });
+                } else {
+                    // Add message if no agents
+                    const option = document.createElement('option');
+                    option.disabled = true;
+                    option.textContent = 'Brak przypisanych agentów';
+                    agentSelect.appendChild(option);
+                }
             }
             
             // Function to initialize agent payment notifications
@@ -644,24 +1130,17 @@
                 const cell = checkbox.closest('td');
                 if (!cell) return;
                 
+                // Get agent information for this installment
+                const installmentNum = checkbox.dataset.installment;
+                const agentInfo = getAgentPaymentInfo(cell, installmentNum);
+                
                 if (checkbox.checked) {
                     // If checked, mark as paid
                     cell.classList.add('commission-paid');
                     cell.classList.remove('commission-needed');
-                } else {
-                    // If not checked, mark as needing attention
-                    cell.classList.remove('commission-paid');
-                    cell.classList.add('commission-needed');
                     
-                    // Get information about which agents need payment
-                    const caseId = checkbox.dataset.caseId;
-                    const installmentNum = checkbox.dataset.installment;
-                    
-                    // Get agent information if available
-                    const agentInfo = getAgentPaymentInfo(cell, installmentNum);
-                    
+                    // Always add the agent payment info tooltip, even for paid commissions
                     if (agentInfo) {
-                        // Add tooltip with agent info
                         const tooltip = document.createElement('div');
                         tooltip.className = 'agent-payment-tooltip';
                         tooltip.innerHTML = agentInfo;
@@ -675,6 +1154,33 @@
                         cell.addEventListener('mouseleave', () => {
                             tooltip.style.display = 'none';
                         });
+                        
+                        // Mark cell to show it has payment info
+                        cell.classList.add('has-payment-info');
+                    }
+                } else {
+                    // If not checked, mark as needing attention
+                    cell.classList.remove('commission-paid');
+                    cell.classList.add('commission-needed');
+                    
+                    // Add tooltip with agent info
+                    if (agentInfo) {
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'agent-payment-tooltip';
+                        tooltip.innerHTML = agentInfo;
+                        cell.appendChild(tooltip);
+                        
+                        // Show tooltip on cell hover
+                        cell.addEventListener('mouseenter', () => {
+                            tooltip.style.display = 'block';
+                        });
+                        
+                        cell.addEventListener('mouseleave', () => {
+                            tooltip.style.display = 'none';
+                        });
+                        
+                        // Mark cell to show it has payment info
+                        cell.classList.add('has-payment-info');
                     }
                 }
                 
@@ -697,9 +1203,19 @@
         function handleCommissionCheckboxChange(checkbox, label) {
             console.log("Handling commission checkbox change");
             
+            // Get row and case ID
             const caseId = checkbox.dataset.caseId;
             const installmentNumber = checkbox.dataset.installment;
             const isChecked = checkbox.checked;
+            const row = checkbox.closest('tr');
+            
+            // Check if this row is selected
+            if (!row.classList.contains('selected-row')) {
+                // If not selected, prevent change and show warning
+                checkbox.checked = !isChecked; // Revert the change
+                showNotification("Najpierw wybierz wiersz, klikając na niego lub zaznaczając pole wyboru z lewej strony", "error");
+                return;
+            }
             
             console.log(`Case ID: ${caseId}, Installment: ${installmentNumber}, Checked: ${isChecked}`);
             
@@ -714,7 +1230,7 @@
                 // The actual update will happen when the user confirms in the modal
                 return;
             } else {
-                // For unchecking, just update status directly
+                // For unchecking, update status with empty invoice number to clear it
                 updateCommissionUI(checkbox, false);
                 updateCommissionStatus(caseId, installmentNumber, 0, '');
             }
@@ -727,6 +1243,8 @@
             const saveBtn = document.getElementById('saveInvoiceButton');
             const cancelBtn = document.getElementById('cancelInvoiceButton');
             const invoiceInput = document.getElementById('commissionInvoiceNumber');
+            const agentSelect = document.getElementById('agentSelect');
+            const agentInfoContainer = document.getElementById('agentInfoContainer');
             
             // Close button click
             closeBtn.addEventListener('click', () => {
@@ -743,14 +1261,20 @@
             // Save button click
             saveBtn.addEventListener('click', () => {
                 const invoiceNumber = invoiceInput.value.trim();
-                saveCommissionInvoice(invoiceNumber);
+                const selectedAgentId = agentSelect.value;
+                const selectedAgentName = agentSelect.options[agentSelect.selectedIndex].dataset.name || '';
+                
+                saveCommissionInvoice(invoiceNumber, selectedAgentId, selectedAgentName);
             });
             
             // Press Enter to save
             invoiceInput.addEventListener('keyup', (e) => {
                 if (e.key === 'Enter') {
                     const invoiceNumber = invoiceInput.value.trim();
-                    saveCommissionInvoice(invoiceNumber);
+                    const selectedAgentId = agentSelect.value;
+                    const selectedAgentName = agentSelect.options[agentSelect.selectedIndex].dataset.name || '';
+                    
+                    saveCommissionInvoice(invoiceNumber, selectedAgentId, selectedAgentName);
                 }
             });
             
@@ -761,15 +1285,76 @@
                     resetCheckbox();
                 }
             });
+            
+            // Handle agent selection change
+            agentSelect.addEventListener('change', function() {
+                updateAgentInfo(this.value, agentInfoContainer, invoiceInput.value);
+            });
+        }
+        
+        // Function to update agent information in the modal
+        function updateAgentInfo(agentId, container, invoiceNumber) {
+            if (!agentId) {
+                container.classList.remove('show');
+                container.innerHTML = '';
+                return;
+            }
+            
+            const selectedOption = document.querySelector(`#agentSelect option[value="${agentId}"]`);
+            if (!selectedOption) return;
+            
+            const agentName = selectedOption.dataset.name || selectedOption.textContent;
+            const agentRole = selectedOption.dataset.role || '';
+            const agentPercentage = selectedOption.dataset.percentage || '';
+            
+            // Create agent info HTML with local data
+            let infoHTML = `
+                <div class="agent-name-display">
+                    <i class="fa-solid fa-user"></i> ${agentName}
+                </div>
+                <div class="agent-info-row">
+                    <span class="agent-info-label">Rola:</span>
+                    <span class="agent-info-value">${agentRole || 'Brak'}</span>
+                </div>
+            `;
+            
+            // Add percentage if available
+            if (agentPercentage) {
+                infoHTML += `
+                    <div class="agent-info-row">
+                        <span class="agent-info-label">Prowizja:</span>
+                        <span class="agent-info-value">${agentPercentage}%</span>
+                    </div>
+                `;
+            }
+            
+            // Add invoice number if provided
+            if (invoiceNumber) {
+                infoHTML += `
+                    <div class="agent-info-row">
+                        <span class="agent-info-label">Numer faktury:</span>
+                        <span class="agent-info-value">${invoiceNumber}</span>
+                    </div>
+                `;
+            }
+            
+            // Update container
+            container.innerHTML = infoHTML;
+            container.classList.add('show');
         }
 
         // Show the commission invoice modal
         function showCommissionInvoiceModal() {
             const modal = document.getElementById('commissionInvoiceModal');
             const invoiceInput = document.getElementById('commissionInvoiceNumber');
+            const agentSelect = document.getElementById('agentSelect');
+            const agentInfoContainer = document.getElementById('agentInfoContainer');
             
             // Clear previous input
             invoiceInput.value = '';
+            agentSelect.value = '';
+            agentInfoContainer.innerHTML = '';
+            agentInfoContainer.classList.remove('show');
             
             // Show the modal
             modal.style.display = 'block';
@@ -794,7 +1379,7 @@
         }
 
         // Save the commission invoice number
-        function saveCommissionInvoice(invoiceNumber) {
+        function saveCommissionInvoice(invoiceNumber, agentId = '', agentName = '') {
             if (!currentCommissionCheckbox) {
                 console.error("No active checkbox found");
                 hideCommissionInvoiceModal();
@@ -804,21 +1389,30 @@
             const caseId = currentCommissionCheckbox.dataset.caseId;
             const installmentNumber = currentCommissionCheckbox.dataset.installment;
             
+            // If no invoice number is provided but agent is selected, show a warning
+            if (!invoiceNumber && agentId) {
+                showNotification("Proszę podać numer faktury dla prowizji", "error");
+                return;
+            }
+            
             // Update UI
-            updateCommissionUI(currentCommissionCheckbox, true, invoiceNumber);
+            updateCommissionUI(currentCommissionCheckbox, true, invoiceNumber, agentId, agentName);
             
             // Update server
-            updateCommissionStatus(caseId, installmentNumber, 1, invoiceNumber);
+            updateCommissionStatus(caseId, installmentNumber, 1, invoiceNumber, agentId);
             
             // Hide modal
             hideCommissionInvoiceModal();
         }
 
         // Update commission UI based on state
-        function updateCommissionUI(checkbox, isChecked, invoiceNumber = '') {
+        function updateCommissionUI(checkbox, isChecked, invoiceNumber = '', agentId = '', agentName = '') {
             const cell = checkbox.closest('td');
             
             if (!cell) return;
+            
+            // Get agent payment info before making any changes
+            const agentInfo = getAgentPaymentInfo(cell, checkbox.dataset.installment);
             
             if (isChecked) {
                 // Update style for checked state
@@ -835,12 +1429,37 @@
                     invoiceInfo.className = 'commission-invoice-info';
                     invoiceInfo.innerHTML = '<i class="fa-solid fa-receipt"></i>';
                     
+                    let tooltipText = `Prowizja wypłacona. Faktura: ${invoiceNumber}`;
+                    if (agentName) {
+                        tooltipText += `<br>Agent: ${agentName}`;
+                    }
+                    
                     const tooltip = document.createElement('div');
                     tooltip.className = 'commission-invoice-tooltip';
-                    tooltip.textContent = `Prowizja wypłacona. Faktura: ${invoiceNumber}`;
+                    tooltip.innerHTML = tooltipText;
                     
                     invoiceInfo.appendChild(tooltip);
                     cell.querySelector('.commission-checkbox-container').appendChild(invoiceInfo);
+                }
+                
+                // Always re-add tooltip with agent payment info if it exists
+                if (agentInfo) {
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'agent-payment-tooltip';
+                    tooltip.innerHTML = agentInfo;
+                    cell.appendChild(tooltip);
+                    
+                    // Show tooltip on hover
+                    cell.addEventListener('mouseenter', () => {
+                        tooltip.style.display = 'block';
+                    });
+                    
+                    cell.addEventListener('mouseleave', () => {
+                        tooltip.style.display = 'none';
+                    });
+                    
+                    // Mark cell to show it has payment info
+                    cell.classList.add('has-payment-info');
                 }
             } else {
                 // Update style for unchecked state
@@ -853,8 +1472,6 @@
                 
                 // Check if we need to re-add agent tooltip
                 if (!cell.querySelector('.agent-payment-tooltip')) {
-                    const agentInfo = getAgentPaymentInfo(cell, checkbox.dataset.installment);
-                    
                     if (agentInfo) {
                         const tooltip = document.createElement('div');
                         tooltip.className = 'agent-payment-tooltip';
@@ -868,29 +1485,46 @@
                         cell.addEventListener('mouseleave', () => {
                             tooltip.style.display = 'none';
                         });
+                        
+                        // Mark cell to show it has payment info
+                        cell.classList.add('has-payment-info');
                     }
                 }
             }
             
             // Show notification
-            const message = isChecked 
-                ? `Prowizja za ratę ${checkbox.dataset.installment} została oznaczona jako wypłacona.` 
-                : `Prowizja za ratę ${checkbox.dataset.installment} została oznaczona jako niewypłacona.`;
+            let message;
+            if (isChecked) {
+                message = `Prowizja za ratę ${checkbox.dataset.installment} została oznaczona jako wypłacona.`;
+                if (agentName) {
+                    message += ` Agent: ${agentName}`;
+                }
+            } else {
+                message = `Prowizja za ratę ${checkbox.dataset.installment} została oznaczona jako niewypłacona.`;
+            }
             
             showNotification(message, isChecked ? 'info' : 'error');
         }
 
         // Function to update commission status on server
-        function updateCommissionStatus(caseId, installmentNumber, status, invoiceNumber = '') {
-            console.log(`Updating commission status: Case ${caseId}, Installment ${installmentNumber}, Status ${status}, Invoice: ${invoiceNumber}`);
+        function updateCommissionStatus(caseId, installmentNumber, status, invoiceNumber = '', agentId = '') {
+            console.log(`Updating commission status: Case ${caseId}, Installment ${installmentNumber}, Status ${status}, Invoice: ${invoiceNumber}, Agent: ${agentId}`);
             
-            // Debug JSON payload
-            const jsonPayload = JSON.stringify({
+            // Create payload including agent ID if provided
+            const payload = {
                 case_id: caseId,
                 installment_number: installmentNumber,
                 status: status,
                 invoice_number: invoiceNumber
-            });
+            };
+            
+            // Add agent_id to payload if provided
+            if (agentId) {
+                payload.agent_id = agentId;
+            }
+            
+            // Debug JSON payload
+            const jsonPayload = JSON.stringify(payload);
             console.log("JSON Payload:", jsonPayload);
             
             // Add debug info
@@ -1028,20 +1662,59 @@
             if (caseId) {
                 // Get commission invoice field name based on installment number
                 let commissionInvoiceField;
+                let commissionPaidField;
+                
                 switch(installmentNum) {
-                    case '1': commissionInvoiceField = 'installment1_commission_invoice'; break;
-                    case '2': commissionInvoiceField = 'installment2_commission_invoice'; break;
-                    case '3': commissionInvoiceField = 'installment3_commission_invoice'; break;
-                    case '4': commissionInvoiceField = 'final_installment_commission_invoice'; break;
-                    default: commissionInvoiceField = '';
+                    case '1': 
+                        commissionInvoiceField = 'installment1_commission_invoice'; 
+                        commissionPaidField = 'installment1_commission_paid';
+                        break;
+                    case '2': 
+                        commissionInvoiceField = 'installment2_commission_invoice'; 
+                        commissionPaidField = 'installment2_commission_paid';
+                        break;
+                    case '3': 
+                        commissionInvoiceField = 'installment3_commission_invoice'; 
+                        commissionPaidField = 'installment3_commission_paid';
+                        break;
+                    case '4': 
+                        commissionInvoiceField = 'final_installment_commission_invoice'; 
+                        commissionPaidField = 'final_installment_commission_paid';
+                        break;
+                    default: 
+                        commissionInvoiceField = '';
+                        commissionPaidField = '';
                 }
                 
-                // Try to get the invoice number from dataset
-                const invoiceNumber = row.getAttribute(`data-${commissionInvoiceField}`) || '';
-                if (invoiceNumber) {
-                    agentInfo += `<div class="tooltip-section">Faktura prowizji: <strong>${invoiceNumber}</strong></div>`;
-                    agentInfo += '<div class="tooltip-separator"></div>';
+                // Only show commission invoice number if the commission has been paid
+                // Check if the commission paid checkbox is checked
+                const commissionPaid = cell.querySelector('.commission-checkbox')?.checked || false;
+                
+                // If the commission is paid, display the invoice number (if available)
+                if (commissionPaid) {
+                    // Try to get the invoice number from dataset
+                    const invoiceNumber = row.getAttribute(`data-${commissionInvoiceField}`) || '';
+                    if (invoiceNumber) {
+                        agentInfo += `<div class="tooltip-section">Faktura prowizji: <strong>${invoiceNumber}</strong></div>`;
+                        agentInfo += '<div class="tooltip-separator"></div>';
+                    }
                 }
+            }
+            
+            // Get invoice number for this installment if available
+            let invoiceField;
+            switch(installmentNum) {
+                case '1': invoiceField = 'installment1_paid_invoice'; break;
+                case '2': invoiceField = 'installment2_paid_invoice'; break;
+                case '3': invoiceField = 'installment3_paid_invoice'; break;
+                case '4': invoiceField = 'final_installment_paid_invoice'; break;
+            }
+            
+            // If we have invoice data for this installment, add to tooltip
+            if (row.hasAttribute(invoiceField) && row[invoiceField]) {
+                const invoiceNumber = row[invoiceField];
+                agentInfo += `<div class="tooltip-section">Faktura klienta: <strong>${invoiceNumber}</strong></div>`;
+                agentInfo += '<div class="tooltip-separator"></div>';
             }
             
             // Find all agent cells in the row
@@ -1085,794 +1758,110 @@
                 setTimeout(() => notification.remove(), 500);
             }, 3000);
         }
+
+        // Function to initialize row hover tooltips
+        function initRowHoverTooltips() {
+            console.log("Initializing row hover tooltips");
+            
+            // Create a tooltip element for reuse
+            const tooltip = document.createElement('div');
+            tooltip.className = 'case-info-tooltip';
+            document.body.appendChild(tooltip);
+            
+            // Add hover event to table rows
+            document.querySelectorAll('.data-table tbody tr').forEach(row => {
+                // Add mouseover event
+                row.addEventListener('mouseover', function(e) {
+                    // Get case data
+                    const caseId = this.dataset.id;
+                    const caseName = this.querySelector('td:nth-child(3)').textContent; // Assuming 'Sprawa' is 3rd column
+                    
+                    // Get all agent information from the row
+                    const agentInfo = [];
+                    
+                    // Find all agent cells
+                    const agentCells = this.querySelectorAll('.agent-column');
+                    agentCells.forEach(cell => {
+                        const agentName = cell.dataset.name || cell.textContent.trim();
+                        const agentPercent = cell.dataset.percent || '';
+                        
+                        // Only add if we have a name
+                        if (agentName) {
+                            agentInfo.push(`<div><strong>${agentName}</strong>: ${agentPercent}</div>`);
+                        }
+                    });
+                    
+                    // Get installment information
+                    const installmentInfo = [];
+                    for (let i = 1; i <= 4; i++) {
+                        // Find rate column and paid status
+                        const rateCell = Array.from(this.querySelectorAll('td')).find(cell => {
+                            const header = getColumnForCell(cell);
+                            return header === `Rata ${i}`;
+                        });
+                        
+                        const paidCell = Array.from(this.querySelectorAll('td')).find(cell => {
+                            const header = getColumnForCell(cell);
+                            return header === `Opłacona ${i}`;
+                        });
+                        
+                        if (rateCell && paidCell) {
+                            const rateAmount = rateCell.textContent.trim();
+                            const isPaid = paidCell.textContent.includes('Tak');
+                            
+                            const status = isPaid ? '<span style="color: #4CAF50">opłacona</span>' : 
+                                               '<span style="color: #f44336">nieopłacona</span>';
+                            
+                            installmentInfo.push(`<div>Rata ${i}: ${rateAmount} (${status})</div>`);
+                        }
+                    }
+                    
+                    // Build tooltip content
+                    let tooltipContent = `
+                        <div style="margin-bottom: 8px; font-weight: bold; font-size: 14px;">${caseName}</div>
+                        <div style="margin-bottom: 5px; font-size: 12px; color: #aaa;">ID: ${caseId}</div>
+                    `;
+                    
+                    if (agentInfo.length > 0) {
+                        tooltipContent += `
+                            <div style="margin: 5px 0; border-top: 1px dotted #555; padding-top: 5px;">
+                                <div style="margin-bottom: 5px; color: #aaa;">Agenci:</div>
+                                ${agentInfo.join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    if (installmentInfo.length > 0) {
+                        tooltipContent += `
+                            <div style="margin: 5px 0; border-top: 1px dotted #555; padding-top: 5px;">
+                                <div style="margin-bottom: 5px; color: #aaa;">Raty:</div>
+                                ${installmentInfo.join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    // Update and show tooltip
+                    tooltip.innerHTML = tooltipContent;
+                    tooltip.style.display = 'block';
+                    
+                    // Position tooltip near the cursor
+                    tooltip.style.left = e.pageX + 15 + 'px';
+                    tooltip.style.top = e.pageY + 15 + 'px';
+                });
+                
+                // Add mouseout event
+                row.addEventListener('mouseout', function() {
+                    tooltip.style.display = 'none';
+                });
+                
+                // Add mousemove event to update tooltip position
+                row.addEventListener('mousemove', function(e) {
+                    tooltip.style.left = e.pageX + 15 + 'px';
+                    tooltip.style.top = e.pageY + 15 + 'px';
+                });
+            });
+        }
     </script>
-
-    <style>
-        @keyframes pulse {
-            0% { opacity: 0.7; }
-            50% { opacity: 1; }
-            100% { opacity: 0.7; }
-        }
-        
-        /* Style for paid installments with invoice numbers */
-        .paid-with-invoice {
-            position: relative;
-            cursor: pointer;
-            border-bottom: 1px dashed #4CAF50;
-        }
-        
-        /* Custom tooltip styling */
-        .status.status-yes[data-invoice]:hover::after {
-            content: attr(title);
-            position: absolute;
-            bottom: 150%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #333;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            z-index: 100;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        
-        .status.status-yes[data-invoice]:hover::before {
-            content: "";
-            position: absolute;
-            top: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-width: 5px;
-            border-style: solid;
-            border-color: #333 transparent transparent transparent;
-            z-index: 100;
-        }
-        
-        /* Styles for paid installment rows and cells */
-        .data-table {
-            position: relative;
-        }
-        
-        .data-table tbody tr.has-paid-installment {
-            position: relative;
-        }
-        
-        .data-table tbody tr.has-paid-installment::before {
-            content: "!";
-            position: absolute;
-            left: -25px; 
-            top: 50%;
-            transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
-            background-color: #F44336;
-            color: white;
-            border-radius: 50%;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: center;
-            line-height: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            animation: pulse 1.5s infinite;
-            z-index: 10;
-        }
-        
-        /* Style for the red highlighted rate amount */
-        .rate-paid {
-            position: relative;
-            background-color: #ffcdd2 !important;
-            color: #d32f2f !important;
-            font-weight: bold !important;
-            border: 1px solid #ef5350 !important;
-        }
-        
-        /* Style for rates that need commission payment */
-        .commission-needed {
-            position: relative;
-            overflow: visible !important;
-        }
-        
-        .commission-needed::after {
-            content: "⚠️";
-            position: absolute;
-            top: -10px;
-            right: -10px;
-            font-size: 16px;
-            animation: pulse 1.5s infinite;
-            filter: drop-shadow(0 0 2px rgba(255,255,255,0.8));
-            z-index: 15;
-        }
-        
-        /* Zmiana koloru po zaznaczeniu prowizji */
-        .commission-paid {
-            background-color: #e8f5e9 !important;
-            color: #2E7D32 !important;
-            transition: background-color 0.5s ease;
-            border: 1px solid #66BB6A !important;
-        }
-        
-        .commission-paid::after {
-            content: "✓";
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            color: #2E7D32;
-            font-size: 14px;
-            font-weight: bold;
-            z-index: 15;
-        }
-        
-        /* Wyraziste oznaczenie dla nieprzeczytanych prowizji */
-        .commission-badge {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background-color: #FF5722;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            animation: pulse 1.5s infinite;
-            z-index: 15;
-        }
-        
-        /* Style for the tooltip */
-        .agent-payment-tooltip {
-            display: none;
-            position: absolute;
-            bottom: calc(100% + 5px);
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #fff;
-            color: #333;
-            padding: 6px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 100;
-            white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            border: 1px solid #ddd;
-            min-width: 150px;
-            font-weight: normal;
-        }
-        
-        .agent-payment-tooltip::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #fff transparent transparent transparent;
-        }
-        
-        .agent-payment-tooltip strong {
-            color: #1976D2;
-        }
-        
-        td:hover .agent-payment-tooltip {
-            display: block;
-        }
-        
-        /* Styles for invoice information in tooltip */
-        .tooltip-section {
-            padding: 4px 0;
-        }
-        
-        .tooltip-separator {
-            height: 1px;
-            background-color: #e0e0e0;
-            margin: 5px 0;
-        }
-        
-        /* Styles for commission payment checkbox */
-        .commission-checkbox-container {
-            margin-top: 8px;
-            padding-top: 5px;
-            border-top: 1px dotted #e0e0e0;
-            font-size: 12px;
-        }
-        
-        .commission-checkbox-label {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            color: #666;
-            font-weight: normal;
-            transition: color 0.3s ease;
-        }
-        
-        .commission-checkbox-label:hover {
-            color: #333;
-        }
-        
-        .commission-checkbox {
-            margin-right: 6px;
-            cursor: pointer;
-        }
-        
-        /* Additional animation for paid commissions */
-        .commission-paid {
-            background-color: #e8f5e9 !important;
-            transition: background-color 0.5s ease;
-        }
-        
-        .commission-checkbox:checked + span {
-            color: #2E7D32;
-            font-weight: 500;
-        }
-        
-        /* Additional padding for the table to accommodate the exclamation marks */
-        #dataTable {
-            padding-left: 30px;
-        }
-        
-        /* Poprawa stylu dla komórek z różniącą się obliczoną wartością */
-        td[data-calculated], .nested-value[data-calculated] {
-            position: relative;
-            background-color: rgba(255, 235, 59, 0.2) !important;
-            border-bottom: 1px dashed #FFB300 !important;
-            cursor: help;
-            transition: all 0.3s ease;
-        }
-        
-        td[data-calculated]:hover, .nested-value[data-calculated]:hover {
-            background-color: rgba(255, 235, 59, 0.3) !important;
-        }
-        
-        /* Stylizacja kolumn agentów */
-        th.collapsible {
-            cursor: pointer;
-            position: relative;
-            padding-left: 28px !important;
-            background-color: #64b5f6;
-            transition: all 0.3s ease;
-        }
-        
-        th.collapsible:hover {
-            background-color: #42a5f5;
-        }
-        
-        .column-expand-icon {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: white;
-            transition: transform 0.3s ease;
-            display: inline-block;
-            margin-right: 6px;
-        }
-        
-        .column-expand-icon i {
-            transition: transform 0.3s ease;
-        }
-        
-        .column-expand-icon i.expanded {
-            transform: rotate(90deg);
-        }
-        
-        .expanded-header {
-            background-color: #1976D2 !important;
-            color: white !important;
-        }
-        
-        /* Styl dla komórek agentów */
-        .agent-column {
-            position: relative;
-            white-space: nowrap;
-            transition: all 0.3s ease;
-            background-color: #fff;
-            vertical-align: top; /* Bardzo ważne dla układu */
-            padding: 1.2rem 1.5rem !important;
-            cursor: pointer;
-        }
-        
-        .agent-column.expanded-cell {
-            background-color: rgba(232, 245, 255, 0.5) !important;
-            min-width: 250px;
-            padding-bottom: 0 !important;
-        }
-        
-        /* Styl dla szczegółów agenta */
-        .agent-details {
-            display: block;
-            width: 100%;
-            background-color: rgba(232, 245, 255, 0.5);
-            margin-top: 10px;
-            padding: 10px 0;
-            border-radius: 4px;
-            border: 1px solid rgba(25, 118, 210, 0.2);
-            margin-bottom: 15px;
-        }
-        
-        .agent-details-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 10px;
-            border-bottom: 1px dashed rgba(25, 118, 210, 0.1);
-        }
-        
-        .agent-details-row:last-child {
-            border-bottom: none;
-        }
-        
-        .agent-details-row span:first-child {
-            font-weight: 500;
-            color: #1976D2;
-        }
-        
-        .agent-details-row span:last-child {
-            font-weight: 600;
-        }
-
-        /* Zwiększenie szerokości tabeli kiedy rozwinięta */
-        .data-table th.expanded-header + th {
-            padding-left: 25px !important;
-        }
-
-        /* Additional styles for the sync payments button */
-        .sync-payment-container {
-            margin: 15px 0;
-            position: relative;
-            display: inline-block;
-        }
-        
-        .sync-payment-button {
-            display: inline-flex;
-            align-items: center;
-            background-color: #4CAF50;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-        }
-        
-        .sync-payment-button i {
-            margin-right: 8px;
-        }
-        
-        .sync-payment-button:hover {
-            background-color: #388E3C;
-        }
-        
-        .sync-tooltip {
-            visibility: hidden;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 4px;
-            padding: 5px 10px;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
-            opacity: 0;
-            transition: opacity 0.3s;
-            white-space: nowrap;
-            font-size: 12px;
-        }
-        
-        .sync-payment-container:hover .sync-tooltip {
-            visibility: visible;
-            opacity: 1;
-        }
-        
-        .last-sync-time {
-            display: block;
-            font-size: 12px;
-            color: #666;
-            margin-top: 5px;
-            font-style: italic;
-        }
-        
-        /* Style for invoice numbers displayed under installment amounts */
-        .invoice-number {
-            display: block;
-            font-size: 11px;
-            color: #4CAF50;
-            margin-top: 2px;
-            font-style: italic;
-            font-weight: normal;
-        }
-        
-        /* Adjust table cells containing invoice numbers */
-        td.currency {
-            vertical-align: top;
-            line-height: 1.3;
-            padding-top: 8px;
-            padding-bottom: 8px;
-            min-width: 100px;  /* Ensure cell is wide enough for invoice number */
-        }
-        
-        td.currency .invoice-number {
-            border-top: 1px dotted #e0e0e0;
-            padding-top: 2px;
-            max-width: 120px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        /* Make invoice numbers more visible on hover */
-        td.currency:hover .invoice-number {
-            color: #2E7D32;
-            font-weight: 500;
-        }
-        
-        /* Make rate columns with consistent width */
-        th[data-column^="Rata"] {
-            min-width: 110px;
-        }
-        
-        /* Hide commission paid columns */
-        th[data-column^="installment"][data-column$="_commission_paid"],
-        td[data-column^="installment"][data-column$="_commission_paid"],
-        th[data-column^="INSTALLMENT"][data-column$="_COMMISSION_PAID"],
-        td[data-column^="INSTALLMENT"][data-column$="_COMMISSION_PAID"],
-        th[data-column="final_installment_commission_paid"],
-        td[data-column="final_installment_commission_paid"],
-        th[data-column="FINAL_INSTALLMENT_COMMISSION_PAID"],
-        td[data-column="FINAL_INSTALLMENT_COMMISSION_PAID"] {
-            display: none !important;
-        }
-        
-        /* Stylowanie legendy prowizji */
-        .commission-legend {
-            margin: 30px auto;
-            max-width: 800px;
-            padding: 15px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .commission-legend h3 {
-            color: #1976D2;
-            text-align: center;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-        
-        .legend-items {
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            gap: 20px;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .legend-symbol {
-            width: 80px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            position: relative;
-        }
-        
-        .legend-description {
-            font-size: 14px;
-            color: #555;
-        }
-        
-        /* Nowa, elegancka legenda */
-        .status-legend {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 25px;
-            margin: 20px auto;
-            max-width: 800px;
-            padding: 8px 15px;
-            background-color: #f8f9fa;
-            border-radius: 30px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .legend-icon {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        
-        .legend-text {
-            font-size: 13px;
-            color: #666;
-            font-weight: 500;
-        }
-        
-        /* Ikony statusów */
-        .paid-rate {
-            background-color: #ef5350;
-            border: 1px solid #d32f2f;
-        }
-        
-        .commission-pending {
-            background-color: #ffb74d;
-            border: 1px solid #f57c00;
-        }
-        
-        .commission-complete {
-            background-color: #66bb6a;
-            border: 1px solid #388e3c;
-        }
-        
-        /* Style for commission indicators */
-        .rate-paid {
-            position: relative;
-            background-color: rgba(239, 83, 80, 0.15) !important;
-            color: #d32f2f !important;
-            font-weight: 600 !important;
-            border-left: 3px solid #ef5350 !important;
-        }
-        
-        .commission-needed {
-            position: relative;
-            background-color: rgba(255, 183, 77, 0.15) !important;
-            color: #f57c00 !important;
-            font-weight: 600 !important;
-            border-left: 3px solid #ffb74d !important;
-        }
-        
-        .commission-needed::after {
-            content: "●";
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            color: #ffb74d;
-            font-size: 10px;
-        }
-        
-        .commission-paid {
-            background-color: rgba(102, 187, 106, 0.15) !important;
-            color: #388e3c !important;
-            font-weight: 600 !important;
-            border-left: 3px solid #66bb6a !important;
-        }
-        
-        .commission-paid::after {
-            content: "●";
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            color: #66bb6a;
-            font-size: 10px;
-        }
-        
-        /* Wyraziste oznaczenie dla prowizji do wypłaty */
-        .commission-badge {
-            position: absolute;
-            top: 5px;
-            right: 20px;
-            color: #f57c00;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        /* Superadmin badge */
-        .superadmin-badge {
-            background-color: #ff9800;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 15px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            box-shadow: 0 2px 5px rgba(255, 152, 0, 0.3);
-            max-width: fit-content;
-        }
-
-        /* Modal styles for commission invoice */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1500;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            animation: fadeIn 0.3s ease;
-            backdrop-filter: blur(3px);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes slideDown {
-            from { transform: translateY(-30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
-        .modal-content {
-            background-color: #fff;
-            margin: 10% auto;
-            padding: 25px;
-            width: 400px;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-            animation: slideDown 0.3s ease;
-            position: relative;
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            color: #aaa;
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-
-        .modal-close:hover {
-            color: #333;
-        }
-
-        .modal h3 {
-            margin-top: 0;
-            color: var(--primary-dark);
-            font-size: 1.4rem;
-            margin-bottom: 15px;
-        }
-
-        .modal p {
-            color: #666;
-            margin-bottom: 20px;
-        }
-
-        .modal-input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 15px;
-            margin-bottom: 20px;
-            transition: border-color 0.3s;
-            box-sizing: border-box;
-        }
-
-        .modal-input:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.15);
-            outline: none;
-        }
-
-        .modal-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-        }
-
-        .modal-button {
-            padding: 10px 18px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .save-button {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .save-button:hover {
-            background-color: var(--primary-dark);
-        }
-
-        .cancel-button {
-            background-color: #f5f5f5;
-            color: #666;
-        }
-
-        .cancel-button:hover {
-            background-color: #e0e0e0;
-        }
-        
-        /* Style for commission invoice information */
-        .commission-invoice-info {
-            display: inline-flex;
-            align-items: center;
-            margin-left: 8px;
-            position: relative;
-            cursor: pointer;
-        }
-        
-        .commission-invoice-info i {
-            color: #4CAF50;
-            font-size: 1rem;
-        }
-        
-        .commission-invoice-tooltip {
-            display: none;
-            position: absolute;
-            bottom: calc(100% + 8px);
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #fff;
-            color: #333;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 100;
-            white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            border: 1px solid #e0e0e0;
-            min-width: 180px;
-            font-weight: normal;
-        }
-        
-        .commission-invoice-tooltip::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #fff transparent transparent transparent;
-        }
-        
-        .commission-invoice-info:hover .commission-invoice-tooltip {
-            display: block;
-        }
-
-        /* Style for rate cells with payment info */
-        .has-payment-info {
-            position: relative;
-            cursor: pointer;
-        }
-        
-        .has-payment-info:hover {
-            background-color: rgba(0, 0, 0, 0.03);
-        }
-        
-        .has-payment-info:after {
-            content: 'ℹ️';
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            font-size: 10px;
-            opacity: 0.5;
-        }
-        
-        .has-payment-info:hover:after {
-            opacity: 1;
-        }
-    </style>
 
 </head>
 
@@ -1926,7 +1915,41 @@
             <span class="modal-close">&times;</span>
             <h3>Podaj numer faktury</h3>
             <p>Wprowadź numer faktury dla prowizji:</p>
-            <input type="text" id="commissionInvoiceNumber" placeholder="Numer faktury" class="modal-input">
+            
+            <div class="input-group">
+                <label for="commissionInvoiceNumber">Numer faktury:</label>
+                <input type="text" id="commissionInvoiceNumber" placeholder="Numer faktury" class="modal-input">
+            </div>
+            
+            <div class="input-group">
+                <label for="agentSelect">Wybierz agenta:</label>
+                <select id="agentSelect" class="modal-input agent-select">
+                    <option value="">-- Wybierz agenta --</option>
+                    <?php
+                    // Pobierz listę agentów z bazy danych
+                    require_once __DIR__ . '/../../config/database.php';
+                    global $pdo;
+                    try {
+                        $agentsQuery = "SELECT agent_id, imie, nazwisko FROM agenci ORDER BY nazwisko, imie";
+                        $agentsStmt = $pdo->query($agentsQuery);
+                        $agents = $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        foreach ($agents as $agent) {
+                            echo '<option value="' . $agent['agent_id'] . '" data-name="' . htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko']) . '">' . 
+                                htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko']) . 
+                                '</option>';
+                        }
+                    } catch (PDOException $e) {
+                        error_log("Błąd pobierania agentów: " . $e->getMessage());
+                    }
+                    ?>
+                </select>
+            </div>
+            
+            <div id="agentInfoContainer" class="agent-info-container">
+                <!-- Agent information will be displayed here when agent is selected -->
+            </div>
+            
             <div class="modal-buttons">
                 <button id="saveInvoiceButton" class="modal-button save-button">Zapisz</button>
                 <button id="cancelInvoiceButton" class="modal-button cancel-button">Anuluj</button>

@@ -220,4 +220,76 @@ class AgentController
         // Na razie nie implementujemy pełnego widoku, tylko zwracamy dane
         echo "Agent: {$agent['imie']} {$agent['nazwisko']}, Rola: {$case['rola']}, Sprawa: {$case['case_name']}";
     }
+    
+    /**
+     * Pobiera informacje o prowizji agenta i zwraca jako JSON
+     */
+    public function getAgentCommission(): void
+    {
+        error_log("AgentController::getAgentCommission - Start");
+        
+        // Sprawdź, czy przekazano ID agenta
+        if (!isset($_GET['agent_id']) || empty($_GET['agent_id'])) {
+            error_log("AgentController::getAgentCommission - Brak wymaganego parametru agent_id");
+            header('Content-Type: application/json');
+            echo json_encode([
+                'error' => 'Missing agent_id parameter',
+                'commission_percentage' => null
+            ]);
+            return;
+        }
+        
+        $agentId = intval($_GET['agent_id']);
+        error_log("AgentController::getAgentCommission - Pobieranie danych dla agenta ID: " . $agentId);
+        
+        try {
+            // Pobierz podstawowe dane agenta
+            $query = "SELECT agent_id, imie, nazwisko FROM agenci WHERE agent_id = ?";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$agentId]);
+            $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$agent) {
+                error_log("AgentController::getAgentCommission - Nie znaleziono agenta o ID: " . $agentId);
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'error' => 'Agent not found',
+                    'commission_percentage' => null
+                ]);
+                return;
+            }
+            
+            // Pobierz średni procent prowizji z tabeli sprawa_agent (jeśli istnieje)
+            $query = "SELECT AVG(percentage) AS avg_percentage FROM sprawa_agent WHERE agent_id = ?";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$agentId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            $commissionPercentage = null;
+            if ($result && $result['avg_percentage'] !== null) {
+                $commissionPercentage = number_format((float)$result['avg_percentage'], 2);
+                error_log("AgentController::getAgentCommission - Średni procent prowizji: " . $commissionPercentage);
+            } else {
+                error_log("AgentController::getAgentCommission - Brak danych o prowizji dla agenta");
+            }
+            
+            // Zwróć dane jako JSON
+            header('Content-Type: application/json');
+            echo json_encode([
+                'agent_id' => $agent['agent_id'],
+                'agent_name' => $agent['imie'] . ' ' . $agent['nazwisko'],
+                'commission_percentage' => $commissionPercentage
+            ]);
+            
+            error_log("AgentController::getAgentCommission - Zwrócono dane JSON");
+            
+        } catch (PDOException $e) {
+            error_log("AgentController::getAgentCommission - BŁĄD: " . $e->getMessage());
+            header('Content-Type: application/json');
+            echo json_encode([
+                'error' => 'Database error: ' . $e->getMessage(),
+                'commission_percentage' => null
+            ]);
+        }
+    }
 }

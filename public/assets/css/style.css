@@ -256,29 +256,92 @@ header h1 {
   font-weight: 500;
 }
 
-/* Status indications */
-.data-table td:has(.status) {
-  text-align: center;
-}
-
-.status {
+/* Status indicators - Tak/Nie */
+.tak, .nie {
   display: inline-block;
-  padding: 0.4rem 0.8rem;
-  border-radius: 100px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 500;
   text-align: center;
-  min-width: 80px;
+  min-width: 60px;
 }
 
-.status-yes {
-  background-color: rgba(129, 199, 132, 0.2);
+.tak {
+  background-color: #e8f5e9;
   color: #2e7d32;
+  border: 1px solid #a5d6a7;
 }
 
-.status-no {
-  background-color: rgba(229, 115, 115, 0.2);
+.nie {
+  background-color: #ffebee;
   color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+/* Agent highlight styling */
+[class^="agent-highlight-"] {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: white;
+    font-weight: 500;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+}
+
+.agent-highlight-1 {
+    background-color: #4CAF50; /* Green */
+}
+
+.agent-highlight-2 {
+    background-color: #2196F3; /* Blue */
+}
+
+.agent-highlight-3 {
+    background-color: #9C27B0; /* Purple */
+}
+
+.agent-highlight-4 {
+    background-color: #FF5722; /* Deep Orange */
+}
+
+.agent-highlight-5 {
+    background-color: #607D8B; /* Blue Grey */
+}
+
+/* Modal styling */
+#commissionInvoiceModal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+  background-color: #fefefe;
+  margin: 10% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 500px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.modal-close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.modal-close:hover {
+  color: black;
 }
 
 /* Improved agent highlighting in table */
@@ -1549,4 +1612,180 @@ table.data-table td.hidden-column {
 .nested-tooltip {
     font-size: 11px;
     padding: 4px 8px;
+}
+
+/* Input fields in modal */
+.modal-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+/* Form elements styling */
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #333;
+}
+
+/* Modal buttons */
+.modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.modal-button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.save-button {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.save-button:hover {
+    background-color: #45a049;
+}
+
+.cancel-button {
+    background-color: #f44336;
+    color: white;
+}
+
+.cancel-button:hover {
+    background-color: #d32f2f;
+}
+
+/* Commission and payment status styling */
+.commission-needed {
+    position: relative;
+    background-color: #fff3e0 !important;
+    border-left: 3px solid #ff9800;
+}
+
+.commission-paid {
+    position: relative;
+    background-color: #e8f5e9 !important;
+    border-left: 3px solid #4caf50;
+}
+
+.has-payment-info {
+    position: relative;
+    cursor: help;
+}
+
+.has-payment-info::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    background-color: #2196F3;
+    border-radius: 50%;
+    border: 1px solid #1976D2;
+}
+
+.agent-payment-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 200px;
+    background-color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    border: 1px solid #e0e0e0;
+    z-index: 100;
+    font-size: 12px;
+    color: #333;
+    text-align: left;
+    white-space: normal;
+}
+
+.agent-payment-tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: #fff transparent transparent transparent;
+}
+
+.tooltip-section {
+    padding: 5px 0;
+    color: #0277bd;
+    font-weight: 500;
+}
+
+.tooltip-separator {
+    border-bottom: 1px dashed #e0e0e0;
+    margin: 5px 0;
+}
+
+/* Commission invoice info styling */
+.commission-invoice-info {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 10px;
+    position: relative;
+}
+
+.commission-invoice-info i {
+    color: #4caf50;
+    cursor: help;
+}
+
+.commission-invoice-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    min-width: 200px;
+    background-color: #fff;
+    padding: 8px;
+    border-radius: 4px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+    border: 1px solid #e0e0e0;
+    z-index: 100;
+    font-size: 12px;
+    color: #333;
+    text-align: left;
+    white-space: normal;
+}
+
+.commission-invoice-info:hover .commission-invoice-tooltip {
+    display: block;
+}
+
+/* Rate cell with payment status */
+.rate-paid {
+    background-color: rgba(76, 175, 80, 0.08) !important;
+}
+
+/* Ensure currency class is properly styled */
+.currency {
+    text-align: right !important;
+    font-family: 'Consolas', monospace !important;
+    font-weight: 500 !important;
+    white-space: nowrap !important;
 }

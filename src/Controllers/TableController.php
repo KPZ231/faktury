@@ -24,7 +24,7 @@ class TableController
         error_log("TableController::index - Połączenie z bazą danych zainicjalizowane");
         
         // Ensure commission invoice columns exist
-        $this->ensureCommissionInvoiceColumnsExist();
+        $this->ensureCommissionColumnsExist();
         
         // Check if payment statuses should be synchronized automatically
         // Do this only once per hour to avoid excessive database operations
@@ -1925,8 +1925,9 @@ class TableController
             $installmentNumber = $input['installment_number'];
             $status = (int)$input['status'];
             $invoiceNumber = isset($input['invoice_number']) ? $input['invoice_number'] : '';
+            $agentId = isset($input['agent_id']) ? (int)$input['agent_id'] : null;
             
-            error_log("TableController::updateCommissionStatusAjax - Parameters: case_id=$caseId, installment_number=$installmentNumber, status=$status, invoice_number=$invoiceNumber");
+            error_log("TableController::updateCommissionStatusAjax - Parameters: case_id=$caseId, installment_number=$installmentNumber, status=$status, invoice_number=$invoiceNumber, agent_id=" . ($agentId ? $agentId : 'null'));
             
             // Validate installment number
             if (!in_array($installmentNumber, [1, 2, 3, 4])) {
@@ -1949,21 +1950,36 @@ class TableController
                 4 => 'final_installment_commission_invoice'
             ];
             
+            // Map installment number to agent column
+            $agentColumnMap = [
+                1 => 'installment1_commission_agent_id',
+                2 => 'installment2_commission_agent_id',
+                3 => 'installment3_commission_agent_id',
+                4 => 'final_installment_commission_agent_id'
+            ];
+            
             $column = $columnMap[$installmentNumber];
             $invoiceColumn = $invoiceColumnMap[$installmentNumber];
+            $agentColumn = $agentColumnMap[$installmentNumber];
             
             error_log("TableController::updateCommissionStatusAjax - DB column to update: " . $column);
             error_log("TableController::updateCommissionStatusAjax - Invoice column to update: " . $invoiceColumn);
+            error_log("TableController::updateCommissionStatusAjax - Agent column to update: " . $agentColumn);
             
             // Check if columns exist, if not create them
-            $this->ensureCommissionInvoiceColumnsExist();
+            $this->ensureCommissionColumnsExist();
             
-            // Update the commission paid status and invoice number
+            // Update the commission paid status, invoice number, and agent ID
             $query = "UPDATE test2 SET {$column} = :status";
             
             // Add invoice number to query if provided
             if (!empty($invoiceNumber)) {
                 $query .= ", {$invoiceColumn} = :invoice_number";
+            }
+            
+            // Add agent ID to query if provided
+            if ($agentId !== null) {
+                $query .= ", {$agentColumn} = :agent_id";
             }
             
             $query .= " WHERE id = :case_id";
@@ -1979,6 +1995,11 @@ class TableController
             // Add invoice parameter if provided
             if (!empty($invoiceNumber)) {
                 $params[':invoice_number'] = $invoiceNumber;
+            }
+            
+            // Add agent ID parameter if provided
+            if ($agentId !== null) {
+                $params[':agent_id'] = $agentId;
             }
             
             $success = $stmt->execute($params);
@@ -2004,6 +2025,7 @@ class TableController
                 'installment_number' => $installmentNumber,
                 'status' => $status,
                 'invoice_number' => $invoiceNumber,
+                'agent_id' => $agentId,
                 'rows_affected' => $rowCount
             ];
             error_log("TableController::updateCommissionStatusAjax - Success response: " . json_encode($response));
@@ -2025,19 +2047,24 @@ class TableController
     }
     
     /**
-     * Ensure that the commission invoice columns exist in the database
+     * Ensure that all commission-related columns exist in the database
      */
-    private function ensureCommissionInvoiceColumnsExist(): void
+    private function ensureCommissionColumnsExist(): void
     {
         try {
-            // Check if the columns exist
+            // Check if the invoice columns exist
             $columnsQuery = "SHOW COLUMNS FROM test2 LIKE 'installment1_commission_invoice'";
             $stmt = $this->pdo->query($columnsQuery);
-            $columnExists = ($stmt->rowCount() > 0);
+            $invoiceColumnsExist = ($stmt->rowCount() > 0);
             
-            // If the columns don't exist, create them
-            if (!$columnExists) {
-                error_log("TableController::ensureCommissionInvoiceColumnsExist - Creating commission invoice columns");
+            // Check if the agent ID columns exist
+            $columnsQuery = "SHOW COLUMNS FROM test2 LIKE 'installment1_commission_agent_id'";
+            $stmt = $this->pdo->query($columnsQuery);
+            $agentColumnsExist = ($stmt->rowCount() > 0);
+            
+            // If the invoice columns don't exist, create them
+            if (!$invoiceColumnsExist) {
+                error_log("TableController::ensureCommissionColumnsExist - Creating commission invoice columns");
                 
                 $alterQuery = "ALTER TABLE test2 
                     ADD COLUMN installment1_commission_invoice VARCHAR(255) NULL,
@@ -2048,12 +2075,33 @@ class TableController
                 $result = $this->pdo->exec($alterQuery);
                 
                 if ($result !== false) {
-                    error_log("TableController::ensureCommissionInvoiceColumnsExist - Commission invoice columns created successfully");
+                    error_log("TableController::ensureCommissionColumnsExist - Commission invoice columns created successfully");
                 } else {
-                    error_log("TableController::ensureCommissionInvoiceColumnsExist - Error creating columns: " . print_r($this->pdo->errorInfo(), true));
+                    error_log("TableController::ensureCommissionColumnsExist - Error creating invoice columns: " . print_r($this->pdo->errorInfo(), true));
                 }
             } else {
-                error_log("TableController::ensureCommissionInvoiceColumnsExist - Commission invoice columns already exist");
+                error_log("TableController::ensureCommissionColumnsExist - Commission invoice columns already exist");
+            }
+            
+            // If the agent ID columns don't exist, create them
+            if (!$agentColumnsExist) {
+                error_log("TableController::ensureCommissionColumnsExist - Creating commission agent ID columns");
+                
+                $alterQuery = "ALTER TABLE test2 
+                    ADD COLUMN installment1_commission_agent_id INT NULL,
+                    ADD COLUMN installment2_commission_agent_id INT NULL,
+                    ADD COLUMN installment3_commission_agent_id INT NULL,
+                    ADD COLUMN final_installment_commission_agent_id INT NULL";
+                
+                $result = $this->pdo->exec($alterQuery);
+                
+                if ($result !== false) {
+                    error_log("TableController::ensureCommissionColumnsExist - Commission agent ID columns created successfully");
+                } else {
+                    error_log("TableController::ensureCommissionColumnsExist - Error creating agent ID columns: " . print_r($this->pdo->errorInfo(), true));
+                }
+            } else {
+                error_log("TableController::ensureCommissionColumnsExist - Commission agent ID columns already exist");
             }
             
             // Verify all required columns exist
@@ -2061,7 +2109,11 @@ class TableController
                 'installment1_commission_invoice',
                 'installment2_commission_invoice',
                 'installment3_commission_invoice',
-                'final_installment_commission_invoice'
+                'final_installment_commission_invoice',
+                'installment1_commission_agent_id',
+                'installment2_commission_agent_id',
+                'installment3_commission_agent_id',
+                'final_installment_commission_agent_id'
             ];
             
             $stmt = $this->pdo->query("DESCRIBE test2");
@@ -2070,18 +2122,98 @@ class TableController
             $allColumnsExist = true;
             foreach ($requiredColumns as $column) {
                 if (!in_array($column, $existingColumns)) {
-                    error_log("TableController::ensureCommissionInvoiceColumnsExist - Missing column: {$column}");
+                    error_log("TableController::ensureCommissionColumnsExist - Missing column: {$column}");
                     $allColumnsExist = false;
                 }
             }
             
             if ($allColumnsExist) {
-                error_log("TableController::ensureCommissionInvoiceColumnsExist - All commission invoice columns verified");
+                error_log("TableController::ensureCommissionColumnsExist - All commission columns verified");
             }
         } catch (\PDOException $e) {
-        } catch (\PDOException $e) {
-            error_log("TableController::ensureCommissionInvoiceColumnsExist - ERROR: " . $e->getMessage());
+            error_log("TableController::ensureCommissionColumnsExist - ERROR: " . $e->getMessage());
             // Don't throw an exception, just log the error
+        }
+    }
+
+    /**
+     * AJAX endpoint to get agents assigned to a specific case
+     * Returns JSON response with agents data
+     */
+    public function getCaseAgentsAjax(): void
+    {
+        error_log("TableController::getCaseAgentsAjax - Start");
+        header('Content-Type: application/json');
+        require_once __DIR__ . '/../../config/database.php';
+        global $pdo;
+        $this->pdo = $pdo;
+        
+        try {
+            // Get case ID from query parameters
+            $caseId = isset($_GET['case_id']) ? (int)$_GET['case_id'] : null;
+            
+            if (!$caseId) {
+                throw new \Exception("Missing required parameter: case_id");
+            }
+            
+            error_log("TableController::getCaseAgentsAjax - Fetching agents for case ID: $caseId");
+            
+            // Get agents assigned to this case
+            $query = "
+                SELECT a.agent_id, a.imie, a.nazwisko, sa.rola, sa.percentage
+                FROM sprawa_agent sa
+                JOIN agenci a ON sa.agent_id = a.agent_id
+                WHERE sa.sprawa_id = :sprawa_id
+                ORDER BY sa.rola
+            ";
+            
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute([':sprawa_id' => $caseId]);
+            $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("TableController::getCaseAgentsAjax - Found " . count($agents) . " agents");
+            
+            // Always add Kuba/Jakub as an option
+            $kubaExists = false;
+            foreach ($agents as $agent) {
+                if (strtolower($agent['imie']) === 'kuba' || strtolower($agent['imie']) === 'jakub') {
+                    $kubaExists = true;
+                    break;
+                }
+            }
+            
+            if (!$kubaExists) {
+                // Add a virtual Kuba entry
+                $kuba = [
+                    'agent_id' => 'jakub',
+                    'imie' => 'Jakub',
+                    'nazwisko' => 'Kowalski',
+                    'rola' => 'kuba',
+                    'percentage' => null
+                ];
+                array_unshift($agents, $kuba);
+            }
+            
+            // Return success response
+            $response = [
+                'success' => true,
+                'message' => "Successfully retrieved agents for case ID: $caseId",
+                'agents' => $agents,
+                'case_id' => $caseId
+            ];
+            
+            echo json_encode($response);
+            
+        } catch (\Exception $e) {
+            error_log("TableController::getCaseAgentsAjax - ERROR: " . $e->getMessage());
+            
+            // Return error response
+            $response = [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+            
+            echo json_encode($response);
         }
     }
 }
