@@ -22,7 +22,10 @@ class TableController
         global $pdo;
         $this->pdo = $pdo;
         error_log("TableController::index - Połączenie z bazą danych zainicjalizowane");
-
+        
+        // Ensure commission invoice columns exist
+        $this->ensureCommissionInvoiceColumnsExist();
+        
         // Check if payment statuses should be synchronized automatically
         // Do this only once per hour to avoid excessive database operations
         $lastSync = isset($_SESSION['last_payment_sync']) ? $_SESSION['last_payment_sync'] : 0;
@@ -501,7 +504,11 @@ class TableController
                     t.installment1_amount, t.installment1_paid, t.installment1_paid_invoice, 
                     t.installment2_amount, t.installment2_paid, t.installment2_paid_invoice, 
                     t.installment3_amount, t.installment3_paid, t.installment3_paid_invoice, 
-                    t.final_installment_amount, t.final_installment_paid, t.final_installment_paid_invoice, 
+                    t.final_installment_amount, t.final_installment_paid, t.final_installment_paid_invoice,
+                    t.installment1_commission_paid, t.installment2_commission_paid, 
+                    t.installment3_commission_paid, t.final_installment_commission_paid,
+                    t.installment1_commission_invoice, t.installment2_commission_invoice,
+                    t.installment3_commission_invoice, t.final_installment_commission_invoice,
                     NULL as rola, NULL as percentage 
                     FROM test2 t 
                     ORDER BY t.id DESC";
@@ -737,6 +744,18 @@ class TableController
                     $row['installment3_paid_invoice'] = $case['installment3_paid_invoice'] ?? '';
                     $row['final_installment_paid_invoice'] = $case['final_installment_paid_invoice'] ?? '';
                     
+                    // Add commission payment status
+                    $row['installment1_commission_paid'] = $case['installment1_commission_paid'] ?? 0;
+                    $row['installment2_commission_paid'] = $case['installment2_commission_paid'] ?? 0;
+                    $row['installment3_commission_paid'] = $case['installment3_commission_paid'] ?? 0;
+                    $row['final_installment_commission_paid'] = $case['final_installment_commission_paid'] ?? 0;
+                    
+                    // Add commission invoice numbers
+                    $row['installment1_commission_invoice'] = $case['installment1_commission_invoice'] ?? '';
+                    $row['installment2_commission_invoice'] = $case['installment2_commission_invoice'] ?? '';
+                    $row['installment3_commission_invoice'] = $case['installment3_commission_invoice'] ?? '';
+                    $row['final_installment_commission_invoice'] = $case['final_installment_commission_invoice'] ?? '';
+                    
                     $rows[] = $row;
                 }
             } else {
@@ -780,7 +799,15 @@ class TableController
                         t.installment3_paid_invoice,
                         t.final_installment_amount AS 'Rata 4',
                         CASE WHEN t.final_installment_paid = 1 THEN 'Tak' WHEN t.final_installment_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 4',
-                        t.final_installment_paid_invoice
+                        t.final_installment_paid_invoice,
+                        t.installment1_commission_paid,
+                        t.installment2_commission_paid,
+                        t.installment3_commission_paid,
+                        t.final_installment_commission_paid,
+                        t.installment1_commission_invoice,
+                        t.installment2_commission_invoice,
+                        t.installment3_commission_invoice,
+                        t.final_installment_commission_invoice
                     FROM test2 t
                     ORDER BY t.id DESC";
 
@@ -960,6 +987,24 @@ class TableController
                         'Opłacona 4' => $case['Opłacona 4']
                     ]);
                     
+                    // Store invoice data in the row without creating visible columns
+                    $newCase['installment1_paid_invoice'] = $case['installment1_paid_invoice'] ?? '';
+                    $newCase['installment2_paid_invoice'] = $case['installment2_paid_invoice'] ?? '';
+                    $newCase['installment3_paid_invoice'] = $case['installment3_paid_invoice'] ?? '';
+                    $newCase['final_installment_paid_invoice'] = $case['final_installment_paid_invoice'] ?? '';
+                    
+                    // Add commission payment status
+                    $newCase['installment1_commission_paid'] = $case['installment1_commission_paid'] ?? 0;
+                    $newCase['installment2_commission_paid'] = $case['installment2_commission_paid'] ?? 0;
+                    $newCase['installment3_commission_paid'] = $case['installment3_commission_paid'] ?? 0;
+                    $newCase['final_installment_commission_paid'] = $case['final_installment_commission_paid'] ?? 0;
+                    
+                    // Add commission invoice numbers
+                    $newCase['installment1_commission_invoice'] = $case['installment1_commission_invoice'] ?? '';
+                    $newCase['installment2_commission_invoice'] = $case['installment2_commission_invoice'] ?? '';
+                    $newCase['installment3_commission_invoice'] = $case['installment3_commission_invoice'] ?? '';
+                    $newCase['final_installment_commission_invoice'] = $case['final_installment_commission_invoice'] ?? '';
+                    
                     $rows[] = $newCase;
                 }
             }
@@ -978,8 +1023,13 @@ class TableController
                 return !in_array($header, $invoiceFields);
             });
 
+            // Filter out commission paid columns
+            $commissionFields = ['installment1_commission_paid', 'installment2_commission_paid', 'installment3_commission_paid', 'final_installment_commission_paid'];
+            $allHeaders = array_filter($allHeaders, function($header) use ($commissionFields) {
+                return !in_array($header, $commissionFields);
+            });
+            
             // FILTR: zostawiamy tylko te nagłówki, które mają choć jeden nie-pusty rekord
-            // AND filter out agent rate columns that contain only zeros
             $visibleHeaders = array_filter($allHeaders, function ($title) use ($rows) {
                 // For non-rate columns or Kuba's rates, keep the original logic
                 if (!(strpos($title, 'Rata') !== false && strpos($title, 'Agent') !== false)) {
@@ -1070,7 +1120,23 @@ class TableController
 
             // Display rows using only the visible headers
             foreach ($rows as $row) {
-                echo '<tr>';
+                $dataAttributes = ' data-id="' . $row['ID'] . '"';
+                
+                // Add commission invoice attributes
+                if (isset($row['installment1_commission_invoice'])) {
+                    $dataAttributes .= ' data-installment1_commission_invoice="' . htmlspecialchars($row['installment1_commission_invoice'], ENT_QUOTES) . '"';
+                }
+                if (isset($row['installment2_commission_invoice'])) {
+                    $dataAttributes .= ' data-installment2_commission_invoice="' . htmlspecialchars($row['installment2_commission_invoice'], ENT_QUOTES) . '"';
+                }
+                if (isset($row['installment3_commission_invoice'])) {
+                    $dataAttributes .= ' data-installment3_commission_invoice="' . htmlspecialchars($row['installment3_commission_invoice'], ENT_QUOTES) . '"';
+                }
+                if (isset($row['final_installment_commission_invoice'])) {
+                    $dataAttributes .= ' data-final_installment_commission_invoice="' . htmlspecialchars($row['final_installment_commission_invoice'], ENT_QUOTES) . '"';
+                }
+                
+                echo '<tr' . $dataAttributes . '>';
                 foreach ($visibleHeaders as $title) {
                     $value = $row[$title] ?? '';
 
@@ -1164,12 +1230,48 @@ class TableController
                             // Dodaj znak złotówki do wartości pieniężnych
                             // Sprawdź czy to jest rata z przypisaną fakturą
                             $invoiceInfo = '';
+                            $isPaid = false;
+                            $cssClass = 'currency';
+                            
                             if (strpos($title, 'Rata') !== false) {
                                 $installmentNum = substr($title, -1); // Get the last character (the number)
                                 $paidKey = 'Opłacona ' . $installmentNum;
                                 
                                 // Check if installment is paid
                                 if (isset($row[$paidKey]) && $row[$paidKey] === 'Tak') {
+                                    // Mark this cell as a paid installment
+                                    $isPaid = true;
+                                    $cssClass .= ' rate-paid';
+                                    
+                                    // Get commission paid status
+                                    $commissionPaidField = '';
+                                    $commissionPaid = false;
+                                    $commissionInvoiceField = '';
+                                    $commissionInvoice = '';
+                                    
+                                    if ($installmentNum == '1') {
+                                        $commissionPaidField = 'installment1_commission_paid';
+                                        $commissionInvoiceField = 'installment1_commission_invoice';
+                                    } else if ($installmentNum == '2') {
+                                        $commissionPaidField = 'installment2_commission_paid';
+                                        $commissionInvoiceField = 'installment2_commission_invoice';
+                                    } else if ($installmentNum == '3') {
+                                        $commissionPaidField = 'installment3_commission_paid';
+                                        $commissionInvoiceField = 'installment3_commission_invoice';
+                                    } else if ($installmentNum == '4') {
+                                        $commissionPaidField = 'final_installment_commission_paid';
+                                        $commissionInvoiceField = 'final_installment_commission_invoice';
+                                    }
+                                    
+                                    if (isset($row[$commissionPaidField]) && $row[$commissionPaidField] == 1) {
+                                        $commissionPaid = true;
+                                    }
+                                    
+                                    // Check if we have commission invoice data
+                                    if (isset($row[$commissionInvoiceField]) && !empty($row[$commissionInvoiceField])) {
+                                        $commissionInvoice = htmlspecialchars($row[$commissionInvoiceField], ENT_QUOTES);
+                                    }
+                                    
                                     // Determine invoice field name based on installment number
                                     $invoiceField = '';
                                     if ($installmentNum == '1') {
@@ -1187,6 +1289,33 @@ class TableController
                                         $invoiceNumber = htmlspecialchars($row[$invoiceField], ENT_QUOTES);
                                         $invoiceInfo = '<div class="invoice-number">' . $invoiceNumber . '</div>';
                                     }
+                                    
+                                    // Add commission paid checkbox
+                                    $checkedAttr = $commissionPaid ? 'checked' : '';
+                                    $installmentIdAttr = 'commission-' . $row['ID'] . '-' . $installmentNum;
+                                    
+                                    $invoiceInfo .= '
+                                    <div class="commission-checkbox-container">
+                                        <label class="commission-checkbox-label" title="Oznacz prowizję jako wypłaconą">
+                                            <input type="checkbox" ' . $checkedAttr . ' class="commission-checkbox" 
+                                            data-case-id="' . $row['ID'] . '" 
+                                            data-installment="' . $installmentNum . '" 
+                                            id="' . $installmentIdAttr . '">
+                                            <span>Prowizja wypłacona</span>
+                                        </label>';
+                                        
+                                    // Add invoice info icon if commission is paid and has invoice
+                                    if ($commissionPaid && !empty($commissionInvoice)) {
+                                        $invoiceInfo .= '
+                                            <div class="commission-invoice-info">
+                                                <i class="fa-solid fa-receipt"></i>
+                                                <div class="commission-invoice-tooltip">
+                                                    Prowizja wypłacona. Faktura: ' . $commissionInvoice . '
+                                                </div>
+                                            </div>';
+                                    }
+                                    
+                                    $invoiceInfo .= '</div>';
                                 }
                             }
                             
@@ -1598,7 +1727,11 @@ class TableController
                 'installment3_amount',
                 'installment3_paid',
                 'final_installment_paid',
-                'kuba_invoice_number'
+                'kuba_invoice_number',
+                'installment1_commission_paid',
+                'installment2_commission_paid',
+                'installment3_commission_paid',
+                'final_installment_commission_paid'
             ];
             
             // Przetwórz checkbox na wartości 0/1
@@ -1607,7 +1740,11 @@ class TableController
                 'installment1_paid',
                 'installment2_paid',
                 'installment3_paid',
-                'final_installment_paid'
+                'final_installment_paid',
+                'installment1_commission_paid',
+                'installment2_commission_paid',
+                'installment3_commission_paid',
+                'final_installment_commission_paid'
             ];
             
             foreach ($editableFields as $field) {
@@ -1755,6 +1892,196 @@ class TableController
                 'success' => false,
                 'message' => 'Błąd podczas synchronizacji statusów płatności: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * AJAX endpoint for updating commission payment status
+     * Accepts POST request with case_id, installment_number, and status parameters
+     * Returns JSON response
+     */
+    public function updateCommissionStatusAjax(): void
+    {
+        error_log("TableController::updateCommissionStatusAjax - Start");
+        header('Content-Type: application/json');
+        require_once __DIR__ . '/../../config/database.php';
+        global $pdo;
+        $this->pdo = $pdo;
+        
+        try {
+            // Get request body
+            $input_raw = file_get_contents('php://input');
+            error_log("TableController::updateCommissionStatusAjax - Raw input: " . $input_raw);
+            
+            // Validate input
+            $input = json_decode($input_raw, true);
+            error_log("TableController::updateCommissionStatusAjax - Decoded input: " . print_r($input, true));
+            
+            if (!isset($input['case_id']) || !isset($input['installment_number']) || !isset($input['status'])) {
+                throw new \Exception("Missing required parameters: case_id, installment_number, status");
+            }
+            
+            $caseId = (int)$input['case_id'];
+            $installmentNumber = $input['installment_number'];
+            $status = (int)$input['status'];
+            $invoiceNumber = isset($input['invoice_number']) ? $input['invoice_number'] : '';
+            
+            error_log("TableController::updateCommissionStatusAjax - Parameters: case_id=$caseId, installment_number=$installmentNumber, status=$status, invoice_number=$invoiceNumber");
+            
+            // Validate installment number
+            if (!in_array($installmentNumber, [1, 2, 3, 4])) {
+                throw new \Exception("Invalid installment number. Must be 1, 2, 3, or 4.");
+            }
+            
+            // Map installment number to database column
+            $columnMap = [
+                1 => 'installment1_commission_paid',
+                2 => 'installment2_commission_paid',
+                3 => 'installment3_commission_paid',
+                4 => 'final_installment_commission_paid'
+            ];
+            
+            // Map installment number to invoice column
+            $invoiceColumnMap = [
+                1 => 'installment1_commission_invoice',
+                2 => 'installment2_commission_invoice',
+                3 => 'installment3_commission_invoice',
+                4 => 'final_installment_commission_invoice'
+            ];
+            
+            $column = $columnMap[$installmentNumber];
+            $invoiceColumn = $invoiceColumnMap[$installmentNumber];
+            
+            error_log("TableController::updateCommissionStatusAjax - DB column to update: " . $column);
+            error_log("TableController::updateCommissionStatusAjax - Invoice column to update: " . $invoiceColumn);
+            
+            // Check if columns exist, if not create them
+            $this->ensureCommissionInvoiceColumnsExist();
+            
+            // Update the commission paid status and invoice number
+            $query = "UPDATE test2 SET {$column} = :status";
+            
+            // Add invoice number to query if provided
+            if (!empty($invoiceNumber)) {
+                $query .= ", {$invoiceColumn} = :invoice_number";
+            }
+            
+            $query .= " WHERE id = :case_id";
+            
+            error_log("TableController::updateCommissionStatusAjax - SQL query: " . $query);
+            
+            $stmt = $this->pdo->prepare($query);
+            $params = [
+                ':status' => $status,
+                ':case_id' => $caseId
+            ];
+            
+            // Add invoice parameter if provided
+            if (!empty($invoiceNumber)) {
+                $params[':invoice_number'] = $invoiceNumber;
+            }
+            
+            $success = $stmt->execute($params);
+            
+            if (!$success) {
+                error_log("TableController::updateCommissionStatusAjax - SQL error: " . print_r($stmt->errorInfo(), true));
+                throw new \Exception("Database error: " . implode(", ", $stmt->errorInfo()));
+            }
+            
+            // Log the row count to see if any rows were affected
+            $rowCount = $stmt->rowCount();
+            error_log("TableController::updateCommissionStatusAjax - Rows affected: " . $rowCount);
+            
+            if ($rowCount === 0) {
+                error_log("TableController::updateCommissionStatusAjax - Warning: No rows were updated. Case ID may not exist: " . $caseId);
+            }
+            
+            // Return success response
+            $response = [
+                'success' => true,
+                'message' => "Commission payment status for installment {$installmentNumber} updated successfully",
+                'case_id' => $caseId,
+                'installment_number' => $installmentNumber,
+                'status' => $status,
+                'invoice_number' => $invoiceNumber,
+                'rows_affected' => $rowCount
+            ];
+            error_log("TableController::updateCommissionStatusAjax - Success response: " . json_encode($response));
+            echo json_encode($response);
+            
+        } catch (\Exception $e) {
+            error_log("TableController::updateCommissionStatusAjax - ERROR: " . $e->getMessage());
+            error_log("TableController::updateCommissionStatusAjax - Stack trace: " . $e->getTraceAsString());
+            
+            // Return error response
+            http_response_code(400);
+            $response = [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
+            error_log("TableController::updateCommissionStatusAjax - Error response: " . json_encode($response));
+            echo json_encode($response);
+        }
+    }
+    
+    /**
+     * Ensure that the commission invoice columns exist in the database
+     */
+    private function ensureCommissionInvoiceColumnsExist(): void
+    {
+        try {
+            // Check if the columns exist
+            $columnsQuery = "SHOW COLUMNS FROM test2 LIKE 'installment1_commission_invoice'";
+            $stmt = $this->pdo->query($columnsQuery);
+            $columnExists = ($stmt->rowCount() > 0);
+            
+            // If the columns don't exist, create them
+            if (!$columnExists) {
+                error_log("TableController::ensureCommissionInvoiceColumnsExist - Creating commission invoice columns");
+                
+                $alterQuery = "ALTER TABLE test2 
+                    ADD COLUMN installment1_commission_invoice VARCHAR(255) NULL,
+                    ADD COLUMN installment2_commission_invoice VARCHAR(255) NULL,
+                    ADD COLUMN installment3_commission_invoice VARCHAR(255) NULL,
+                    ADD COLUMN final_installment_commission_invoice VARCHAR(255) NULL";
+                
+                $result = $this->pdo->exec($alterQuery);
+                
+                if ($result !== false) {
+                    error_log("TableController::ensureCommissionInvoiceColumnsExist - Commission invoice columns created successfully");
+                } else {
+                    error_log("TableController::ensureCommissionInvoiceColumnsExist - Error creating columns: " . print_r($this->pdo->errorInfo(), true));
+                }
+            } else {
+                error_log("TableController::ensureCommissionInvoiceColumnsExist - Commission invoice columns already exist");
+            }
+            
+            // Verify all required columns exist
+            $requiredColumns = [
+                'installment1_commission_invoice',
+                'installment2_commission_invoice',
+                'installment3_commission_invoice',
+                'final_installment_commission_invoice'
+            ];
+            
+            $stmt = $this->pdo->query("DESCRIBE test2");
+            $existingColumns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            $allColumnsExist = true;
+            foreach ($requiredColumns as $column) {
+                if (!in_array($column, $existingColumns)) {
+                    error_log("TableController::ensureCommissionInvoiceColumnsExist - Missing column: {$column}");
+                    $allColumnsExist = false;
+                }
+            }
+            
+            if ($allColumnsExist) {
+                error_log("TableController::ensureCommissionInvoiceColumnsExist - All commission invoice columns verified");
+            }
+        } catch (\PDOException $e) {
+        } catch (\PDOException $e) {
+            error_log("TableController::ensureCommissionInvoiceColumnsExist - ERROR: " . $e->getMessage());
+            // Don't throw an exception, just log the error
         }
     }
 }

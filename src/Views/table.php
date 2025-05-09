@@ -28,6 +28,15 @@
             // Initialize invoice tooltips
             initInvoiceTooltips();
             
+            // Initialize agent payment notifications
+            initAgentPaymentNotifications();
+            
+            // Initialize commission checkboxes
+            initCommissionCheckboxes();
+            
+            // Hide commission paid columns
+            hideCommissionColumns();
+            
             // Function to handle sync button click
             function handleSyncClick(btn) {
                 // Show loading state
@@ -83,13 +92,208 @@
                     // Remove notification after delay
                     setTimeout(() => {
                         notification.classList.remove('show');
-                        setTimeout(() => notification.remove(), 500);
+                        setTimeout(() => notification.remove(), 5000);
                     }, 5000);
                 })
                 .finally(() => {
                     // Reset button state
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-sync"></i> Synchronizuj statusy płatności';
+                });
+            }
+            
+            // Function to initialize agent payment notifications
+            function initAgentPaymentNotifications() {
+                console.log("Initializing agent payment notifications");
+                
+                // Look for all installment cells in the table
+                document.querySelectorAll('.data-table tbody tr').forEach(row => {
+                    // Get all cells in the row
+                    const cells = Array.from(row.querySelectorAll('td'));
+                    
+                    // Find all agent cells in the row (Agent 1, Agent 2, Agent 3)
+                    const agentCells = {};
+                    const agentRates = {};
+                    
+                    // Collect agent info
+                    cells.forEach(cell => {
+                        if (cell.classList.contains('agent-column')) {
+                            // Extract agent info and installment rates
+                            const agentName = cell.dataset.name || '';
+                            
+                            // Figure out which agent number this is
+                            let agentNumber = 0;
+                            const columnHeader = getColumnForCell(cell);
+                            
+                            if (columnHeader) {
+                                if (columnHeader.includes('Agent 1')) agentNumber = 1;
+                                else if (columnHeader.includes('Agent 2')) agentNumber = 2;
+                                else if (columnHeader.includes('Agent 3')) agentNumber = 3;
+                            }
+                            
+                            if (agentNumber > 0 && agentName) {
+                                agentCells[agentNumber] = cell;
+                                agentRates[agentNumber] = {
+                                    name: agentName,
+                                    rata1: cell.dataset.rata1 || '',
+                                    rata2: cell.dataset.rata2 || '',
+                                    rata3: cell.dataset.rata3 || '',
+                                    rata4: cell.dataset.rata4 || ''
+                                };
+                            }
+                        }
+                    });
+                    
+                    // Also get Kuba's data
+                    const kubaCell = cells.find(cell => 
+                        cell.classList.contains('agent-column') && 
+                        (cell.dataset.name === 'Kuba' || cell.textContent.trim() === 'Kuba')
+                    );
+                    
+                    let kubaRates = null;
+                    if (kubaCell) {
+                        kubaRates = {
+                            name: 'Kuba',
+                            rata1: kubaCell.dataset.rata1 || '',
+                            rata2: kubaCell.dataset.rata2 || '',
+                            rata3: kubaCell.dataset.rata3 || '',
+                            rata4: kubaCell.dataset.rata4 || ''
+                        };
+                    }
+                    
+                    // Process all installment cells (1-4)
+                    for (let i = 1; i <= 4; i++) {
+                        // Find rate cell by exact text matching
+                        const rateCell = cells.find(cell => {
+                            const header = getColumnForCell(cell);
+                            return header === `Rata ${i}`;
+                        });
+                        
+                        // If rate cell exists
+                        if (rateCell) {
+                            const isPaid = cells.some(cell => {
+                                const header = getColumnForCell(cell);
+                                return header === `Opłacona ${i}` && cell.textContent.trim() === 'Tak';
+                            });
+                            
+                            // If paid, mark with red highlight (existing functionality)
+                            if (isPaid) {
+                                rateCell.classList.add('rate-paid');
+                                row.classList.add('has-paid-installment');
+                            }
+                            
+                            // Create tooltip with agent payment information
+                            let tooltipContent = '';
+                            
+                            // Get invoice number for this installment if available
+                            let invoiceField;
+                            switch(i) {
+                                case 1: invoiceField = 'installment1_paid_invoice'; break;
+                                case 2: invoiceField = 'installment2_paid_invoice'; break;
+                                case 3: invoiceField = 'installment3_paid_invoice'; break;
+                                case 4: invoiceField = 'final_installment_paid_invoice'; break;
+                            }
+                            
+                            // Get commission invoice number if available
+                            let commissionInvoiceField;
+                            switch(i) {
+                                case 1: commissionInvoiceField = 'installment1_commission_invoice'; break;
+                                case 2: commissionInvoiceField = 'installment2_commission_invoice'; break;
+                                case 3: commissionInvoiceField = 'installment3_commission_invoice'; break;
+                                case 4: commissionInvoiceField = 'final_installment_commission_invoice'; break;
+                            }
+                            
+                            // If installment is paid, show invoice numbers
+                            if (isPaid) {
+                                // Add invoice info to tooltip if available
+                                if (row.hasAttribute(invoiceField) && row[invoiceField]) {
+                                    tooltipContent += `<div class="tooltip-section">Faktura klienta: <strong>${row[invoiceField]}</strong></div>`;
+                                }
+                                
+                                // Add commission invoice info if available
+                                if (row.hasAttribute(commissionInvoiceField) && row[commissionInvoiceField]) {
+                                    tooltipContent += `<div class="tooltip-section">Faktura prowizji: <strong>${row[commissionInvoiceField]}</strong></div>`;
+                                }
+                                
+                                // Add section separator if we have invoice info
+                                if (tooltipContent) {
+                                    tooltipContent += `<div class="tooltip-separator"></div>`;
+                                }
+                            }
+                            
+                            // Add info for each agent that has a positive amount
+                            Object.keys(agentRates).forEach(agentNum => {
+                                const agent = agentRates[agentNum];
+                                const rateKey = `rata${i}`;
+                                const rateValue = agent[rateKey];
+                                
+                                // Check if agent has a rate value
+                                if (rateValue && rateValue !== '0' && rateValue !== '0 zł' && 
+                                    rateValue !== '0,00' && rateValue !== '0,00 zł') {
+                                    
+                                    // Extract the numeric value (remove zł, spaces and formatting)
+                                    let numericValue = rateValue;
+                                    if (typeof numericValue === 'string') {
+                                        numericValue = numericValue.replace(/[^\d,.]/g, '');
+                                        numericValue = numericValue.replace(',', '.');
+                                        numericValue = parseFloat(numericValue);
+                                    }
+                                    
+                                    // If rate is a positive number
+                                    if (numericValue > 0) {
+                                        tooltipContent += `<strong>${agent.name}</strong>: ${rateValue}<br>`;
+                                    }
+                                }
+                            });
+                            
+                            // Add Kuba's payment info if applicable
+                            if (kubaRates) {
+                                const rateKey = `rata${i}`;
+                                const rateValue = kubaRates[rateKey];
+                                
+                                if (rateValue && rateValue !== '0' && rateValue !== '0 zł' && 
+                                    rateValue !== '0,00' && rateValue !== '0,00 zł') {
+                                    
+                                    let numericValue = rateValue;
+                                    if (typeof numericValue === 'string') {
+                                        numericValue = numericValue.replace(/[^\d,.]/g, '');
+                                        numericValue = numericValue.replace(',', '.');
+                                        numericValue = parseFloat(numericValue);
+                                    }
+                                    
+                                    if (numericValue > 0) {
+                                        tooltipContent += `<strong>Kuba</strong>: ${rateValue}<br>`;
+                                    }
+                                }
+                            }
+                            
+                            // Add tooltip if there's content
+                            if (tooltipContent) {
+                                // Check if a tooltip already exists
+                                let tooltip = rateCell.querySelector('.agent-payment-tooltip');
+                                if (!tooltip) {
+                                    tooltip = document.createElement('div');
+                                    tooltip.className = 'agent-payment-tooltip';
+                                    rateCell.appendChild(tooltip);
+                                    
+                                    // Add hover behavior for showing tooltip
+                                    rateCell.addEventListener('mouseenter', () => {
+                                        tooltip.style.display = 'block';
+                                    });
+                                    
+                                    rateCell.addEventListener('mouseleave', () => {
+                                        tooltip.style.display = 'none';
+                                    });
+                                }
+                                
+                                // Update tooltip content
+                                tooltip.innerHTML = tooltipContent;
+                                
+                                // Add a hover indicator to show there's tooltip info available
+                                rateCell.classList.add('has-payment-info');
+                            }
+                        }
+                    }
                 });
             }
             
@@ -427,6 +631,451 @@
                 }
             });
         }
+
+        // Function to initialize commission checkboxes
+        function initCommissionCheckboxes() {
+            console.log("Initializing commission checkboxes");
+            
+            document.querySelectorAll('.commission-checkbox-container').forEach(container => {
+                const checkbox = container.querySelector('.commission-checkbox');
+                const label = container.querySelector('.commission-checkbox-label');
+                
+                // Apply initial styles based on checkbox state
+                const cell = checkbox.closest('td');
+                if (!cell) return;
+                
+                if (checkbox.checked) {
+                    // If checked, mark as paid
+                    cell.classList.add('commission-paid');
+                    cell.classList.remove('commission-needed');
+                } else {
+                    // If not checked, mark as needing attention
+                    cell.classList.remove('commission-paid');
+                    cell.classList.add('commission-needed');
+                    
+                    // Get information about which agents need payment
+                    const caseId = checkbox.dataset.caseId;
+                    const installmentNum = checkbox.dataset.installment;
+                    
+                    // Get agent information if available
+                    const agentInfo = getAgentPaymentInfo(cell, installmentNum);
+                    
+                    if (agentInfo) {
+                        // Add tooltip with agent info
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'agent-payment-tooltip';
+                        tooltip.innerHTML = agentInfo;
+                        cell.appendChild(tooltip);
+                        
+                        // Show tooltip on cell hover
+                        cell.addEventListener('mouseenter', () => {
+                            tooltip.style.display = 'block';
+                        });
+                        
+                        cell.addEventListener('mouseleave', () => {
+                            tooltip.style.display = 'none';
+                        });
+                    }
+                }
+                
+                checkbox.addEventListener('change', function() {
+                    console.log("Commission checkbox changed:", this.checked);
+                    
+                    // Handle commission checkbox interaction
+                    handleCommissionCheckboxChange(this, label);
+                });
+            });
+            
+            // Set up modal event listeners
+            setupCommissionModal();
+        }
+        
+        // Global variable to track the current checkbox being processed
+        let currentCommissionCheckbox = null;
+
+        // Handle commission checkbox change
+        function handleCommissionCheckboxChange(checkbox, label) {
+            console.log("Handling commission checkbox change");
+            
+            const caseId = checkbox.dataset.caseId;
+            const installmentNumber = checkbox.dataset.installment;
+            const isChecked = checkbox.checked;
+            
+            console.log(`Case ID: ${caseId}, Installment: ${installmentNumber}, Checked: ${isChecked}`);
+            
+            // Store the current checkbox for use in modal
+            currentCommissionCheckbox = checkbox;
+            
+            // If the checkbox is being checked (from unchecked to checked)
+            if (isChecked) {
+                // Show the invoice modal
+                showCommissionInvoiceModal();
+                
+                // The actual update will happen when the user confirms in the modal
+                return;
+            } else {
+                // For unchecking, just update status directly
+                updateCommissionUI(checkbox, false);
+                updateCommissionStatus(caseId, installmentNumber, 0, '');
+            }
+        }
+
+        // Set up commission modal
+        function setupCommissionModal() {
+            const modal = document.getElementById('commissionInvoiceModal');
+            const closeBtn = document.querySelector('.modal-close');
+            const saveBtn = document.getElementById('saveInvoiceButton');
+            const cancelBtn = document.getElementById('cancelInvoiceButton');
+            const invoiceInput = document.getElementById('commissionInvoiceNumber');
+            
+            // Close button click
+            closeBtn.addEventListener('click', () => {
+                hideCommissionInvoiceModal();
+                resetCheckbox();
+            });
+            
+            // Cancel button click
+            cancelBtn.addEventListener('click', () => {
+                hideCommissionInvoiceModal();
+                resetCheckbox();
+            });
+            
+            // Save button click
+            saveBtn.addEventListener('click', () => {
+                const invoiceNumber = invoiceInput.value.trim();
+                saveCommissionInvoice(invoiceNumber);
+            });
+            
+            // Press Enter to save
+            invoiceInput.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') {
+                    const invoiceNumber = invoiceInput.value.trim();
+                    saveCommissionInvoice(invoiceNumber);
+                }
+            });
+            
+            // Close when clicking outside the modal
+            window.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    hideCommissionInvoiceModal();
+                    resetCheckbox();
+                }
+            });
+        }
+
+        // Show the commission invoice modal
+        function showCommissionInvoiceModal() {
+            const modal = document.getElementById('commissionInvoiceModal');
+            const invoiceInput = document.getElementById('commissionInvoiceNumber');
+            
+            // Clear previous input
+            invoiceInput.value = '';
+            
+            // Show the modal
+            modal.style.display = 'block';
+            
+            // Focus on the input field
+            setTimeout(() => {
+                invoiceInput.focus();
+            }, 100);
+        }
+
+        // Hide the commission invoice modal
+        function hideCommissionInvoiceModal() {
+            const modal = document.getElementById('commissionInvoiceModal');
+            modal.style.display = 'none';
+        }
+
+        // Reset the checkbox to its previous state
+        function resetCheckbox() {
+            if (currentCommissionCheckbox) {
+                currentCommissionCheckbox.checked = false;
+            }
+        }
+
+        // Save the commission invoice number
+        function saveCommissionInvoice(invoiceNumber) {
+            if (!currentCommissionCheckbox) {
+                console.error("No active checkbox found");
+                hideCommissionInvoiceModal();
+                return;
+            }
+            
+            const caseId = currentCommissionCheckbox.dataset.caseId;
+            const installmentNumber = currentCommissionCheckbox.dataset.installment;
+            
+            // Update UI
+            updateCommissionUI(currentCommissionCheckbox, true, invoiceNumber);
+            
+            // Update server
+            updateCommissionStatus(caseId, installmentNumber, 1, invoiceNumber);
+            
+            // Hide modal
+            hideCommissionInvoiceModal();
+        }
+
+        // Update commission UI based on state
+        function updateCommissionUI(checkbox, isChecked, invoiceNumber = '') {
+            const cell = checkbox.closest('td');
+            
+            if (!cell) return;
+            
+            if (isChecked) {
+                // Update style for checked state
+                cell.classList.add('commission-paid');
+                cell.classList.remove('commission-needed');
+                
+                // Remove any existing tooltip
+                const existingTooltip = cell.querySelector('.agent-payment-tooltip');
+                if (existingTooltip) existingTooltip.remove();
+                
+                // Add invoice info if provided
+                if (invoiceNumber) {
+                    const invoiceInfo = document.createElement('div');
+                    invoiceInfo.className = 'commission-invoice-info';
+                    invoiceInfo.innerHTML = '<i class="fa-solid fa-receipt"></i>';
+                    
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'commission-invoice-tooltip';
+                    tooltip.textContent = `Prowizja wypłacona. Faktura: ${invoiceNumber}`;
+                    
+                    invoiceInfo.appendChild(tooltip);
+                    cell.querySelector('.commission-checkbox-container').appendChild(invoiceInfo);
+                }
+            } else {
+                // Update style for unchecked state
+                cell.classList.remove('commission-paid');
+                cell.classList.add('commission-needed');
+                
+                // Remove invoice info if exists
+                const existingInfo = cell.querySelector('.commission-invoice-info');
+                if (existingInfo) existingInfo.remove();
+                
+                // Check if we need to re-add agent tooltip
+                if (!cell.querySelector('.agent-payment-tooltip')) {
+                    const agentInfo = getAgentPaymentInfo(cell, checkbox.dataset.installment);
+                    
+                    if (agentInfo) {
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'agent-payment-tooltip';
+                        tooltip.innerHTML = agentInfo;
+                        cell.appendChild(tooltip);
+                        
+                        cell.addEventListener('mouseenter', () => {
+                            tooltip.style.display = 'block';
+                        });
+                        
+                        cell.addEventListener('mouseleave', () => {
+                            tooltip.style.display = 'none';
+                        });
+                    }
+                }
+            }
+            
+            // Show notification
+            const message = isChecked 
+                ? `Prowizja za ratę ${checkbox.dataset.installment} została oznaczona jako wypłacona.` 
+                : `Prowizja za ratę ${checkbox.dataset.installment} została oznaczona jako niewypłacona.`;
+            
+            showNotification(message, isChecked ? 'info' : 'error');
+        }
+
+        // Function to update commission status on server
+        function updateCommissionStatus(caseId, installmentNumber, status, invoiceNumber = '') {
+            console.log(`Updating commission status: Case ${caseId}, Installment ${installmentNumber}, Status ${status}, Invoice: ${invoiceNumber}`);
+            
+            // Debug JSON payload
+            const jsonPayload = JSON.stringify({
+                case_id: caseId,
+                installment_number: installmentNumber,
+                status: status,
+                invoice_number: invoiceNumber
+            });
+            console.log("JSON Payload:", jsonPayload);
+            
+            // Add debug info
+            console.log("Sending AJAX request to /update-commission-status");
+            
+            // Send AJAX request to update status
+            fetch('/update-commission-status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: jsonPayload
+            })
+            .then(response => {
+                console.log("AJAX Response status:", response.status);
+                if (!response.ok) {
+                    console.error("HTTP Error:", response.status, response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Commission status update response:', data);
+                
+                if (data.success) {
+                    console.log("Update successful, status saved in database for case", caseId, "installment", installmentNumber);
+                    // Pokazuję powiadomienie o sukcesie
+                    showNotification(`Prowizja za ratę ${installmentNumber} została zapisana w bazie danych.`, 'info');
+                } else {
+                    // If there was an error, revert the checkbox state
+                    console.error("Error updating commission:", data.message);
+                    const checkbox = document.querySelector(`.commission-checkbox[data-case-id="${caseId}"][data-installment="${installmentNumber}"]`);
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        
+                        // Also update the cell class
+                        updateCommissionUI(checkbox, checkbox.checked);
+                        
+                        // Show error notification
+                        showNotification(`Błąd: ${data.message}`, 'error');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error updating commission status:', error);
+                console.error('Error details:', error.stack);
+                
+                // Revert the checkbox state on error
+                const checkbox = document.querySelector(`.commission-checkbox[data-case-id="${caseId}"][data-installment="${installmentNumber}"]`);
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    
+                    // Also update the cell class
+                    updateCommissionUI(checkbox, checkbox.checked);
+                    
+                    // Show error notification
+                    showNotification('Błąd połączenia podczas aktualizacji statusu prowizji.', 'error');
+                }
+            });
+        }
+
+        // Hide commission paid columns
+        function hideCommissionColumns() {
+            console.log("Hiding commission paid columns");
+            
+            // Build array of column patterns to hide
+            const patternsToHide = [
+                'installment1_commission_paid',
+                'installment2_commission_paid',
+                'installment3_commission_paid',
+                'final_installment_commission_paid',
+                'INSTALLMENT1_COMMISSION_PAID',
+                'INSTALLMENT2_COMMISSION_PAID',
+                'INSTALLMENT3_COMMISSION_PAID',
+                'FINAL_INSTALLMENT_COMMISSION_PAID'
+            ];
+            
+            // Function to check if column matches any of our patterns
+            function shouldHideColumn(columnName) {
+                return patternsToHide.some(pattern => 
+                    columnName === pattern || 
+                    columnName.includes(pattern) ||
+                    // Handle case variations
+                    columnName.toLowerCase() === pattern.toLowerCase() ||
+                    columnName.toLowerCase().includes(pattern.toLowerCase())
+                );
+            }
+            
+            // Hide columns based on data-column attribute
+            document.querySelectorAll('th[data-column], td').forEach(element => {
+                const column = element.getAttribute('data-column');
+                if (column && shouldHideColumn(column)) {
+                    element.style.display = 'none';
+                }
+            });
+            
+            // Also check column text for header cells without data-column
+            document.querySelectorAll('th').forEach(header => {
+                const headerText = header.textContent.trim();
+                if (shouldHideColumn(headerText)) {
+                    const index = Array.from(header.parentNode.children).indexOf(header);
+                    
+                    // Hide this header
+                    header.style.display = 'none';
+                    
+                    // Hide all cells in this column
+                    document.querySelectorAll('tr').forEach(row => {
+                        const cells = row.querySelectorAll('td');
+                        if (cells.length > index) {
+                            cells[index].style.display = 'none';
+                        }
+                    });
+                }
+            });
+        }
+
+        // Get information about agent payments for this installment
+        function getAgentPaymentInfo(cell, installmentNum) {
+            // Try to get information from parent row
+            const row = cell.closest('tr');
+            if (!row) return null;
+            
+            let agentInfo = '';
+            
+            // Check if we have a commission invoice number for this installment
+            const caseId = row.getAttribute('data-id') || '';
+            if (caseId) {
+                // Get commission invoice field name based on installment number
+                let commissionInvoiceField;
+                switch(installmentNum) {
+                    case '1': commissionInvoiceField = 'installment1_commission_invoice'; break;
+                    case '2': commissionInvoiceField = 'installment2_commission_invoice'; break;
+                    case '3': commissionInvoiceField = 'installment3_commission_invoice'; break;
+                    case '4': commissionInvoiceField = 'final_installment_commission_invoice'; break;
+                    default: commissionInvoiceField = '';
+                }
+                
+                // Try to get the invoice number from dataset
+                const invoiceNumber = row.getAttribute(`data-${commissionInvoiceField}`) || '';
+                if (invoiceNumber) {
+                    agentInfo += `<div class="tooltip-section">Faktura prowizji: <strong>${invoiceNumber}</strong></div>`;
+                    agentInfo += '<div class="tooltip-separator"></div>';
+                }
+            }
+            
+            // Find all agent cells in the row
+            const agentCells = row.querySelectorAll('.agent-column');
+            agentCells.forEach(agentCell => {
+                const agentName = agentCell.dataset.name || agentCell.textContent.trim();
+                const rateKey = 'rata' + installmentNum;
+                const rateValue = agentCell.dataset[rateKey];
+                
+                if (rateValue && rateValue !== '0' && rateValue !== '0 zł' && 
+                    rateValue !== '0,00' && rateValue !== '0,00 zł') {
+                    
+                    // Extract numeric value
+                    let numericValue = rateValue;
+                    if (typeof numericValue === 'string') {
+                        numericValue = numericValue.replace(/[^\d,.]/g, '');
+                        numericValue = numericValue.replace(',', '.');
+                        numericValue = parseFloat(numericValue);
+                    }
+                    
+                    // If rate is positive, add to agent info
+                    if (numericValue > 0) {
+                        agentInfo += `<strong>${agentName}</strong>: ${rateValue}<br>`;
+                    }
+                }
+            });
+            
+            return agentInfo;
+        }
+
+        // Function to show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type} show`;
+            notification.innerHTML = `<i class="fa-solid fa-${type === 'info' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+            document.body.appendChild(notification);
+            
+            // Remove notification after delay
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 500);
+            }, 3000);
+        }
     </script>
 
     <style>
@@ -472,23 +1121,117 @@
             z-index: 100;
         }
         
-        .calculation-tooltip {
-            animation: pulse 1.5s infinite;
+        /* Styles for paid installment rows and cells */
+        .data-table {
+            position: relative;
+        }
+        
+        .data-table tbody tr.has-paid-installment {
+            position: relative;
+        }
+        
+        .data-table tbody tr.has-paid-installment::before {
+            content: "!";
             position: absolute;
-            bottom: 125%;
+            left: -25px; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            background-color: #F44336;
+            color: white;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            line-height: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            animation: pulse 1.5s infinite;
+            z-index: 10;
+        }
+        
+        /* Style for the red highlighted rate amount */
+        .rate-paid {
+            position: relative;
+            background-color: #ffcdd2 !important;
+            color: #d32f2f !important;
+            font-weight: bold !important;
+            border: 1px solid #ef5350 !important;
+        }
+        
+        /* Style for rates that need commission payment */
+        .commission-needed {
+            position: relative;
+            overflow: visible !important;
+        }
+        
+        .commission-needed::after {
+            content: "⚠️";
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 16px;
+            animation: pulse 1.5s infinite;
+            filter: drop-shadow(0 0 2px rgba(255,255,255,0.8));
+            z-index: 15;
+        }
+        
+        /* Zmiana koloru po zaznaczeniu prowizji */
+        .commission-paid {
+            background-color: #e8f5e9 !important;
+            color: #2E7D32 !important;
+            transition: background-color 0.5s ease;
+            border: 1px solid #66BB6A !important;
+        }
+        
+        .commission-paid::after {
+            content: "✓";
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            color: #2E7D32;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 15;
+        }
+        
+        /* Wyraziste oznaczenie dla nieprzeczytanych prowizji */
+        .commission-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #FF5722;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            animation: pulse 1.5s infinite;
+            z-index: 15;
+        }
+        
+        /* Style for the tooltip */
+        .agent-payment-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 5px);
             left: 50%;
             transform: translateX(-50%);
-            background-color: #333;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 6px;
+            background-color: #fff;
+            color: #333;
+            padding: 6px 10px;
+            border-radius: 4px;
             font-size: 12px;
             z-index: 100;
             white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border: 1px solid #ddd;
+            min-width: 150px;
+            font-weight: normal;
         }
         
-        .calculation-tooltip::after {
+        .agent-payment-tooltip::after {
             content: "";
             position: absolute;
             top: 100%;
@@ -496,7 +1239,68 @@
             margin-left: -5px;
             border-width: 5px;
             border-style: solid;
-            border-color: #333 transparent transparent transparent;
+            border-color: #fff transparent transparent transparent;
+        }
+        
+        .agent-payment-tooltip strong {
+            color: #1976D2;
+        }
+        
+        td:hover .agent-payment-tooltip {
+            display: block;
+        }
+        
+        /* Styles for invoice information in tooltip */
+        .tooltip-section {
+            padding: 4px 0;
+        }
+        
+        .tooltip-separator {
+            height: 1px;
+            background-color: #e0e0e0;
+            margin: 5px 0;
+        }
+        
+        /* Styles for commission payment checkbox */
+        .commission-checkbox-container {
+            margin-top: 8px;
+            padding-top: 5px;
+            border-top: 1px dotted #e0e0e0;
+            font-size: 12px;
+        }
+        
+        .commission-checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            color: #666;
+            font-weight: normal;
+            transition: color 0.3s ease;
+        }
+        
+        .commission-checkbox-label:hover {
+            color: #333;
+        }
+        
+        .commission-checkbox {
+            margin-right: 6px;
+            cursor: pointer;
+        }
+        
+        /* Additional animation for paid commissions */
+        .commission-paid {
+            background-color: #e8f5e9 !important;
+            transition: background-color 0.5s ease;
+        }
+        
+        .commission-checkbox:checked + span {
+            color: #2E7D32;
+            font-weight: 500;
+        }
+        
+        /* Additional padding for the table to accommodate the exclamation marks */
+        #dataTable {
+            padding-left: 30px;
         }
         
         /* Poprawa stylu dla komórek z różniącą się obliczoną wartością */
@@ -701,6 +1505,364 @@
         th[data-column^="Rata"] {
             min-width: 110px;
         }
+        
+        /* Hide commission paid columns */
+        th[data-column^="installment"][data-column$="_commission_paid"],
+        td[data-column^="installment"][data-column$="_commission_paid"],
+        th[data-column^="INSTALLMENT"][data-column$="_COMMISSION_PAID"],
+        td[data-column^="INSTALLMENT"][data-column$="_COMMISSION_PAID"],
+        th[data-column="final_installment_commission_paid"],
+        td[data-column="final_installment_commission_paid"],
+        th[data-column="FINAL_INSTALLMENT_COMMISSION_PAID"],
+        td[data-column="FINAL_INSTALLMENT_COMMISSION_PAID"] {
+            display: none !important;
+        }
+        
+        /* Stylowanie legendy prowizji */
+        .commission-legend {
+            margin: 30px auto;
+            max-width: 800px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .commission-legend h3 {
+            color: #1976D2;
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .legend-items {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .legend-symbol {
+            width: 80px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            position: relative;
+        }
+        
+        .legend-description {
+            font-size: 14px;
+            color: #555;
+        }
+        
+        /* Nowa, elegancka legenda */
+        .status-legend {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 25px;
+            margin: 20px auto;
+            max-width: 800px;
+            padding: 8px 15px;
+            background-color: #f8f9fa;
+            border-radius: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-icon {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .legend-text {
+            font-size: 13px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        /* Ikony statusów */
+        .paid-rate {
+            background-color: #ef5350;
+            border: 1px solid #d32f2f;
+        }
+        
+        .commission-pending {
+            background-color: #ffb74d;
+            border: 1px solid #f57c00;
+        }
+        
+        .commission-complete {
+            background-color: #66bb6a;
+            border: 1px solid #388e3c;
+        }
+        
+        /* Style for commission indicators */
+        .rate-paid {
+            position: relative;
+            background-color: rgba(239, 83, 80, 0.15) !important;
+            color: #d32f2f !important;
+            font-weight: 600 !important;
+            border-left: 3px solid #ef5350 !important;
+        }
+        
+        .commission-needed {
+            position: relative;
+            background-color: rgba(255, 183, 77, 0.15) !important;
+            color: #f57c00 !important;
+            font-weight: 600 !important;
+            border-left: 3px solid #ffb74d !important;
+        }
+        
+        .commission-needed::after {
+            content: "●";
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            color: #ffb74d;
+            font-size: 10px;
+        }
+        
+        .commission-paid {
+            background-color: rgba(102, 187, 106, 0.15) !important;
+            color: #388e3c !important;
+            font-weight: 600 !important;
+            border-left: 3px solid #66bb6a !important;
+        }
+        
+        .commission-paid::after {
+            content: "●";
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            color: #66bb6a;
+            font-size: 10px;
+        }
+        
+        /* Wyraziste oznaczenie dla prowizji do wypłaty */
+        .commission-badge {
+            position: absolute;
+            top: 5px;
+            right: 20px;
+            color: #f57c00;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* Superadmin badge */
+        .superadmin-badge {
+            background-color: #ff9800;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 2px 5px rgba(255, 152, 0, 0.3);
+            max-width: fit-content;
+        }
+
+        /* Modal styles for commission invoice */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1500;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            animation: fadeIn 0.3s ease;
+            backdrop-filter: blur(3px);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 25px;
+            width: 400px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            animation: slideDown 0.3s ease;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: #aaa;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal h3 {
+            margin-top: 0;
+            color: var(--primary-dark);
+            font-size: 1.4rem;
+            margin-bottom: 15px;
+        }
+
+        .modal p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s;
+            box-sizing: border-box;
+        }
+
+        .modal-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.15);
+            outline: none;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .modal-button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .save-button {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .save-button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .cancel-button {
+            background-color: #f5f5f5;
+            color: #666;
+        }
+
+        .cancel-button:hover {
+            background-color: #e0e0e0;
+        }
+        
+        /* Style for commission invoice information */
+        .commission-invoice-info {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 8px;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .commission-invoice-info i {
+            color: #4CAF50;
+            font-size: 1rem;
+        }
+        
+        .commission-invoice-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #fff;
+            color: #333;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 100;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            border: 1px solid #e0e0e0;
+            min-width: 180px;
+            font-weight: normal;
+        }
+        
+        .commission-invoice-tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #fff transparent transparent transparent;
+        }
+        
+        .commission-invoice-info:hover .commission-invoice-tooltip {
+            display: block;
+        }
+
+        /* Style for rate cells with payment info */
+        .has-payment-info {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .has-payment-info:hover {
+            background-color: rgba(0, 0, 0, 0.03);
+        }
+        
+        .has-payment-info:after {
+            content: 'ℹ️';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+            opacity: 0.5;
+        }
+        
+        .has-payment-info:hover:after {
+            opacity: 1;
+        }
     </style>
 
 </head>
@@ -712,6 +1874,11 @@
             <li class="cleannav__item">
                 <a href="/" class="cleannav__link" data-tooltip="Strona główna">
                     <i class="fa-solid fa-house cleannav__icon"></i>
+                </a>
+            </li>
+            <li class="cleannav__item">
+                <a href="/invoices" class="cleannav__link" data-tooltip="Faktury">
+                    <i class="fa-solid fa-file-invoice cleannav__icon"></i>
                 </a>
             </li>
             <li class="cleannav__item">
@@ -743,6 +1910,20 @@
             </li>
         </ul>
     </nav>
+
+    <!-- Commission Invoice Modal -->
+    <div id="commissionInvoiceModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h3>Podaj numer faktury</h3>
+            <p>Wprowadź numer faktury dla prowizji:</p>
+            <input type="text" id="commissionInvoiceNumber" placeholder="Numer faktury" class="modal-input">
+            <div class="modal-buttons">
+                <button id="saveInvoiceButton" class="modal-button save-button">Zapisz</button>
+                <button id="cancelInvoiceButton" class="modal-button cancel-button">Anuluj</button>
+            </div>
+        </div>
+    </div>
 
     <header>
         <h1>Podejrzyj Tabele</h1>

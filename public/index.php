@@ -15,6 +15,7 @@ use Dell\Faktury\Controllers\WizardController;
 use Dell\Faktury\Controllers\TableController;
 use Dell\Faktury\Controllers\LoginController;
 use Dell\Faktury\Controllers\DatabaseManageController;
+use Dell\Faktury\Controllers\InvoicesController;
 
 // Sprawdź, czy użytkownik jest zalogowany i przekieruj na stronę logowania jeśli nie
 $uri = $_SERVER['REQUEST_URI'];
@@ -39,9 +40,14 @@ if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'superadmin' &&
 
 error_log("Setting up routes...");
 $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
-    // Home routes – CSV import
+    // Home routes – redirects to invoices
     $r->addRoute('GET',    '/',            [HomeController::class, 'index']);
-    $r->addRoute('POST',   '/',            [HomeController::class, 'importCsv']);
+    
+    // Invoices routes - CSV import
+    $r->addRoute('GET',    '/invoices',       [InvoicesController::class, 'index']);
+    $r->addRoute('POST',   '/invoices',       [InvoicesController::class, 'importCsv']);
+
+    // Legacy routes handled by Home controller
     $r->addRoute('POST',   '/upload-file', [HomeController::class, 'uploadFile']);
 
     // Wizard routes
@@ -54,6 +60,9 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     // Add new route for syncing payment statuses
     $r->addRoute('GET', '/sync-payments', [TableController::class, 'syncPaymentStatuses']);
     $r->addRoute('POST', '/sync-payments-ajax', [TableController::class, 'syncPaymentsAjax']);
+    
+    // Add new route for updating commission payment status
+    $r->addRoute('POST', '/update-commission-status', [TableController::class, 'updateCommissionStatusAjax']);
     
     // Case edit routes
     $r->addRoute('GET',    '/case/edit/{id:\d+}', [TableController::class, 'edit']);

@@ -89,6 +89,11 @@
         </a>
       </li>
       <li class="cleannav__item">
+        <a href="/invoices" class="cleannav__link" data-tooltip="Faktury">
+          <i class="fa-solid fa-file-invoice cleannav__icon"></i>
+        </a>
+      </li>
+      <li class="cleannav__item">
         <a href="/agents" class="cleannav__link" data-tooltip="Dodaj agenta">
           <i class="fa-solid fa-user-plus cleannav__icon"></i>
         </a>

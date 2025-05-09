@@ -1,80 +1,298 @@
-<?php
-// Obsługa importu CSV i wstawianie rekordów do tabeli `test`
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
-    header('Content-Type: application/json; charset=UTF-8');
-    $file = $_FILES['file'];
-    $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-
-    try {
-        if ($extension !== 'csv') {
-            throw new Exception('Tylko pliki CSV są obsługiwane.');
-        }
-
-        $rows = file($file['tmp_name'], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if (!$rows) {
-            throw new Exception('Plik jest pusty lub błędny.');
-        }
-
-        // Pomiń nagłówek
-        array_shift($rows);
-        $data = array_map('str_getcsv', $rows);
-
-        if (empty($data)) {
-            throw new Exception('Brak danych do zaimportowania.');
-        }
-
-        // Pobierz nazwy kolumn z tabeli
-        $stmtCols = $pdo->query('DESCRIBE `test`');
-        $columns = array_column($stmtCols->fetchAll(PDO::FETCH_ASSOC), 'Field');
-
-        // Przygotowanie zapytania
-        $colsEscaped = implode(',', array_map(fn($c) => "`" . str_replace('`', '``', $c) . "`", $columns));
-        $placeholders = implode(',', array_fill(0, count($columns), '?'));
-        $stmt = $pdo->prepare("INSERT INTO `test` ($colsEscaped) VALUES ($placeholders)");
-
-        $imported = 0;
-        $pdo->beginTransaction();
-
-        foreach ($data as $row) {
-            if (count($row) < count($columns)) {
-                $row = array_pad($row, count($columns), null);
-            } elseif (count($row) > count($columns)) {
-                $row = array_slice($row, 0, count($columns));
-            }
-
-            $stmt->execute($row);
-            $imported++;
-        }
-
-        $pdo->commit();
-        echo json_encode(['message' => "Zaimportowano $imported rekordów."]);
-    } catch (Exception $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        echo json_encode(['message' => 'Błąd: ' . $e->getMessage()]);
-    }
-    exit;
-}
-?>
 <!DOCTYPE html>
 <html lang="pl">
-
 <head>
     <meta charset="UTF-8">
-    <!-- <base href="/zestawienie11/"> -->
-    <title>Podejrzyj Faktury</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Faktur - Strona Główna</title>
     <link rel="stylesheet" href="../../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .landing-container {
+            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .logo-container {
+            margin-bottom: 30px;
+        }
+        
+        .logo {
+            font-size: 3.5rem;
+            color: var(--primary-color);
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        .welcome-message {
+            font-size: 2.2rem;
+            margin-bottom: 20px;
+            color: var(--primary-dark);
+            animation: fadeInDown 1s ease-out;
+        }
+        
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 50px;
+            font-size: 1.2rem;
+            animation: fadeIn 1.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .features {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 60px;
+            animation: fadeInUp 1s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .feature-card {
+            background-color: white;
+            border-radius: 15px;
+            padding: 25px;
+            width: 280px;
+            box-shadow: var(--shadow-light);
+            transition: all 0.4s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        
+        .feature-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(100, 181, 246, 0.1) 0%, rgba(0, 0, 0, 0) 75%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: 1;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: var(--shadow-medium);
+        }
+        
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            transition: transform 0.4s ease;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .feature-card:hover .feature-icon {
+            transform: scale(1.2);
+        }
+        
+        .feature-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--primary-dark);
+            font-size: 1.3rem;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .feature-description {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.5;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .action-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease, background-color 0.3s ease;
+            display: inline-block;
+        }
+        
+        .feature-card:hover .action-button {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .action-button:hover {
+            background-color: var(--primary-dark);
+        }
+        
+        .additional-sections {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+            opacity: 0;
+            animation: fadeIn 1.5s ease-out forwards;
+            animation-delay: 0.5s;
+        }
+        
+        .section-card {
+            background-color: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow-light);
+            transition: all 0.3s ease;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            text-decoration: none;
+            color: inherit;
+            border-left: 4px solid transparent;
+        }
+        
+        .section-card:nth-child(1) {
+            border-left-color: #4caf50;
+        }
+        
+        .section-card:nth-child(2) {
+            border-left-color: #ff9800;
+        }
+        
+        .section-card:nth-child(3) {
+            border-left-color: #e91e63;
+        }
+        
+        .section-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-medium);
+        }
+        
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .section-icon {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+        }
+        
+        .section-content {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .view-more {
+            color: var(--primary-color);
+            font-weight: 500;
+            margin-top: auto;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .section-card:hover .view-more {
+            color: var(--primary-dark);
+            transform: translateX(5px);
+        }
+        
+        .footer-note {
+            margin-top: 60px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .features {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .feature-card {
+                width: 90%;
+                max-width: 350px;
+            }
+            
+            .welcome-message {
+                font-size: 1.8rem;
+            }
+            
+            .additional-sections {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
-
 <body>
     <?php include_once __DIR__ . '/components/user_info.php'; ?>
+
     <nav class="cleannav">
         <ul class="cleannav__list">
             <li class="cleannav__item">
-                <a href="/" class="cleannav__link" data-tooltip="Strona główna">
+                <a href="/" class="cleannav__link active" data-tooltip="Strona główna">
                     <i class="fa-solid fa-house cleannav__icon"></i>
+                </a>
+            </li>
+            <li class="cleannav__item">
+                <a href="/invoices" class="cleannav__link" data-tooltip="Faktury">
+                    <i class="fa-solid fa-file-invoice cleannav__icon"></i>
                 </a>
             </li>
             <li class="cleannav__item">
@@ -106,743 +324,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             </li>
         </ul>
     </nav>
+
     <header>
-        <h1>Podejrzyj Faktury</h1>
+        <h1>System Zarządzania Fakturami</h1>
     </header>
 
-    <div id="uploadFile">
-        <form id="uploadForm" method="POST" enctype="multipart/form-data">
-            <label for="file">Wybierz plik (CSV, Excel, OpenDocument):</label>
-            <input type="file" id="file" name="file" accept=".csv,.xlsx,.xls,.ods" required>
-            <div class="file-tips">
-                <p><i class="fa-solid fa-lightbulb"></i> Preferowany format: <strong>CSV</strong> - najbardziej niezawodny</p>
-                <p><i class="fa-solid fa-info-circle"></i> Pliki Excel (.xlsx, .xls) wymagają rozszerzenia PHP ZIP na serwerze</p>
-                <p><i class="fa-solid fa-shield-alt"></i> Pliki są sprawdzane pod kątem bezpieczeństwa <span class="security-badge">CHRONIONE</span></p>
-            </div>
-            <button type="submit">
-                <i class="fa-solid fa-upload"></i> 
-                Importuj do bazy
-            </button>
-        </form>
-    </div>
-
-    <div class="sort-controls">
-        <div class="date-filter">
-            <div class="filter-group">
-                <span class="filter-label">Rok</span>
-                <select id="yearSelect">
-                    <option value="">Wszystko</option>
-                    <option value="2025"selected>2025</option>
-                    <option value="2024">2024</option>
-                    <option value="2023">2023</option>
-                    <option value="2022">2022</option>
-                    <option value="2021">2021</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <span class="filter-label">Miesiąc</span>
-                <select id="monthSelect">
-                    <option value="">Wszystko</option>
-                    <option value="01">Styczeń</option>
-                    <option value="02">Luty</option>
-                    <option value="03">Marzec</option>
-                    <option value="04">Kwiecień</option>
-                    <option value="05">Maj</option>
-                    <option value="06">Czerwiec</option>
-                    <option value="07">Lipiec</option>
-                    <option value="08">Sierpień</option>
-                    <option value="09">Wrzesień</option>
-                    <option value="10">Październik</option>
-                    <option value="11">Listopad</option>
-                    <option value="12">Grudzień</option>
-                </select>
-            </div>
-            <button id="applyDateFilter">
-                <i class="fa-solid fa-filter"></i>
-                Filtruj dane
-            </button>
+    <div class="landing-container">
+        <div class="logo-container">
+            <i class="fa-solid fa-file-invoice-dollar logo"></i>
         </div>
         
-        <div class="column-visibility">
-            <button id="toggleColumnSelector" class="toggle-columns-btn">
-                <i class="fa-solid fa-table-columns"></i>
-                Pokaż/ukryj kolumny
-            </button>
-            <div id="columnSelector" class="column-selector">
-                <div class="column-selector-header">
-                    <span>Widoczność kolumn</span>
-                    <button id="closeColumnSelector" class="close-btn"><i class="fa-solid fa-times"></i></button>
-                </div>
-                <div class="column-selector-body" id="columnList">
-                    <!-- Kolumny zostaną dodane dynamicznie przez JavaScript -->
-                </div>
-                <div class="column-selector-footer">
-                    <button id="selectAllColumns" class="btn-small">Zaznacz wszystkie</button>
-                    <button id="deselectAllColumns" class="btn-small">Odznacz wszystkie</button>
-                </div>
-            </div>
+        <h2 class="welcome-message">Witaj w systemie zarządzania fakturami</h2>
+        <p class="subtitle">Efektywne zarządzanie fakturami i płatnościami w jednym miejscu</p>
+        
+        <div class="features">
+            <a href="/invoices" class="feature-card">
+                <i class="fa-solid fa-file-invoice feature-icon"></i>
+                <h3 class="feature-title">Zarządzanie Fakturami</h3>
+                <p class="feature-description">Łatwe importowanie i przeglądanie faktur. Filtrowanie według daty i innych kryteriów.</p>
+                <button class="action-button">Przejdź do faktur</button>
+            </a>
+            
+            <a href="/agents" class="feature-card">
+                <i class="fa-solid fa-user-tie feature-icon"></i>
+                <h3 class="feature-title">Zarządzanie Agentami</h3>
+                <p class="feature-description">Dodawaj i zarządzaj agentami, przypisuj im sprawy i kontroluj prowizje.</p>
+                <button class="action-button">Zarządzaj agentami</button>
+            </a>
+            
+            <a href="/table" class="feature-card">
+                <i class="fa-solid fa-table feature-icon"></i>
+                <h3 class="feature-title">Tabele i Raporty</h3>
+                <p class="feature-description">Dane prezentowane w czytelnych tabelach z możliwością sortowania i filtrowania.</p>
+                <button class="action-button">Zobacz tabele</button>
+            </a>
+            
+            <a href="/wizard" class="feature-card">
+                <i class="fa-solid fa-wand-magic-sparkles feature-icon"></i>
+                <h3 class="feature-title">Kreator Rekordów</h3>
+                <p class="feature-description">Łatwe tworzenie nowych wpisów z pomocą interaktywnego kreatora.</p>
+                <button class="action-button">Uruchom kreator</button>
+            </a>
+        </div>
+        
+        <div class="footer-note">
+            <p>© 2024 System Zarządzania Fakturami - Wszystkie prawa zastrzeżone</p>
         </div>
     </div>
 
-    <section id="dataTable">
-        <?php
-        try {
-            // Pobierz wszystkie kolumny dynamicznie
-            $stmtCols = $pdo->prepare('DESCRIBE `test`');
-            $stmtCols->execute();
-            $columns = array_column($stmtCols->fetchAll(PDO::FETCH_ASSOC), 'Field');
-            $colsEsc = implode(',', array_map(fn($c) => "`$c`", $columns));
-            $stmt = $pdo->query("SELECT $colsEsc FROM `test` ORDER BY `LP` DESC");
-
-            if ($stmt->rowCount() > 0) {
-                echo '<table class="data-table"><thead><tr>';
-                foreach ($columns as $col) {
-                    echo '<th class="sortable" data-column="' . htmlspecialchars($col, ENT_QUOTES) . '">' .
-                        htmlspecialchars($col, ENT_QUOTES) . '</th>';
-                }
-                echo '</tr></thead><tbody>';
-                while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
-                    echo '<tr>';
-                    foreach ($row as $index => $cell) {
-                        // Sprawdź czy to kolumna kwota i zastosuj odpowiednią klasę
-                        $className = '';
-                        if (strtolower($columns[$index]) === 'kwota' || 
-                            strpos(strtolower($columns[$index]), 'kwot') !== false) {
-                            $className = 'currency';
-                        }
-                        
-                        echo '<td' . ($className ? ' class="'.$className.'"' : '') . '>' . 
-                             htmlspecialchars($cell, ENT_QUOTES) . '</td>';
-                    }
-                    echo '</tr>';
-                }
-                echo '</tbody></table>';
-            } else {
-                echo '<div class="no-data">
-                        <i class="fa-solid fa-database fa-3x"></i>
-                        <p>Brak danych. Zaimportuj plik, aby wyświetlić dane.</p>
-                      </div>';
-            }
-        } catch (PDOException $e) {
-            echo '<div class="error-message">
-                    <i class="fa-solid fa-circle-exclamation"></i>
-                    <p>Błąd: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>
-                  </div>';
-        }
-        ?>
-    </section>
-
-    <div id="notificationContainer"></div>
     <script>
-        <?php if (isset($_GET['access_denied'])): ?>
-        // Show access denied notification when redirected from a restricted page
+        // Dodatkowe animacje podczas przewijania
         document.addEventListener('DOMContentLoaded', function() {
-            showNotification('Brak dostępu do żądanej strony. Ta funkcja wymaga uprawnień superadmin.', 'error');
-        });
-        <?php endif; ?>
-        
-        document.getElementById('uploadForm').addEventListener('submit', async e => {
-            e.preventDefault();
+            // Animacja kart przy przewijaniu
+            const featureCards = document.querySelectorAll('.feature-card');
             
-            // Walidacja pliku po stronie klienta
-            const fileInput = document.getElementById('file');
-            if (!fileInput.files || !fileInput.files[0]) {
-                showNotification('Proszę wybrać plik do zaimportowania.', 'error');
-                return;
-            }
-            
-            const file = fileInput.files[0];
-            const fileName = file.name || '';
-            const fileExt = fileName.split('.').pop().toLowerCase();
-            const allowedExtensions = ['csv', 'xlsx', 'xls', 'ods'];
-            
-            if (!allowedExtensions.includes(fileExt)) {
-                showExtendedError(`Nieobsługiwany format pliku: ${fileExt}`, 
-                                  `Dozwolone formaty: ${allowedExtensions.join(', ')}`);
-                return;
-            }
-            
-            // Sprawdź rozmiar pliku (max 10MB)
-            const maxFileSize = 10 * 1024 * 1024; // 10MB
-            if (file.size > maxFileSize) {
-                showExtendedError('Plik jest zbyt duży', 
-                                 `Maksymalny rozmiar pliku: 10MB. Wybrany plik ma ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
-                return;
-            }
-            
-            const data = new FormData(e.currentTarget);
-            
-            try {
-                showNotification('Trwa przetwarzanie pliku...' + (fileExt !== 'csv' ? ' Konwersja do formatu CSV.' : ''));
-                
-                const res = await fetch('', {
-                    method: 'POST',
-                    body: data
+            function animateOnScroll() {
+                featureCards.forEach((card, index) => {
+                    // Dodaj opóźnienie animacji dla każdej kolejnej karty
+                    setTimeout(() => {
+                        card.style.animation = 'fadeInUp 0.8s ease-out forwards';
+                    }, index * 150);
                 });
-                
-                if (!res.ok) {
-                    throw new Error(`Błąd serwera: ${res.status} ${res.statusText}`);
-                }
-                
-                const json = await res.json();
-                
-                // Sprawdź czy to błąd związany z ZipArchive
-                if (json.message && json.message.includes('brakuje rozszerzenia PHP')) {
-                    showExtendedError(sanitizeHTML(json.message));
-                } 
-                // Sprawdź czy to błąd związany z brakiem kolumny "numer"
-                else if (json.message && json.message.includes('Nie znaleziono kolumny z numerem faktury')) {
-                    showExtendedError(sanitizeHTML(json.message), sanitizeHTML(json.details));
-                }
-                else {
-                    showNotification(sanitizeHTML(json.message));
-                    setTimeout(() => location.reload(), 1500);
-                }
-            } catch (error) {
-                console.error('Import error:', error);
-                showNotification('Błąd podczas importu: ' + sanitizeHTML(error.message), 'error');
-            }
-        });
-
-        // Sanityzacja HTML do ochrony przed XSS
-        function sanitizeHTML(text) {
-            if (!text) return '';
-            const element = document.createElement('div');
-            element.textContent = text;
-            return element.innerHTML;
-        }
-
-        function showNotification(msg, type = 'info') {
-            const cont = document.getElementById('notificationContainer');
-            const n = document.createElement('div');
-            n.className = `notification ${type}`;
-            
-            const icon = type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
-            n.innerHTML = `<i class="fa-solid ${icon}"></i> ${msg}`;
-            
-            cont.appendChild(n);
-            setTimeout(() => n.classList.add('show'), 50);
-            setTimeout(() => {
-                n.classList.remove('show');
-                setTimeout(() => n.remove(), 500);
-            }, type === 'error' ? 7000 : 5050); // Dłuższy czas dla błędów
-        }
-        
-        // Funkcja do wyświetlania rozszerzonych błędów
-        function showExtendedError(msg, details) {
-            // Usuń istniejący komunikat o błędzie, jeśli istnieje
-            const existing = document.getElementById('extendedErrorMessage');
-            if (existing) {
-                existing.remove();
             }
             
-            // Utwórz nowy element błędu
-            const errorDiv = document.createElement('div');
-            errorDiv.id = 'extendedErrorMessage';
-            errorDiv.className = 'extended-error';
-            
-            let detailsHtml = '';
-            if (details) {
-                detailsHtml = `
-                    <div class="error-details">
-                        <p><strong>Szczegóły:</strong></p>
-                        <div class="details-content">${details}</div>
-                    </div>
-                `;
-            }
-            
-            errorDiv.innerHTML = `
-                <div class="error-header">
-                    <i class="fa-solid fa-exclamation-triangle"></i>
-                    <h3>Błąd przetwarzania pliku</h3>
-                </div>
-                <p>${msg}</p>
-                ${detailsHtml}
-                <div class="error-instructions">
-                    <p><strong>Jak rozwiązać problem:</strong></p>
-                    <ol>
-                        <li>Upewnij się, że plik zawiera kolumnę z numerem faktury (może być nazwana "Numer", "Nr faktury", itp.)</li>
-                        <li>Sprawdź, czy pierwszy wiersz zawiera prawidłowe nagłówki kolumn</li>
-                        <li>Zapisz plik w formacie CSV i spróbuj ponownie</li>
-                    </ol>
-                </div>
-                <button onclick="this.parentNode.remove();" class="btn-close">
-                    <i class="fa-solid fa-times"></i> Zamknij
-                </button>
-            `;
-            
-            // Umieść element na stronie
-            const uploadForm = document.getElementById('uploadFile');
-            uploadForm.parentNode.insertBefore(errorDiv, uploadForm.nextSibling);
-            
-            // Pokaż powiadomienie
-            showNotification('Wykryto problem z formatem pliku', 'error');
-        }
-
-        // Sortowanie tabeli
-        const table = document.querySelector('table');
-        if (table) {
-            const tbody = table.querySelector('tbody');
-            const headers = table.querySelectorAll('th.sortable');
-            let currentSort = {
-                column: null,
-                direction: 'asc'
-            };
-
-            headers.forEach(header => {
-                header.addEventListener('click', () => {
-                    const column = header.dataset.column;
-                    const direction = currentSort.column === column && currentSort.direction === 'asc' ? 'desc' : 'asc';
-
-                    // Usuń klasy sortowania ze wszystkich nagłówków
-                    headers.forEach(h => h.classList.remove('asc', 'desc'));
-
-                    // Dodaj klasę sortowania do aktualnego nagłówka
-                    header.classList.add(direction);
-
-                    // Sortuj tabelę
-                    sortTable(column, direction);
-
-                    // Zapisz aktualne sortowanie
-                    currentSort = {
-                        column,
-                        direction
-                    };
-                    
-                    // Pokaż informację o sortowaniu
-                    showNotification(`Posortowano według ${column} ${direction === 'asc' ? 'rosnąco' : 'malejąco'}`);
-                });
-            });
-
-            function sortTable(column, direction) {
-                const rows = Array.from(tbody.querySelectorAll('tr'));
-                const index = Array.from(headers).findIndex(h => h.dataset.column === column);
-
-                rows.sort((a, b) => {
-                    const aValue = a.cells[index].textContent;
-                    const bValue = b.cells[index].textContent;
-
-                    // Sprawdź, czy wartości mogą być liczbami
-                    const aNum = parseFloat(aValue.replace(/[^0-9.-]+/g, ''));
-                    const bNum = parseFloat(bValue.replace(/[^0-9.-]+/g, ''));
-
-                    if (!isNaN(aNum) && !isNaN(bNum)) {
-                        return direction === 'asc' ? aNum - bNum : bNum - aNum;
-                    } else {
-                        if (direction === 'asc') {
-                            return aValue.localeCompare(bValue, 'pl', { numeric: true });
-                        } else {
-                            return bValue.localeCompare(aValue, 'pl', { numeric: true });
-                        }
-                    }
-                });
-
-                tbody.innerHTML = '';
-                rows.forEach(row => tbody.appendChild(row));
-            }
-        }
-
-        // Po załadowaniu strony zapisz oryginalne dane tabeli
-        let originalTableRows = [];
-        document.addEventListener('DOMContentLoaded', () => {
-            const table = document.querySelector('table');
-            if (table && table.querySelector('tbody')) {
-                originalTableRows = Array.from(table.querySelectorAll('tbody tr'));
-                
-                // Inicjalizacja przełącznika widoczności kolumn
-                initColumnVisibility(table);
-            }
-        });
-        
-        // Funkcja inicjalizująca system pokazywania/ukrywania kolumn
-        function initColumnVisibility(table) {
-            if (!table) return;
-            
-            const headers = Array.from(table.querySelectorAll('th'));
-            const columnList = document.getElementById('columnList');
-            const columnSelector = document.getElementById('columnSelector');
-            const toggleButton = document.getElementById('toggleColumnSelector');
-            const closeButton = document.getElementById('closeColumnSelector');
-            const selectAllBtn = document.getElementById('selectAllColumns');
-            const deselectAllBtn = document.getElementById('deselectAllColumns');
-            
-            // Sprawdź, czy istnieje zapis widoczności kolumn w localStorage
-            let columnVisibility = {};
-            const savedVisibility = localStorage.getItem('columnVisibility');
-            
-            if (savedVisibility) {
-                try {
-                    columnVisibility = JSON.parse(savedVisibility);
-                } catch (e) {
-                    console.error('Błąd odczytu zapisanych ustawień kolumn:', e);
-                    columnVisibility = {};
-                }
-            }
-            
-            // Utwórz listę kolumn z checkboxami
-            headers.forEach((header, index) => {
-                const columnName = header.textContent.trim();
-                const columnId = `column-${index}`;
-                
-                // Utwórz element z checkboxem
-                const item = document.createElement('div');
-                item.className = 'column-checkbox';
-                item.dataset.columnIndex = index;
-                
-                // Sprawdź, czy kolumna powinna być widoczna
-                const isVisible = columnVisibility[columnId] !== false; // domyślnie wszystkie są widoczne
-                
-                // Jeśli kolumna jest ukryta, dodaj odpowiednią klasę do elementów tabeli
-                if (!isVisible) {
-                    applyColumnVisibility(table, index, false);
-                    item.classList.add('hidden-column');
-                }
-                
-                item.innerHTML = `
-                    <input type="checkbox" id="${columnId}" 
-                           data-column-index="${index}" 
-                           ${isVisible ? 'checked' : ''}>
-                    <label for="${columnId}">${columnName}</label>
-                `;
-                
-                // Obsługa kliknięcia w checkbox
-                const checkbox = item.querySelector('input');
-                checkbox.addEventListener('change', function() {
-                    const isChecked = this.checked;
-                    const columnIndex = parseInt(this.dataset.columnIndex);
-                    
-                    // Zapisz stan widoczności
-                    columnVisibility[columnId] = isChecked;
-                    localStorage.setItem('columnVisibility', JSON.stringify(columnVisibility));
-                    
-                    // Zaktualizuj wygląd elementu w selectorze
-                    if (isChecked) {
-                        item.classList.remove('hidden-column');
-                    } else {
-                        item.classList.add('hidden-column');
-                    }
-                    
-                    // Aktualizuj widoczność kolumn w tabeli
-                    applyColumnVisibility(table, columnIndex, isChecked);
-                    
-                    // Pokaż powiadomienie
-                    showNotification(`Kolumna "${columnName}" została ${isChecked ? 'pokazana' : 'ukryta'}`);
-                });
-                
-                // Obsługa kliknięcia w cały obszar (dla wygody)
-                item.addEventListener('click', function(e) {
-                    if (e.target !== checkbox) {
-                        checkbox.checked = !checkbox.checked;
-                        checkbox.dispatchEvent(new Event('change'));
-                    }
-                });
-                
-                columnList.appendChild(item);
-            });
-            
-            // Obsługa przycisku "Pokaż/ukryj kolumny"
-            toggleButton.addEventListener('click', function() {
-                columnSelector.classList.toggle('show');
-            });
-            
-            // Obsługa przycisku zamknięcia
-            closeButton.addEventListener('click', function() {
-                columnSelector.classList.remove('show');
-            });
-            
-            // Zamknij selektor po kliknięciu poza nim
-            document.addEventListener('click', function(e) {
-                if (!columnSelector.contains(e.target) && e.target !== toggleButton) {
-                    columnSelector.classList.remove('show');
-                }
-            });
-            
-            // Obsługa przycisków "Zaznacz wszystkie" i "Odznacz wszystkie"
-            selectAllBtn.addEventListener('click', function() {
-                const checkboxes = columnList.querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(checkbox => {
-                    if (!checkbox.checked) {
-                        checkbox.checked = true;
-                        checkbox.dispatchEvent(new Event('change'));
-                    }
-                });
-            });
-            
-            deselectAllBtn.addEventListener('click', function() {
-                const checkboxes = columnList.querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(checkbox => {
-                    if (checkbox.checked) {
-                        checkbox.checked = false;
-                        checkbox.dispatchEvent(new Event('change'));
-                    }
-                });
-            });
-        }
-        
-        // Funkcja aktualizująca widoczność kolumny w tabeli
-        function applyColumnVisibility(table, columnIndex, isVisible) {
-            if (!table) return;
-            
-            // Ukryj/pokaż nagłówek
-            const header = table.querySelector(`th:nth-child(${columnIndex + 1})`);
-            if (header) {
-                if (isVisible) {
-                    header.classList.remove('hidden-column');
-                } else {
-                    header.classList.add('hidden-column');
-                }
-            }
-            
-            // Ukryj/pokaż komórki danych
-            const cells = table.querySelectorAll(`td:nth-child(${columnIndex + 1})`);
-            cells.forEach(cell => {
-                if (isVisible) {
-                    cell.classList.remove('hidden-column');
-                } else {
-                    cell.classList.add('hidden-column');
-                }
-            });
-        }
-
-        // Filtrowanie po dacie
-        document.getElementById('applyDateFilter').addEventListener('click', () => {
-            const table = document.querySelector('table');
-            const tbody = table?.querySelector('tbody');
-            if (!table || !tbody) {
-                showNotification('Nie znaleziono tabeli z danymi.', 'error');
-                return;
-            }
-
-            // Jeśli nie zapisano oryginalnych danych, zrób to teraz
-            if (originalTableRows.length === 0) {
-                originalTableRows = Array.from(tbody.querySelectorAll('tr'));
-            }
-
-            const headers = Array.from(table.querySelectorAll('th'));
-            const year = document.getElementById('yearSelect').value;
-            const month = document.getElementById('monthSelect').value;
-
-            // Jeśli nie wybrano filtrów, przywróć wszystkie dane
-            if (!year && !month) {
-                tbody.innerHTML = '';
-                originalTableRows.forEach(row => tbody.appendChild(row.cloneNode(true)));
-                showNotification('Wyświetlono wszystkie dane');
-                return;
-            }
-
-            // Znajdź indeks kolumny z datą - szukaj różnych wariantów nazwy
-            let dateIndex = -1;
-            for (let i = 0; i < headers.length; i++) {
-                const colName = headers[i].textContent.toLowerCase().trim();
-                if (colName.includes('data') || colName === 'data-wystawienia' || 
-                    colName === 'datawystawienia' || colName.includes('date')) {
-                    dateIndex = i;
-                    console.log("Znaleziona kolumna daty:", colName, "index:", i);
-                    break;
-                }
-            }
-
-            if (dateIndex === -1) {
-                showNotification('Nie znaleziono kolumny z datą. Sprawdź nazwę kolumny z datą.', 'error');
-                return;
-            }
-
-            // Filtruj wiersze z oryginalnych danych
-            const filteredRows = originalTableRows.filter(row => {
-                const dateCell = row.cells[dateIndex];
-                if (!dateCell) return false;
-                
-                const dateText = dateCell.textContent.trim();
-                
-                // Dopasuj format YYYY-MM-DD
-                if (dateText.match(/^\d{4}-\d{2}-\d{2}/)) {
-                    const parts = dateText.split('-');
-                    const rowYear = parts[0];
-                    const rowMonth = parts[1];
-                    
-                    const yearMatches = !year || rowYear === year;
-                    const monthMatches = !month || rowMonth === month;
-                    
-                    return yearMatches && monthMatches;
-                }
-                
-                return false;
-            });
-
-            // Wyczyść tabelę i dodaj tylko odfiltrowane wiersze
-            tbody.innerHTML = '';
-            if (filteredRows.length > 0) {
-                filteredRows.forEach(row => tbody.appendChild(row.cloneNode(true)));
-                
-                // Pokaż informację o filtrowaniu
-                let message = 'Wyświetlono dane';
-                if (year) message += ` z roku ${year}`;
-                if (month) {
-                    const monthName = document.querySelector(`#monthSelect option[value="${month}"]`).textContent;
-                    message += year ? ` i miesiąca ${monthName}` : ` z miesiąca ${monthName}`;
-                }
-                showNotification(message);
-            } else {
-                showNotification('Brak danych dla wybranych kryteriów', 'info');
-                
-                // Dodaj wiersz informujący o braku danych
-                const emptyRow = document.createElement('tr');
-                const cell = document.createElement('td');
-                cell.colSpan = headers.length;
-                cell.textContent = 'Brak danych dla wybranych kryteriów';
-                cell.style.textAlign = 'center';
-                cell.style.padding = '20px';
-                cell.style.color = 'var(--text-secondary)';
-                emptyRow.appendChild(cell);
-                tbody.appendChild(emptyRow);
-            }
+            // Uruchom animację po załadowaniu strony
+            animateOnScroll();
         });
     </script>
-    
-    <style>
-        .no-data, .error-message {
-            text-align: center;
-            padding: 40px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: var(--shadow-light);
-            margin: 20px auto;
-            color: var(--text-secondary);
-        }
-        
-        .no-data i, .error-message i {
-            color: var(--primary-color);
-            margin-bottom: 15px;
-            opacity: 0.7;
-        }
-        
-        .error-message {
-            border-left: 4px solid var(--error-color);
-            color: var(--error-color);
-        }
-        
-        .error-message i {
-            color: var(--error-color);
-        }
-        
-        /* Style dla rozszerzonego komunikatu o błędzie */
-        .extended-error {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(239, 83, 80, 0.15);
-            margin: 20px auto;
-            max-width: 600px;
-            padding: 25px;
-            position: relative;
-            border-left: 5px solid var(--error-color);
-        }
-        
-        .error-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-            color: var(--error-color);
-        }
-        
-        .error-header i {
-            font-size: 24px;
-            margin-right: 10px;
-        }
-        
-        .error-header h3 {
-            margin: 0;
-            font-size: 18px;
-        }
-        
-        .error-instructions {
-            background-color: #f9f9f9;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 5px;
-        }
-        
-        .error-instructions ol {
-            margin: 10px 0 0 20px;
-            padding: 0;
-        }
-        
-        .error-instructions li {
-            margin-bottom: 8px;
-        }
-        
-        .btn-close {
-            background-color: #f5f5f5;
-            border: none;
-            border-radius: 4px;
-            color: #555;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 8px 15px;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-close:hover {
-            background-color: #e0e0e0;
-        }
-        
-        /* Style dla wskazówek odnośnie plików */
-        .file-tips {
-            background-color: #f8f9fa;
-            border-radius: 6px;
-            font-size: 13px;
-            margin: 10px 0 15px;
-            padding: 10px 15px;
-            color: var(--text-secondary);
-            border-left: 3px solid var(--primary-light);
-        }
-        
-        .file-tips p {
-            margin: 5px 0;
-            display: flex;
-            align-items: center;
-        }
-        
-        .file-tips i {
-            color: var(--primary-color);
-            margin-right: 8px;
-            font-size: 14px;
-        }
-        
-        .file-tips strong {
-            color: var(--primary-dark);
-        }
-        
-        /* Style dla szczegółów błędu */
-        .error-details {
-            background-color: #f5f5f5;
-            border-radius: 5px;
-            margin: 10px 0;
-            padding: 10px;
-        }
-        
-        .details-content {
-            font-family: monospace;
-            color: #555;
-            margin-top: 5px;
-            padding: 10px;
-            background-color: #f9f9f9;
-            border-radius: 4px;
-            border-left: 3px solid #ddd;
-            overflow-x: auto;
-        }
-        
-        /* Dodatkowe styles bezpieczeństwa */
-        .security-badge {
-            display: inline-block;
-            background-color: #4CAF50;
-            color: white;
-            padding: 1px 6px;
-            border-radius: 4px;
-            font-size: 11px;
-            margin-left: 6px;
-            vertical-align: middle;
-        }
-    </style>
 </body>
-
-</html>
+</html> 

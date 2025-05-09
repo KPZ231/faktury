@@ -6,11 +6,15 @@ use PDOException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Csv;
 
-class HomeController {
-    /** Wyświetla stronę główną */
+class InvoicesController {
+    /** Wyświetla stronę z tabelą i formularzem importu */
     public function index(): void {
-        error_log("HomeController::index - Rendering home page");
-        include __DIR__ . '/../Views/home.php';
+        error_log("InvoicesController::index - Start");
+        require_once __DIR__ . '/../../config/database.php';
+        global $pdo;
+        error_log("InvoicesController::index - Database connection established");
+        include __DIR__ . '/../Views/invoices.php';
+        error_log("InvoicesController::index - View rendered");
     }
 
     /**
@@ -29,13 +33,13 @@ class HomeController {
 
     /** Obsługuje import plików kalkulacyjnych – konwertuje do CSV i wrzuca rekordy do `test` */
     public function importCsv(): void {
-        error_log("HomeController::importCsv - Start");
+        error_log("InvoicesController::importCsv - Start");
         header('Content-Type: application/json; charset=UTF-8');
         require_once __DIR__ . '/../../config/database.php';
         global $pdo;
 
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-            error_log("HomeController::importCsv - No file uploaded or upload error: " . 
+            error_log("InvoicesController::importCsv - No file uploaded or upload error: " . 
                       (isset($_FILES['file']) ? $_FILES['file']['error'] : 'No file'));
             echo json_encode(['message' => 'Proszę przesłać poprawny plik.']);
             return;
@@ -45,7 +49,7 @@ class HomeController {
         
         // Walidacja pliku
         if (!is_uploaded_file($file['tmp_name'])) {
-            error_log("HomeController::importCsv - Security violation: attempted upload forgery");
+            error_log("InvoicesController::importCsv - Security violation: attempted upload forgery");
             echo json_encode(['message' => 'Błąd bezpieczeństwa podczas przesyłania pliku.']);
             return;
         }
@@ -54,7 +58,7 @@ class HomeController {
         $tempFile = $file['tmp_name'];
         $csvTempFile = null;
         
-        error_log("HomeController::importCsv - File uploaded: " . $file['name'] . " (type: $extension)");
+        error_log("InvoicesController::importCsv - File uploaded: " . $file['name'] . " (type: $extension)");
         
         try {
             // Sprawdź obsługiwane formaty plików
@@ -67,7 +71,7 @@ class HomeController {
             
             // Jeśli to nie jest CSV, skonwertuj plik na format CSV
             if ($extension !== 'csv') {
-                error_log("HomeController::importCsv - Converting $extension file to CSV");
+                error_log("InvoicesController::importCsv - Converting $extension file to CSV");
                 
                 // Sprawdź czy rozszerzenie zip jest dostępne (wymagane dla plików Excel)
                 if (!class_exists('ZipArchive')) {
@@ -89,11 +93,11 @@ class HomeController {
                 
                 // Używamy teraz tymczasowego pliku CSV
                 $rows = file($csvTempFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                error_log("HomeController::importCsv - File converted to CSV with " . count($rows) . " rows");
+                error_log("InvoicesController::importCsv - File converted to CSV with " . count($rows) . " rows");
             } else {
                 // Bezpośrednio wczytaj plik CSV
                 $rows = file($tempFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                error_log("HomeController::importCsv - File has " . count($rows) . " rows");
+                error_log("InvoicesController::importCsv - File has " . count($rows) . " rows");
             }
             
             if (!$rows || count($rows) <= 1) { // Przynajmniej nagłówek i jeden wiersz danych
@@ -102,11 +106,11 @@ class HomeController {
             
             // Pierwszy wiersz to nagłówek
             $headerRow = array_shift($rows);
-            error_log("HomeController::importCsv - Raw header row: " . $headerRow);
+            error_log("InvoicesController::importCsv - Raw header row: " . $headerRow);
             
             $header = str_getcsv($headerRow);
             $columns = array_map('trim', $header); // Usuwamy dodatkowe spacje
-            error_log("HomeController::importCsv - Parsed header columns: " . implode(", ", $columns));
+            error_log("InvoicesController::importCsv - Parsed header columns: " . implode(", ", $columns));
             
             // Sprawdź pierwszy wiersz danych, aby zobrazować jak dane są interpretowane
             if (!empty($rows)) {
@@ -114,7 +118,7 @@ class HomeController {
                 $dataValues = implode(", ", array_map(function($idx, $val) use ($columns) {
                     return $columns[$idx] . "=" . $val;
                 }, array_keys($firstDataRow), $firstDataRow));
-                error_log("HomeController::importCsv - First data row: " . $dataValues);
+                error_log("InvoicesController::importCsv - First data row: " . $dataValues);
             }
             
             // Pobierz faktyczne kolumny z bazy danych
@@ -123,7 +127,7 @@ class HomeController {
             while ($row = $colStmt->fetch(PDO::FETCH_ASSOC)) {
                 $tableColumns[] = $row['Field'];
             }
-            error_log("HomeController::importCsv - Database columns: " . implode(", ", $tableColumns));
+            error_log("InvoicesController::importCsv - Database columns: " . implode(", ", $tableColumns));
 
             // Filtruj kolumny CSV, pozostawiając tylko te, które istnieją w bazie danych
             $validColumnIndexes = [];
@@ -132,7 +136,7 @@ class HomeController {
             foreach ($columns as $i => $column) {
                 // Skip if this column name has already been processed
                 if (in_array($column, $processedColumns)) {
-                    error_log("HomeController::importCsv - Skipping duplicate column: " . $column);
+                    error_log("InvoicesController::importCsv - Skipping duplicate column: " . $column);
                     continue;
                 }
                 
@@ -142,7 +146,7 @@ class HomeController {
                     $processedColumns[] = $column; // Mark this column as processed
                 }
             }
-            error_log("HomeController::importCsv - Valid columns: " . implode(", ", $validColumns));
+            error_log("InvoicesController::importCsv - Valid columns: " . implode(", ", $validColumns));
 
             // Bardziej elastyczne wyszukiwanie kolumny z numerem faktury
             $invoiceNumberIndex = false;
@@ -153,7 +157,7 @@ class HomeController {
                 $columnLower = strtolower(trim($column));
                 if (in_array($columnLower, $possibleInvoiceColumns)) {
                     $invoiceNumberIndex = $i;
-                    error_log("HomeController::importCsv - Found invoice number column: '$column' at index: $i");
+                    error_log("InvoicesController::importCsv - Found invoice number column: '$column' at index: $i");
                     break;
                 }
             }
@@ -165,7 +169,7 @@ class HomeController {
                     if (strpos($columnLower, 'numer') !== false || 
                        (strpos($columnLower, 'nr') !== false && strpos($columnLower, 'fakt') !== false)) {
                         $invoiceNumberIndex = $i;
-                        error_log("HomeController::importCsv - Found partial match for invoice number column: '$column' at index: $i");
+                        error_log("InvoicesController::importCsv - Found partial match for invoice number column: '$column' at index: $i");
                         break;
                     }
                 }
@@ -174,11 +178,11 @@ class HomeController {
             // Jeśli nadal nie znaleziono, spróbuj z pierwszą kolumną (zazwyczaj może to być LP lub ID)
             if ($invoiceNumberIndex === false && count($columns) > 1) {
                 $invoiceNumberIndex = 1; // Często kolumna z numerem faktury jest drugą kolumną (po LP)
-                error_log("HomeController::importCsv - No invoice number column found, defaulting to second column: '{$columns[$invoiceNumberIndex]}'");
+                error_log("InvoicesController::importCsv - No invoice number column found, defaulting to second column: '{$columns[$invoiceNumberIndex]}'");
             }
             
             if ($invoiceNumberIndex === false) {
-                error_log("HomeController::importCsv - Column 'numer' or equivalent not found in header");
+                error_log("InvoicesController::importCsv - Column 'numer' or equivalent not found in header");
                 $columnList = implode(", ", array_map(function($col) { return "'$col'"; }, $columns));
                 echo json_encode([
                     'message' => 'Nie znaleziono kolumny z numerem faktury w pliku. Sprawdź czy plik zawiera kolumnę "numer" lub podobną.',
@@ -194,7 +198,7 @@ class HomeController {
             $colList = implode(',', array_map(fn($c) => "`$c`", $safeValidColumns));
             $placeholders = implode(',', array_fill(0, count($validColumns), '?'));
             
-            error_log("HomeController::importCsv - Preparing database statements");
+            error_log("InvoicesController::importCsv - Preparing database statements");
             
             // Zapytanie do sprawdzenia czy faktura istnieje - używa prepared statement
             $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM `test` WHERE `numer` = ?");
@@ -206,7 +210,7 @@ class HomeController {
             $updateCols = implode(',', array_map(fn($c) => "`$c` = ?", $safeValidColumns));
             $updateStmt = $pdo->prepare("UPDATE `test` SET $updateCols WHERE `numer` = ?");
 
-            error_log("HomeController::importCsv - Starting database transaction");
+            error_log("InvoicesController::importCsv - Starting database transaction");
             $pdo->beginTransaction();
             $imported = 0;
             $updated = 0;
@@ -216,7 +220,7 @@ class HomeController {
                 
                 // Wyodrębnij numer faktury
                 if (!isset($fields[$invoiceNumberIndex])) {
-                    error_log("HomeController::importCsv - Missing invoice number in row: " . ($lineIndex + 2));
+                    error_log("InvoicesController::importCsv - Missing invoice number in row: " . ($lineIndex + 2));
                     continue; // Pomijamy ten wiersz
                 }
                 
@@ -224,13 +228,13 @@ class HomeController {
                 
                 // Walidacja numeru faktury
                 if (empty(trim($invoiceNumber))) {
-                    error_log("HomeController::importCsv - Empty invoice number in row: " . ($lineIndex + 2));
+                    error_log("InvoicesController::importCsv - Empty invoice number in row: " . ($lineIndex + 2));
                     continue; // Pomijamy ten wiersz z pustym numerem faktury
                 }
                 
                 // Sanityzacja danych wejściowych
                 $invoiceNumber = htmlspecialchars($invoiceNumber, ENT_QUOTES, 'UTF-8');
-                error_log("HomeController::importCsv - Processing invoice number: " . $invoiceNumber);
+                error_log("InvoicesController::importCsv - Processing invoice number: " . $invoiceNumber);
                 
                 // Wyodrębnij tylko kolumny, które istnieją w bazie danych
                 $validFields = [];
@@ -247,30 +251,30 @@ class HomeController {
                 // Sprawdź czy faktura już istnieje używając prepared statement
                 $checkStmt->execute([$invoiceNumber]);
                 $exists = $checkStmt->fetchColumn() > 0;
-                error_log("HomeController::importCsv - Invoice exists: " . ($exists ? 'Yes' : 'No'));
+                error_log("InvoicesController::importCsv - Invoice exists: " . ($exists ? 'Yes' : 'No'));
 
                 if ($exists) {
                     // Aktualizuj istniejącą fakturę używając prepared statement
-                    error_log("HomeController::importCsv - Updating existing invoice: " . $invoiceNumber);
+                    error_log("InvoicesController::importCsv - Updating existing invoice: " . $invoiceNumber);
                     $updateFields = array_merge($validFields, [$invoiceNumber]);
                     $updateStmt->execute($updateFields);
                     $updated++;
                 } else {
                     // Wstaw nową fakturę używając prepared statement
-                    error_log("HomeController::importCsv - Inserting new invoice: " . $invoiceNumber);
+                    error_log("InvoicesController::importCsv - Inserting new invoice: " . $invoiceNumber);
                     $insertStmt->execute($validFields);
                     $imported++;
                 }
             }
 
-            error_log("HomeController::importCsv - Committing transaction. Imported: $imported, Updated: $updated");
+            error_log("InvoicesController::importCsv - Committing transaction. Imported: $imported, Updated: $updated");
             $pdo->commit();
             echo json_encode([
                 'message' => "Zaimportowano $imported nowych rekordów i zaktualizowano $updated istniejących rekordów."
             ]);
         } catch (\Exception $e) {
-            error_log("HomeController::importCsv - ERROR: " . $e->getMessage());
-            error_log("HomeController::importCsv - Stack trace: " . $e->getTraceAsString());
+            error_log("InvoicesController::importCsv - ERROR: " . $e->getMessage());
+            error_log("InvoicesController::importCsv - Stack trace: " . $e->getTraceAsString());
             if (isset($pdo) && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
@@ -281,6 +285,6 @@ class HomeController {
                 unlink($csvTempFile);
             }
         }
-        error_log("HomeController::importCsv - Complete");
+        error_log("InvoicesController::importCsv - Complete");
     }
 }
