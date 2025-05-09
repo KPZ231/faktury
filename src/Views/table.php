@@ -964,7 +964,16 @@
                 'INSTALLMENT1_COMMISSION_PAID',
                 'INSTALLMENT2_COMMISSION_PAID',
                 'INSTALLMENT3_COMMISSION_PAID',
-                'FINAL_INSTALLMENT_COMMISSION_PAID'
+                'FINAL_INSTALLMENT_COMMISSION_PAID',
+                // Add commission invoice patterns
+                'installment1_commission_invoice',
+                'installment2_commission_invoice',
+                'installment3_commission_invoice',
+                'final_installment_commission_invoice',
+                'INSTALLMENT1_COMMISSION_INVOICE',
+                'INSTALLMENT2_COMMISSION_INVOICE',
+                'INSTALLMENT3_COMMISSION_INVOICE',
+                'FINAL_INSTALLMENT_COMMISSION_INVOICE'
             ];
             
             // Function to check if column matches any of our patterns
