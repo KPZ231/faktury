@@ -993,10 +993,9 @@ a.strona:active {
                                                     $uniqueId = "payment_{$sprawa['id_sprawy']}_{$opisRaty}_{$agent_id}";
                                                     
                                                     // Pobierz dane o płatności dla tego agenta
-                                                    $stmtCheck = $pdo->prepare("SELECT status as czy_oplacone, invoice_number as numer_faktury FROM commission_payments 
-                                                        WHERE case_id = ? AND agent_id = ? AND installment_number = ?");
-                                                    $installmentNumber = array_search($opisRaty, $ratyOpis) + 1; // Konwertuj nazwę raty na numer
-                                                    $stmtCheck->execute([$sprawa['id_sprawy'], $agent_id, $installmentNumber]);
+                                                    $stmtCheck = $pdo->prepare("SELECT czy_oplacone, numer_faktury FROM agenci_wyplaty 
+                                                        WHERE id_sprawy = ? AND id_agenta = ? AND opis_raty = ?");
+                                                    $stmtCheck->execute([$sprawa['id_sprawy'], $agent_id, $opisRaty]);
                                                     $platnosc = $stmtCheck->fetch(PDO::FETCH_ASSOC);
                                                     
                                                     $czyOplacone = $platnosc ? (bool)$platnosc['czy_oplacone'] : false;
@@ -1026,10 +1025,9 @@ a.strona:active {
                                             $kubaUniqueId = "payment_{$sprawa['id_sprawy']}_{$opisRaty}_kuba";
                                             
                                             // Pobierz dane o płatności dla Kuby
-                                            $stmtCheck = $pdo->prepare("SELECT status as czy_oplacone, invoice_number as numer_faktury FROM commission_payments 
-                                                WHERE case_id = ? AND agent_id = ? AND installment_number = ?");
-                                            $installmentNumber = array_search($opisRaty, $ratyOpis) + 1; // Konwertuj nazwę raty na numer
-                                            $stmtCheck->execute([$sprawa['id_sprawy'], $kuba_id, $installmentNumber]);
+                                            $stmtCheck = $pdo->prepare("SELECT czy_oplacone, numer_faktury FROM agenci_wyplaty 
+                                                WHERE id_sprawy = ? AND id_agenta = ? AND opis_raty = ?");
+                                            $stmtCheck->execute([$sprawa['id_sprawy'], $kuba_id, $opisRaty]);
                                             $platnosc = $stmtCheck->fetch(PDO::FETCH_ASSOC);
                                             
                                             $czyOplacone = $platnosc ? (bool)$platnosc['czy_oplacone'] : false;

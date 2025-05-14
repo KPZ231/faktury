@@ -603,7 +603,7 @@ class TableController
 
             // Add agent columns
             $headers['Kuba'] = 'kuba';
-            for ($i = 1; $i <= 3; $i++) {
+                    for ($i = 1; $i <= 3; $i++) {
                 $headers["Agent $i"] = "agent$i";
             }
 
@@ -646,7 +646,7 @@ class TableController
                         $status = $this->getPaymentStatus($case['id_sprawy'], $installmentNum);
                         $class = $status ? 'status-yes' : 'status-no';
                         echo "<td><span class=\"$class\">" . ($status ? 'Tak' : 'Nie') . "</span></td>";
-                    } else {
+                        } else {
                         echo '<td>' . htmlspecialchars($case[$column] ?? '') . '</td>';
                     }
                 }
@@ -759,8 +759,8 @@ class TableController
             return $result && $result['czy_oplacone'];
         } catch (PDOException $e) {
             error_log('Error getting payment status: ' . $e->getMessage());
-            return false;
-        }
+                                return false;
+                            }
     }
 
     private function renderAgentCell($agentData, $column): string
