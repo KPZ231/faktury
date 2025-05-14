@@ -89,7 +89,7 @@ class WizardController
 
         // 4. Walidacja pól rat (jeśli są podane)
         $totalInstallments = 0;
-        for ($i = 1; $i <= 3; $i++) {
+        for ($i = 1; $i <= 6; $i++) {
             $installmentField = "installment{$i}_amount";
             if (isset($data[$installmentField]) && $data[$installmentField] !== '') {
                 error_log("WizardController::store - Walidacja raty {$i}: " . $data[$installmentField]);
@@ -260,7 +260,7 @@ class WizardController
         
         // Policz liczbę rat na podstawie danych z formularza
         $installmentsCount = 0;
-        for ($i = 1; $i <= 4; $i++) { // Maksymalnie 4 raty
+        for ($i = 1; $i <= 6; $i++) { // Maksymalnie 6 rat
             $installmentField = "installment{$i}_amount";
             if (isset($data[$installmentField]) && $data[$installmentField] !== '' && floatval($data[$installmentField]) > 0) {
                 $installmentsCount++;

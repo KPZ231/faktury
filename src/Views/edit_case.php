@@ -349,19 +349,97 @@
         <div id="installment3_agents_split"></div>
       </div>
       
-      <!-- Rata 4 (tylko status) -->
+      <!-- Rata 4 -->
+      <div class="field-group">
+        <label>
+          <span class="field-label">Rata 4:</span>
+          <input type="number" step="0.01" name="installment4_amount" id="installment4_amount" class="installment-amount"
+                value="<?php echo htmlspecialchars($case['installment4_amount'] ?? '', ENT_QUOTES); ?>">
+          <span class="error-message" id="error_installment4"></span>
+        </label>
+      </div>
+      
       <div class="field-group">
         <label>
           <span class="field-label">Opłacona Rata 4:</span>
+          <input type="checkbox" name="installment4_paid" <?php echo ($case['installment4_paid'] ?? false) ? 'checked' : ''; ?>>
+        </label>
+      </div>
+      
+      <!-- Podział raty 4 -->
+      <div class="installment-split" id="installment4_split">
+        <div class="split-item">
+          <span>Kuba (do wypłaty):</span>
+          <span id="installment4_kuba">0.00 zł</span>
+        </div>
+        <div id="installment4_agents_split"></div>
+      </div>
+      
+      <!-- Rata 5 -->
+      <div class="field-group">
+        <label>
+          <span class="field-label">Rata 5:</span>
+          <input type="number" step="0.01" name="installment5_amount" id="installment5_amount" class="installment-amount"
+                value="<?php echo htmlspecialchars($case['installment5_amount'] ?? '', ENT_QUOTES); ?>">
+          <span class="error-message" id="error_installment5"></span>
+        </label>
+      </div>
+      
+      <div class="field-group">
+        <label>
+          <span class="field-label">Opłacona Rata 5:</span>
+          <input type="checkbox" name="installment5_paid" <?php echo ($case['installment5_paid'] ?? false) ? 'checked' : ''; ?>>
+        </label>
+      </div>
+      
+      <!-- Podział raty 5 -->
+      <div class="installment-split" id="installment5_split">
+        <div class="split-item">
+          <span>Kuba (do wypłaty):</span>
+          <span id="installment5_kuba">0.00 zł</span>
+        </div>
+        <div id="installment5_agents_split"></div>
+      </div>
+      
+      <!-- Rata 6 -->
+      <div class="field-group">
+        <label>
+          <span class="field-label">Rata 6:</span>
+          <input type="number" step="0.01" name="installment6_amount" id="installment6_amount" class="installment-amount"
+                value="<?php echo htmlspecialchars($case['installment6_amount'] ?? '', ENT_QUOTES); ?>">
+          <span class="error-message" id="error_installment6"></span>
+        </label>
+      </div>
+      
+      <div class="field-group">
+        <label>
+          <span class="field-label">Opłacona Rata 6:</span>
+          <input type="checkbox" name="installment6_paid" <?php echo ($case['installment6_paid'] ?? false) ? 'checked' : ''; ?>>
+        </label>
+      </div>
+      
+      <!-- Podział raty 6 -->
+      <div class="installment-split" id="installment6_split">
+        <div class="split-item">
+          <span>Kuba (do wypłaty):</span>
+          <span id="installment6_kuba">0.00 zł</span>
+        </div>
+        <div id="installment6_agents_split"></div>
+      </div>
+      
+      <!-- Rata końcowa (tylko status) -->
+      <div class="field-group">
+        <label>
+          <span class="field-label">Opłacona Rata końcowa:</span>
           <input type="checkbox" name="final_installment_paid" <?php echo ($case['final_installment_paid'] ?? false) ? 'checked' : ''; ?>>
         </label>
       </div>
       
-      <!-- Rata 4 (obliczana) -->
+      <!-- Rata końcowa (obliczana) -->
       <div class="calculation-section">
         <div class="calculation-title">Ostatnia rata (obliczana automatycznie):</div>
         <div class="split-item">
-          <span>Rata 4:</span>
+          <span>Rata końcowa:</span>
           <span id="final_installment"><?php echo number_format((float)($case['final_installment_amount'] ?? 0), 2, ',', ' '); ?> zł</span>
         </div>
         
@@ -414,7 +492,7 @@
         document.getElementById('error_agents').innerText = "";
         
         // Czyszczenie komunikatów o błędach dla rat
-        for (let i = 1; i <= 3; i++) {
+        for (let i = 1; i <= 6; i++) {
           const errorSpan = document.getElementById(`error_installment${i}`);
           if (errorSpan) {
             errorSpan.innerText = "";
@@ -599,8 +677,11 @@
         const installment1 = parseFloat(document.getElementById('installment1_amount').value) || 0;
         const installment2 = parseFloat(document.getElementById('installment2_amount').value) || 0;
         const installment3 = parseFloat(document.getElementById('installment3_amount').value) || 0;
+        const installment4 = parseFloat(document.getElementById('installment4_amount').value) || 0;
+        const installment5 = parseFloat(document.getElementById('installment5_amount').value) || 0;
+        const installment6 = parseFloat(document.getElementById('installment6_amount').value) || 0;
         
-        const finalInstallment = Math.max(0, totalCommission - (installment1 + installment2 + installment3));
+        const finalInstallment = Math.max(0, totalCommission - (installment1 + installment2 + installment3 + installment4 + installment5 + installment6));
         document.getElementById('final_installment').textContent = 
           finalInstallment.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, " ") + ' zł';
            
@@ -620,8 +701,8 @@
         }
         
         // Aktualizacja podziału rat
-        const installmentAmounts = [installment1, installment2, installment3, finalInstallment];
-        const installmentNames = ["installment1", "installment2", "installment3", "final_installment"];
+        const installmentAmounts = [installment1, installment2, installment3, installment4, installment5, installment6, finalInstallment];
+        const installmentNames = ["installment1", "installment2", "installment3", "installment4", "installment5", "installment6", "final_installment"];
         
         for (let i = 0; i < installmentAmounts.length; i++) {
           const installmentName = installmentNames[i];
@@ -633,7 +714,7 @@
             kubaInstallment.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, " ") + ' zł';
           
           // Pokaż podział dla agentów dla tej raty
-          if (i < 3) { // Dla normalnych rat (nie ostatniej)
+          if (i < 6) { // Dla normalnych rat (nie ostatniej)
             const agentsSplitContainer = document.getElementById(`${installmentName}_agents_split`);
             agentsSplitContainer.innerHTML = '';
             
@@ -680,7 +761,10 @@
         amountWonInput, upfrontFeeInput, successFeeInput, kubaPercentageInput,
         document.getElementById('installment1_amount'),
         document.getElementById('installment2_amount'),
-        document.getElementById('installment3_amount')
+        document.getElementById('installment3_amount'),
+        document.getElementById('installment4_amount'),
+        document.getElementById('installment5_amount'),
+        document.getElementById('installment6_amount')
       ];
       
       inputs.forEach(input => {

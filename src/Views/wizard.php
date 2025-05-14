@@ -296,8 +296,8 @@
       </label>
       <br>
       <label>
-        Liczba rat (0-4):
-        <input id="installmentsCount" type="number" min="0" max="4" value="0">
+        Liczba rat (0-6):
+        <input id="installmentsCount" type="number" min="0" max="6" value="0">
       </label>
     </fieldset>
 
