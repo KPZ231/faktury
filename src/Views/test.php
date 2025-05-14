@@ -52,11 +52,14 @@ while ($sprawa = $sprawyStmt->fetch(PDO::FETCH_ASSOC)) {
     $sprawa['calosc_prowizji'] = floatval($sprawa['oplata_wstepna']) + (floatval($sprawa['wywalczona_kwota']) * floatval($sprawa['stawka_success_fee']));
 
     // Oblicz do_wyplaty_kuba_proc (jako udział, np. 0.25 = 25%)
-    $suma_udzialow = 0.0;
-    foreach ($sprawa['prowizje_proc'] as $udzial) {
-        $suma_udzialow += floatval($udzial);
+    $kuba_proc = $sprawa['prowizje_proc'][$kuba_id] ?? 0.0;
+    $suma_udzialow_agentow = 0.0;
+    foreach ($sprawa['prowizje_proc'] as $agent_id => $udzial) {
+        if ($agent_id != $kuba_id) {
+            $suma_udzialow_agentow += floatval($udzial);
+        }
     }
-    $sprawa['do_wyplaty_kuba_proc'] = max(0, 1.0 - $suma_udzialow);
+    $sprawa['do_wyplaty_kuba_proc'] = max(0, $kuba_proc - $suma_udzialow_agentow);
 
     // Map the installment fields from oplaty_spraw
     $sprawa['oplaty'] = [];
