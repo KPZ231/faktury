@@ -75,8 +75,6 @@ class TestController {
             
             foreach ($cases as $case) {
                 $id = $case['id_sprawy'];
-                $updates = [];
-                $params = [];
                 
                 // Calculate total commission
                 $upfrontFee = !empty($case['oplata_wstepna']) ? floatval($case['oplata_wstepna']) : 0;
@@ -86,38 +84,27 @@ class TestController {
                 // Calculate total commission
                 $totalCommission = $upfrontFee + ($amountWon * $successFeePercentage);
                 
-                // Get agent percentages from prowizje_agentow_spraw
-                $agentsQuery = "SELECT udzial_prowizji_proc FROM prowizje_agentow_spraw WHERE id_sprawy = ?";
-                $agentsStmt = $this->pdo->prepare($agentsQuery);
-                $agentsStmt->execute([$id]);
+                // Get all installments except the final one
+                $stmt = $this->pdo->prepare("SELECT SUM(oczekiwana_kwota) as suma_rat FROM oplaty_spraw WHERE id_sprawy = ? AND opis_raty != 'Rata końcowa'");
+                $stmt->execute([$id]);
+                $sumaRat = $stmt->fetch(PDO::FETCH_ASSOC)['suma_rat'] ?? 0;
                 
-                $agentTotalPercentage = 0;
-                while ($agentData = $agentsStmt->fetch(PDO::FETCH_ASSOC)) {
-                    $agentTotalPercentage += floatval($agentData['udzial_prowizji_proc']);
-                }
+                // Calculate final installment as the difference between total commission and sum of all other installments
+                $rataKoncowa = $totalCommission - $sumaRat;
                 
-                // Calculate Kuba's percentage (remaining percentage)
-                $kubaPayout = max(0, 1 - $agentTotalPercentage);
-                
-                // Update oplaty_spraw table with calculated values
+                // Update only the final installment
                 $updateQuery = "UPDATE oplaty_spraw SET 
                     oczekiwana_kwota = :kwota 
-                    WHERE id_sprawy = :id_sprawy AND opis_raty = :opis_raty";
+                    WHERE id_sprawy = :id_sprawy AND opis_raty = 'Rata końcowa'";
                 
-                $installments = ['Rata 1', 'Rata 2', 'Rata 3', 'Rata 4'];
-                foreach ($installments as $index => $opisRaty) {
-                    $kwota = $totalCommission / count($installments);
-                    $stmt = $this->pdo->prepare($updateQuery);
-                    $stmt->execute([
-                        ':kwota' => $kwota,
-                        ':id_sprawy' => $id,
-                        ':opis_raty' => $opisRaty
-                    ]);
-                }
+                $stmt = $this->pdo->prepare($updateQuery);
+                $stmt->execute([
+                    ':kwota' => $rataKoncowa,
+                    ':id_sprawy' => $id
+                ]);
             }
-        } catch (PDOException $e) {
-            // Log error but continue
-            error_log("Error calculating commissions: " . $e->getMessage());
+        } catch (\PDOException $e) {
+            error_log("Error in calculateCommissions: " . $e->getMessage());
         }
     }
     
