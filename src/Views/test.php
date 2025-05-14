@@ -19,7 +19,7 @@ while ($agent = $agentsStmt->fetch(PDO::FETCH_ASSOC)) {
 }
 
 // Define raty structure
-$ratyOpis = ['Rata 1', 'Rata 2', 'Rata 3', 'Rata 4'];
+$ratyOpis = ['Rata 1', 'Rata 2', 'Rata 3', 'Rata 4', 'Rata 5', 'Rata 6', 'Rata Końcowa'];
 $liczbaRat = count($ratyOpis);
 
 // Get all cases/sprawy (new schema)
@@ -1358,8 +1358,8 @@ syncPaymentStatuses($pdo);
                                             // Najpierw wyświetl prowizje dla innych agentów
                                             foreach ($sprawa['prowizje_proc'] as $agent_id => $proc): 
                                                 if ($agent_id != $kuba_id): // Pomiń Kubę w pierwszej pętli
-                                                    // Divide by 100 to convert from percentage to multiplier
-                                                    $kwotaProwizji = $kwotaRaty * ($proc / 100);
+                                                    // Używamy wartości procentowej bezpośrednio, bo jest już w formacie dziesiętnym
+                                                    $kwotaProwizji = $kwotaRaty * $proc;
                                                     if ($kwotaProwizji > $epsilon):
                                                         $uniqueId = "payment_{$sprawa['id_sprawy']}_{$opisRaty}_{$agent_id}";
                                                         
@@ -1391,7 +1391,7 @@ syncPaymentStatuses($pdo);
                                             endforeach;
                                             
                                             // Teraz wyświetl prowizję dla Kuby używając obliczonego procentu
-                                            $kubaKwotaProwizji = $kwotaRaty * ($sprawa['do_wyplaty_kuba_proc'] / 100);
+                                            $kubaKwotaProwizji = $kwotaRaty * $sprawa['do_wyplaty_kuba_proc'];
                                             if ($kubaKwotaProwizji > $epsilon):
                                                 $kubaUniqueId = "payment_{$sprawa['id_sprawy']}_{$opisRaty}_kuba";
                                                 
