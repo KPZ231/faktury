@@ -98,6 +98,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                     <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
                 </a>
             </li>
+            <li class="cleannav__item">
+                <a href="/test" class="cleannav__link" data-tooltip="Test">
+                    <i class="fa-solid fa-vial cleannav__icon"></i>
+                </a>
+            </li>
             <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
             <li class="cleannav__item">
                 <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">

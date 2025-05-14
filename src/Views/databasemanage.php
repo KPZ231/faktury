@@ -294,6 +294,11 @@
                 </a>
             </li>
             <li class="cleannav__item">
+                <a href="/test" class="cleannav__link" data-tooltip="Test">
+                    <i class="fa-solid fa-vial cleannav__icon"></i>
+                </a>
+            </li>
+            <li class="cleannav__item">
                 <a href="/database" class="cleannav__manage-btn active" data-tooltip="Zarządzaj bazą">
                     <i class="fa-solid fa-database cleannav__icon"></i>
                 </a>
