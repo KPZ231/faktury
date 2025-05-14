@@ -7,7 +7,7 @@ $dotenv->load();
 
 // Database connection details from .env
 $host = $_ENV['DB_HOST'];
-$dbname = $_ENV['DB_NAME'] ?? 'projektimport'; // Default to 'projektimport' if not set
+$dbname = $_ENV['DB_NAME'];
 $username = $_ENV['DB_USERNAME'];
 $password = $_ENV['DB_PASSWORD'];
 
