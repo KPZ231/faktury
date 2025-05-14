@@ -6,15 +6,13 @@
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_agent'])) {
     // Sanitize input
-    $imie = trim($_POST['imie']);
-    $nazwisko = trim($_POST['nazwisko']);
+    $nazwaAgenta = trim($_POST['nazwa_agenta']);
 
-    if ($imie !== '' && $nazwisko !== '') {
-        $sql = "INSERT INTO agenci (agent_id, imie, nazwisko, sprawy) VALUES (NULL, :imie, :nazwisko, JSON_ARRAY())";
+    if ($nazwaAgenta !== '') {
+        $sql = "INSERT INTO agenci (nazwa_agenta) VALUES (:nazwa_agenta)";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            ':imie' => $imie,
-            ':nazwisko' => $nazwisko
+            ':nazwa_agenta' => $nazwaAgenta
         ]);
         // Redirect to avoid resubmission
         header('Location: ?');
@@ -25,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_agent'])) {
 }
 
 // Fetch all agents
-$stmt = $pdo->query("SELECT agent_id, imie, nazwisko, sprawy FROM agenci ORDER BY agent_id ASC");
+$stmt = $pdo->query("SELECT id_agenta, nazwa_agenta FROM agenci ORDER BY nazwa_agenta ASC");
 $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $count = count($agents);
 ?>
@@ -97,14 +95,10 @@ $count = count($agents);
     <?php endif; ?>
 
     <form method="post" action="/agents" class="agent-form">
-        <label class="agent-form-label" for="imie">Imię:</label>
-        <input class="agent-form-input" type="text" id="imie" name="imie" required>
-        <br>
-        <br>
-        <label class="agent-form-label" for="nazwisko">Nazwisko:</label>
-        <input class="agent-form-input" type="text" id="nazwisko" name="nazwisko" required>
+        <label class="agent-form-label" for="nazwa_agenta">Nazwa agenta:</label>
+        <input class="agent-form-input" type="text" id="nazwa_agenta" name="nazwa_agenta" required>
         <br><br>
-        <button type="submit" class="agent-submit-button">Dodaj Agenta</button>
+        <button type="submit" name="add_agent" class="agent-submit-button">Dodaj Agenta</button>
     </form>
 
     <h2 class="agent-list-heading">Lista Agentów (<?php echo count($agents); ?>)</h2>
@@ -113,27 +107,21 @@ $count = count($agents);
         <ul class="agent-list">
             <?php foreach ($agents as $agent): ?>
                 <li class="agent-list-item">
-                    <a href="/table?agent_id=<?php echo $agent['agent_id']; ?>" class="agent-name-link">
-                        <strong class="agent-name"><?php echo htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko']); ?></strong>
+                    <a href="/table?agent_id=<?php echo $agent['id_agenta']; ?>" class="agent-name-link">
+                        <strong class="agent-name"><?php echo htmlspecialchars($agent['nazwa_agenta']); ?></strong>
                     </a>
                     <div class="agent-cases-container">
                         <?php
-                        if (!empty($agent['sprawy'])):
-                            $sprawy = is_string($agent['sprawy']) ? json_decode($agent['sprawy'], true) : $agent['sprawy'];
-                            if (is_array($sprawy) && !empty($sprawy)):
-                                foreach ($sprawy as $sprawa):
-                                    if (is_array($sprawa) && isset($sprawa['case_name']) && isset($sprawa['rola']) && isset($sprawa['percentage'])):
-                                        ?>
-                                        <span class="agent-case-link">
-                                            <?php echo htmlspecialchars($sprawa['case_name'] . ' (' . $sprawa['rola'] . ')'); ?>
-                                            <br><small><?php echo number_format((float)$sprawa['percentage'], 2, ',', ' '); ?>%</small>
-                                        </span>
-                                        <?php
-                                    endif;
-                                endforeach;
-                            else:
-                                echo '<em class="agent-no-cases">Brak przypisanych spraw</em>';
-                            endif;
+                        if (isset($agent['sprawy']) && is_array($agent['sprawy']) && !empty($agent['sprawy'])):
+                            foreach ($agent['sprawy'] as $sprawa):
+                                $prowizja = (float)$sprawa['percentage'] * 100; // Convert from decimal to percentage
+                                ?>
+                                <span class="agent-case-link">
+                                    <?php echo htmlspecialchars($sprawa['identyfikator_sprawy']); ?>
+                                    <br><small><?php echo number_format($prowizja, 2, ',', ' '); ?>%</small>
+                                </span>
+                                <?php
+                            endforeach;
                         else:
                             echo '<em class="agent-no-cases">Brak przypisanych spraw</em>';
                         endif;

@@ -32,27 +32,14 @@ class AgentController
         
         try {
             error_log("AgentController::index - Pobieranie wszystkich agentów");
-            $stmt = $this->db->query("SELECT * FROM agenci ORDER BY nazwisko, imie");
+            $stmt = $this->db->query("SELECT * FROM agenci ORDER BY nazwa_agenta");
             $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
             error_log("AgentController::index - Pobrano " . count($agents) . " agentów");
             
             // Przygotuj dane dla widoku
             foreach ($agents as &$agent) {
-                if (isset($agent['sprawy']) && !empty($agent['sprawy'])) {
-                    // Próba dekodowania JSON jeśli sprawy są zapisane jako string
-                    if (is_string($agent['sprawy'])) {
-                        $sprawy = json_decode($agent['sprawy'], true);
-                        if (!$sprawy) {
-                            $sprawy = [];
-                            error_log("AgentController::index - Błąd dekodowania JSON dla agenta ID: " . $agent['agent_id']);
-                        }
-                        $agent['sprawy'] = $sprawy;
-                    }
-                    error_log("AgentController::index - Agent ID: " . $agent['agent_id'] . ", liczba spraw: " . count($agent['sprawy']));
-                } else {
-                    $agent['sprawy'] = [];
-                    error_log("AgentController::index - Agent ID: " . $agent['agent_id'] . " nie ma przypisanych spraw");
-                }
+                // Pobierz sprawy agenta
+                $agent['sprawy'] = $this->getAgentCases($agent['id_agenta']);
             }
             
             // Udostępnij połączenie z bazą danych dla widoku
@@ -75,52 +62,28 @@ class AgentController
     }
 
     /**
-     * Pobiera listę agentów wraz z ich sprawami
+     * Pobiera sprawy przypisane do agenta
      */
-    private function getAgentsWithCases(): array
+    private function getAgentCases($agentId): array
     {
         try {
-            // Pobierz podstawowe dane agentów
-            $query = "SELECT agent_id, imie, nazwisko FROM agenci ORDER BY agent_id ASC";
-            $stmt = $this->db->query($query);
-            $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // Dla każdego agenta pobierz jego sprawy z tabeli sprawa_agent
-            foreach ($agents as &$agent) {
-                $agent['sprawy'] = $this->getAgentCasesDetails($agent['agent_id']);
-            }
-
-            return $agents;
-        } catch (PDOException $e) {
-            error_log('Error fetching agents with cases: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    /**
-     * Pobiera szczegółowe dane o sprawach agenta
-     */
-    private function getAgentCasesDetails(int $agentId): array
-    {
-        try {
-            // Pobierz sprawy przypisane do agenta wraz z rolą i szczegółami sprawy
+            // Pobierz sprawy przypisane do agenta
             $query = "
                 SELECT 
-                    t.id AS sprawa_id,
-                    t.case_name,
-                    sa.rola,
-                    sa.percentage
-                FROM sprawa_agent sa
-                JOIN test2 t ON sa.sprawa_id = t.id
-                WHERE sa.agent_id = ?
-                ORDER BY t.id DESC
+                    s.id_sprawy,
+                    s.identyfikator_sprawy,
+                    pas.udzial_prowizji_proc as percentage
+                FROM prowizje_agentow_spraw pas
+                JOIN sprawy s ON pas.id_sprawy = s.id_sprawy
+                WHERE pas.id_agenta = ?
+                ORDER BY s.id_sprawy DESC
             ";
             $stmt = $this->db->prepare($query);
             $stmt->execute([$agentId]);
             
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
-            error_log('Error fetching agent case details: ' . $e->getMessage());
+            error_log('Error fetching agent cases: ' . $e->getMessage());
             return [];
         }
     }
@@ -132,12 +95,11 @@ class AgentController
     {
         error_log("AgentController::addAgent - Start");
         // Pobierz dane z formularza
-        $imie = $_POST['imie'] ?? '';
-        $nazwisko = $_POST['nazwisko'] ?? '';
+        $nazwaAgenta = $_POST['nazwa_agenta'] ?? '';
         
-        error_log("AgentController::addAgent - Dane agenta: imię=" . $imie . ", nazwisko=" . $nazwisko);
+        error_log("AgentController::addAgent - Dane agenta: nazwa=" . $nazwaAgenta);
         
-        if (empty($imie) || empty($nazwisko)) {
+        if (empty($nazwaAgenta)) {
             error_log("AgentController::addAgent - Brak wymaganych danych");
             header('Location: /agents?error=missing_data');
             exit;
@@ -146,15 +108,12 @@ class AgentController
         try {
             error_log("AgentController::addAgent - Przygotowanie zapytania INSERT");
             $stmt = $this->db->prepare(
-                "INSERT INTO agenci (imie, nazwisko, sprawy) 
-                 VALUES (?, ?, ?)"
+                "INSERT INTO agenci (nazwa_agenta) 
+                 VALUES (?)"
             );
             
-            // Inicjuj pustą tablicę spraw (jako JSON)
-            $sprawy = json_encode([]);
-            
             error_log("AgentController::addAgent - Wykonanie zapytania INSERT");
-            $result = $stmt->execute([$imie, $nazwisko, $sprawy]);
+            $result = $stmt->execute([$nazwaAgenta]);
             
             if ($result) {
                 error_log("AgentController::addAgent - Pomyślnie dodano agenta. Ostatnie ID: " . $this->db->lastInsertId());
@@ -178,10 +137,8 @@ class AgentController
      */
     public function showCase(int $agentId, int $caseId): void
     {
-        $this->db = $this->db;
-
         // Pobierz dane agenta
-        $stmt = $this->db->prepare("SELECT imie, nazwisko FROM agenci WHERE agent_id = :id");
+        $stmt = $this->db->prepare("SELECT nazwa_agenta FROM agenci WHERE id_agenta = :id");
         $stmt->execute([':id' => $agentId]);
         $agent = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -190,12 +147,12 @@ class AgentController
             return;
         }
 
-        // Pobierz szczegóły sprawy z relacji sprawa_agent
+        // Pobierz szczegóły sprawy
         $stmt = $this->db->prepare("
-            SELECT sa.rola, t.* 
-            FROM sprawa_agent sa
-            JOIN test2 t ON sa.sprawa_id = t.id
-            WHERE sa.agent_id = :agent_id AND sa.sprawa_id = :case_id
+            SELECT pas.udzial_prowizji_proc, s.* 
+            FROM prowizje_agentow_spraw pas
+            JOIN sprawy s ON pas.id_sprawy = s.id_sprawy
+            WHERE pas.id_agenta = :agent_id AND pas.id_sprawy = :case_id
         ");
         $stmt->execute([':agent_id' => $agentId, ':case_id' => $caseId]);
         $case = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -207,18 +164,17 @@ class AgentController
 
         // Pobierz wszystkich agentów przypisanych do tej sprawy
         $stmt = $this->db->prepare("
-            SELECT a.imie, a.nazwisko, sa.rola, sa.percentage
-            FROM sprawa_agent sa
-            JOIN agenci a ON sa.agent_id = a.agent_id
-            WHERE sa.sprawa_id = :case_id
-            ORDER BY sa.rola
+            SELECT a.nazwa_agenta, pas.udzial_prowizji_proc
+            FROM prowizje_agentow_spraw pas
+            JOIN agenci a ON pas.id_agenta = a.id_agenta
+            WHERE pas.id_sprawy = :case_id
+            ORDER BY pas.udzial_prowizji_proc DESC
         ");
         $stmt->execute([':case_id' => $caseId]);
         $caseAgents = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Tutaj możesz wyświetlić dane sprawy i powiązanych agentów
-        // Na razie nie implementujemy pełnego widoku, tylko zwracamy dane
-        echo "Agent: {$agent['imie']} {$agent['nazwisko']}, Rola: {$case['rola']}, Sprawa: {$case['case_name']}";
+        echo "Agent: {$agent['nazwa_agenta']}, Udział: {$case['udzial_prowizji_proc']}, Sprawa: {$case['identyfikator_sprawy']}";
     }
     
     /**
@@ -244,50 +200,48 @@ class AgentController
         
         try {
             // Pobierz podstawowe dane agenta
-            $query = "SELECT agent_id, imie, nazwisko FROM agenci WHERE agent_id = ?";
+            $query = "SELECT id_agenta, nazwa_agenta FROM agenci WHERE id_agenta = ?";
             $stmt = $this->db->prepare($query);
             $stmt->execute([$agentId]);
             $agent = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$agent) {
-                error_log("AgentController::getAgentCommission - Nie znaleziono agenta o ID: " . $agentId);
-                header('Content-Type: application/json');
-                echo json_encode([
-                    'error' => 'Agent not found',
-                    'commission_percentage' => null
-                ]);
-                return;
+                throw new \Exception("Agent o ID {$agentId} nie istnieje");
             }
             
-            // Pobierz średni procent prowizji z tabeli sprawa_agent (jeśli istnieje)
-            $query = "SELECT AVG(percentage) AS avg_percentage FROM sprawa_agent WHERE agent_id = ?";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([$agentId]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            $commissionPercentage = null;
-            if ($result && $result['avg_percentage'] !== null) {
-                $commissionPercentage = number_format((float)$result['avg_percentage'], 2);
-                error_log("AgentController::getAgentCommission - Średni procent prowizji: " . $commissionPercentage);
+            // Jeśli przekazano również ID sprawy, pobierz konkretną prowizję
+            if (isset($_GET['case_id']) && !empty($_GET['case_id'])) {
+                $caseId = intval($_GET['case_id']);
+                $query = "
+                    SELECT udzial_prowizji_proc
+                    FROM prowizje_agentow_spraw
+                    WHERE id_agenta = ? AND id_sprawy = ?
+                ";
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([$agentId, $caseId]);
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($result) {
+                    $commissionPercentage = floatval($result['udzial_prowizji_proc']) * 100; // Convert from decimal to percentage
+                } else {
+                    $commissionPercentage = 0; // Brak powiązanej prowizji
+                }
             } else {
-                error_log("AgentController::getAgentCommission - Brak danych o prowizji dla agenta");
+                // Jeśli nie ma ID sprawy, zwróć domyślną wartość
+                $commissionPercentage = 0;
             }
             
-            // Zwróć dane jako JSON
             header('Content-Type: application/json');
             echo json_encode([
-                'agent_id' => $agent['agent_id'],
-                'agent_name' => $agent['imie'] . ' ' . $agent['nazwisko'],
+                'agent' => $agent,
                 'commission_percentage' => $commissionPercentage
             ]);
             
-            error_log("AgentController::getAgentCommission - Zwrócono dane JSON");
-            
-        } catch (PDOException $e) {
-            error_log("AgentController::getAgentCommission - BŁĄD: " . $e->getMessage());
+        } catch (\Exception $e) {
+            error_log("AgentController::getAgentCommission - ERROR: " . $e->getMessage());
             header('Content-Type: application/json');
             echo json_encode([
-                'error' => 'Database error: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
                 'commission_percentage' => null
             ]);
         }

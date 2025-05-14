@@ -53,16 +53,15 @@ class TableController
         // Handle the special Jakub case
         if ($selectedAgentId === 'jakub' || $selectedAgentId === 'Jakub') {
             $selectedAgent = [
-                'imie' => 'Jakub',
-                'nazwisko' => 'Kowalski',
-                'agent_id' => 'jakub'
+                'nazwa_agenta' => 'Jakub',
+                'id_agenta' => 'jakub'
             ];
             error_log("TableController::index - Wybrano specjalnego agenta Jakub");
         } elseif ($selectedAgentId) {
             foreach ($agents as $agent) {
-                if ($agent['agent_id'] == $selectedAgentId) {
+                if ($agent['id_agenta'] == $selectedAgentId) {
                     $selectedAgent = $agent;
-                    error_log("TableController::index - Znaleziono wybranego agenta: " . $agent['imie'] . " " . $agent['nazwisko']);
+                    error_log("TableController::index - Znaleziono wybranego agenta: " . $agent['nazwa_agenta']);
                     break;
                 }
             }
@@ -80,7 +79,7 @@ class TableController
     {
         error_log("TableController::getAgents - Start");
         try {
-            $query = "SELECT agent_id, imie, nazwisko FROM agenci ORDER BY nazwisko, imie";
+            $query = "SELECT id_agenta, nazwa_agenta FROM agenci ORDER BY nazwa_agenta";
             $stmt = $this->pdo->query($query);
             $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
             error_log("TableController::getAgents - Pobrano " . count($agents) . " agentów");
@@ -490,94 +489,122 @@ class TableController
      */
     public function getAgentCases($agentId): array
     {
+        error_log("TableController::getAgentCases - Start for agent ID: " . $agentId);
         try {
-            // For the special Jakub agent, return all cases
+            // Handle the special Jakub case
             if ($agentId === 'jakub' || $agentId === 'Jakub') {
-                $query = "SELECT t.id, t.case_name, t.is_completed, t.amount_won, t.upfront_fee, 
-                    t.success_fee_percentage, t.total_commission, t.kuba_percentage, t.kuba_payout, 
-                    t.kuba_installment1_amount, t.kuba_installment2_amount, t.kuba_installment3_amount, 
-                    t.kuba_final_installment_amount, t.kuba_invoice_number, 
-                    t.agent1_installment1_amount, t.agent1_installment2_amount, t.agent1_installment3_amount, 
-                    t.agent1_final_installment_amount, t.agent2_installment1_amount, t.agent2_installment2_amount, 
-                    t.agent2_installment3_amount, t.agent2_final_installment_amount, t.agent3_installment1_amount, 
-                    t.agent3_installment2_amount, t.agent3_installment3_amount, t.agent3_final_installment_amount, 
-                    t.installment1_amount, t.installment1_paid, t.installment1_paid_invoice, 
-                    t.installment2_amount, t.installment2_paid, t.installment2_paid_invoice, 
-                    t.installment3_amount, t.installment3_paid, t.installment3_paid_invoice, 
-                    t.final_installment_amount, t.final_installment_paid, t.final_installment_paid_invoice,
-                    t.installment1_commission_paid, t.installment2_commission_paid, 
-                    t.installment3_commission_paid, t.final_installment_commission_paid,
-                    t.installment1_commission_invoice, t.installment2_commission_invoice,
-                    t.installment3_commission_invoice, t.final_installment_commission_invoice,
-                    NULL as rola, NULL as percentage 
-                    FROM test2 t 
-                    ORDER BY t.id DESC";
-                $stmt = $this->pdo->query($query);
-                return $stmt->fetchAll(PDO::FETCH_ASSOC);
-            }
-            
-            // Convert to integer for normal agent IDs
-            $agentId = (int)$agentId;
-            
-            // Pobierz wszystkie sprawy przypisane do tego agenta z tabeli sprawa_agent
+                // Get all cases with kuba_percentage > 0
+                // They have been moved to prowizje_agentow_spraw table with agent id for Kuba
+                // Find Kuba's agent ID
+                $kubaQuery = "SELECT id_agenta FROM agenci WHERE nazwa_agenta LIKE 'Kuba%' LIMIT 1";
+                $kubaStmt = $this->pdo->query($kubaQuery);
+                $kubaAgent = $kubaStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($kubaAgent) {
+                    $kubaId = $kubaAgent['id_agenta'];
+                    error_log("TableController::getAgentCases - Found Kuba with ID: " . $kubaId);
+                    
             $query = "
-                SELECT t.*, sa.rola, sa.percentage 
-                FROM test2 t
-                JOIN sprawa_agent sa ON t.id = sa.sprawa_id
-                WHERE sa.agent_id = :agent_id
-                ORDER BY t.id DESC";
+                        SELECT 
+                            s.id_sprawy,
+                            s.identyfikator_sprawy,
+                            s.czy_zakonczona,
+                            s.wywalczona_kwota,
+                            s.oplata_wstepna,
+                            s.stawka_success_fee,
+                            pas.udzial_prowizji_proc,
+                            (pas.udzial_prowizji_proc * (s.wywalczona_kwota * s.stawka_success_fee + s.oplata_wstepna)) as prowizja_calkowita
+                        FROM prowizje_agentow_spraw pas
+                        JOIN sprawy s ON pas.id_sprawy = s.id_sprawy
+                        WHERE pas.id_agenta = :agent_id
+                        ORDER BY s.id_sprawy DESC
+                    ";
+                    
+                    $stmt = $this->pdo->prepare($query);
+                    $stmt->execute([':agent_id' => $kubaId]);
+                    $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    error_log("TableController::getAgentCases - Found " . count($cases) . " cases for Kuba");
+                    return $cases;
+                } else {
+                    error_log("TableController::getAgentCases - Could not find Kuba in agents table");
+                    return [];
+                }
+            } else {
+                // Regular agent case
+                $query = "
+                    SELECT 
+                        s.id_sprawy,
+                        s.identyfikator_sprawy,
+                        s.czy_zakonczona,
+                        s.wywalczona_kwota,
+                        s.oplata_wstepna,
+                        s.stawka_success_fee,
+                        pas.udzial_prowizji_proc,
+                        (pas.udzial_prowizji_proc * (s.wywalczona_kwota * s.stawka_success_fee + s.oplata_wstepna)) as prowizja_calkowita
+                    FROM prowizje_agentow_spraw pas
+                    JOIN sprawy s ON pas.id_sprawy = s.id_sprawy
+                    WHERE pas.id_agenta = :agent_id
+                    ORDER BY s.id_sprawy DESC
+                ";
             
             $stmt = $this->pdo->prepare($query);
             $stmt->execute([':agent_id' => $agentId]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (\PDOException $e) {
-            error_log('Error fetching agent cases: ' . $e->getMessage());
+                $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                error_log("TableController::getAgentCases - Found " . count($cases) . " cases for agent ID: " . $agentId);
+                return $cases;
+            }
+        } catch (PDOException $e) {
+            error_log("TableController::getAgentCases - ERROR: " . $e->getMessage());
+            error_log("TableController::getAgentCases - Stack trace: " . $e->getTraceAsString());
             return [];
         }
     }
 
     public function renderAgentSelection(): void
     {
-        try {
             $agents = $this->getAgents();
-    
-            if (empty($agents)) {
-                echo '<p style="text-align:center;">Brak agentów w bazie danych.</p>';
-                return;
-            }
-    
-            echo '<div class="agent-selection">';
+        $selectedAgentId = isset($_GET['agent_id']) ? $_GET['agent_id'] : null;
+        
+        // Create the select element
+        echo '<div class="agent-selector-container">';
             echo '<h3>Wybierz agenta:</h3>';
-            echo '<div class="agent-list">';
-    
-            // Add special static Jakub button at the top
-            echo '<a href="/table?agent_id=jakub" class="agent-button jakub-agent-button">' .
-                 'Jakub Kowalski (Administrator)</a>';
-    
-            // Używamy absolutnej ścieżki (/table), aby zapewnić właściwe przekierowanie
+        echo '<select id="agentSelector" class="agent-selector" onchange="location.href=\'/table?agent_id=\'+this.value;">';
+        echo '<option value="">Wszystkie sprawy</option>';
+        
+        // Add the special Jakub option first
+        $selectedKuba = ($selectedAgentId === 'jakub' || $selectedAgentId === 'Jakub') ? 'selected' : '';
+        echo '<option value="jakub" ' . $selectedKuba . ' class="jakub-option">Jakub (wszystkie)</option>';
+        
+        // Add regular agents
             foreach ($agents as $agent) {
-                $url = '/table?agent_id=' . $agent['agent_id'];
-                // Jeśli imię agenta to "jakub" (porównanie ignorujące wielkość liter), ustaw tło na zielono
-                $style = '';
-                if (strtolower($agent['imie']) === 'jakub' || strtolower($agent['imie']) === 'kuba') {
-                    $style = ' style="background-color: green;"';
-                }
-                echo '<a href="' . $url . '" class="agent-button"' . $style . '>' .
-                     htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'], ENT_QUOTES) . '</a>';
-            }
-    
-            echo '</div></div>';
-        } catch (PDOException $e) {
-            echo '<p style="color:red; text-align:center;">Błąd: '
-                . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
+            $selected = ($selectedAgentId == $agent['id_agenta']) ? 'selected' : '';
+            $agentClass = $this->getAgentHighlightClass($agent['id_agenta']);
+            echo '<option value="' . $agent['id_agenta'] . '" ' . $selected . ' class="' . $agentClass . '">' . 
+                htmlspecialchars($agent['nazwa_agenta']) . '</option>';
         }
+        
+        echo '</select>';
+        echo '</div>';
     }
     
     // Update the method to use CSS classes for agent highlighting
-    private function getAgentHighlightClass($agentId) {
-        // Get the last digit of the agent ID to determine which class to use
-        $digit = $agentId % 10;
-        return "agent-highlight-{$digit}";
+    private function getAgentHighlightClass($agentId): string {
+        // Special highlighting for Kuba - green background
+        try {
+            $stmt = $this->pdo->prepare("SELECT nazwa_agenta FROM agenci WHERE id_agenta = ?");
+            $stmt->execute([$agentId]);
+            $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($agent && (stripos($agent['nazwa_agenta'], 'kuba') !== false || stripos($agent['nazwa_agenta'], 'jakub') !== false)) {
+                return 'agent-kuba';
+            }
+        } catch (PDOException $e) {
+            error_log("Error in getAgentHighlightClass: " . $e->getMessage());
+        }
+        
+        return '';
     }
 
     // Modify renderTable method to use the CSS classes for agent highlighting in Jakub's view
@@ -2146,88 +2173,110 @@ class TableController
      */
     private function ensureCommissionColumnsExist(): void
     {
+        error_log("TableController::ensureCommissionColumnsExist - Start");
         try {
-            // Check if the invoice columns exist
-            $columnsQuery = "SHOW COLUMNS FROM test2 LIKE 'installment1_commission_invoice'";
-            $stmt = $this->pdo->query($columnsQuery);
-            $invoiceColumnsExist = ($stmt->rowCount() > 0);
-            
-            // Check if the agent ID columns exist
-            $columnsQuery = "SHOW COLUMNS FROM test2 LIKE 'installment1_commission_agent_id'";
-            $stmt = $this->pdo->query($columnsQuery);
-            $agentColumnsExist = ($stmt->rowCount() > 0);
-            
-            // If the invoice columns don't exist, create them
-            if (!$invoiceColumnsExist) {
-                error_log("TableController::ensureCommissionColumnsExist - Creating commission invoice columns");
-                
-                $alterQuery = "ALTER TABLE test2 
-                    ADD COLUMN installment1_commission_invoice VARCHAR(255) NULL,
-                    ADD COLUMN installment2_commission_invoice VARCHAR(255) NULL,
-                    ADD COLUMN installment3_commission_invoice VARCHAR(255) NULL,
-                    ADD COLUMN final_installment_commission_invoice VARCHAR(255) NULL";
-                
-                $result = $this->pdo->exec($alterQuery);
-                
-                if ($result !== false) {
-                    error_log("TableController::ensureCommissionColumnsExist - Commission invoice columns created successfully");
+            // Get current columns in the komisje table (if exists)
+            $tableExists = false;
+            try {
+                $stmt = $this->pdo->query("SHOW TABLES LIKE 'prowizje_agentow_spraw'");
+                if ($stmt && $stmt->rowCount() > 0) {
+                    $tableExists = true;
+                    error_log("TableController::ensureCommissionColumnsExist - Tabela prowizje_agentow_spraw istnieje");
                 } else {
-                    error_log("TableController::ensureCommissionColumnsExist - Error creating invoice columns: " . print_r($this->pdo->errorInfo(), true));
+                    error_log("TableController::ensureCommissionColumnsExist - Tabela prowizje_agentow_spraw nie istnieje");
                 }
+            } catch (PDOException $e) {
+                error_log("TableController::ensureCommissionColumnsExist - Błąd sprawdzania tabeli prowizje_agentow_spraw: " . $e->getMessage());
+            }
+
+            // If table doesn't exist, create it
+            if (!$tableExists) {
+                $createTableSql = "
+                    CREATE TABLE `prowizje_agentow_spraw` (
+                        `id_prowizji_agenta_sprawy` int(11) NOT NULL AUTO_INCREMENT,
+                        `id_sprawy` int(11) NOT NULL,
+                        `id_agenta` int(11) NOT NULL,
+                        `udzial_prowizji_proc` decimal(5,4) NOT NULL DEFAULT 0.0000,
+                        PRIMARY KEY (`id_prowizji_agenta_sprawy`),
+                        UNIQUE KEY `unikalna_prowizja_agent_sprawa` (`id_sprawy`,`id_agenta`),
+                        KEY `idx_prowizje_id_sprawy` (`id_sprawy`),
+                        KEY `idx_prowizje_id_agenta` (`id_agenta`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+                ";
+                
+                $this->pdo->exec($createTableSql);
+                error_log("TableController::ensureCommissionColumnsExist - Utworzono tabelę prowizje_agentow_spraw");
+                
+                // Add foreign key constraints
+                $addConstraintsSql = "
+                    ALTER TABLE `prowizje_agentow_spraw`
+                    ADD CONSTRAINT `prowizje_agentow_spraw_ibfk_1` FOREIGN KEY (`id_sprawy`) REFERENCES `sprawy` (`id_sprawy`) ON DELETE CASCADE ON UPDATE CASCADE,
+                    ADD CONSTRAINT `prowizje_agentow_spraw_ibfk_2` FOREIGN KEY (`id_agenta`) REFERENCES `agenci` (`id_agenta`) ON UPDATE CASCADE
+                ";
+                
+                try {
+                    $this->pdo->exec($addConstraintsSql);
+                    error_log("TableController::ensureCommissionColumnsExist - Dodano klucze obce do tabeli prowizje_agentow_spraw");
+                } catch (PDOException $e) {
+                    error_log("TableController::ensureCommissionColumnsExist - Błąd dodawania kluczy obcych: " . $e->getMessage());
+                }
+            }
+            
+            // Get current columns in the agenci_wyplaty table (if exists)
+            $paymentTableExists = false;
+            try {
+                $stmt = $this->pdo->query("SHOW TABLES LIKE 'agenci_wyplaty'");
+                if ($stmt && $stmt->rowCount() > 0) {
+                    $paymentTableExists = true;
+                    error_log("TableController::ensureCommissionColumnsExist - Tabela agenci_wyplaty istnieje");
             } else {
-                error_log("TableController::ensureCommissionColumnsExist - Commission invoice columns already exist");
-            }
-            
-            // If the agent ID columns don't exist, create them
-            if (!$agentColumnsExist) {
-                error_log("TableController::ensureCommissionColumnsExist - Creating commission agent ID columns");
-                
-                $alterQuery = "ALTER TABLE test2 
-                    ADD COLUMN installment1_commission_agent_id INT NULL,
-                    ADD COLUMN installment2_commission_agent_id INT NULL,
-                    ADD COLUMN installment3_commission_agent_id INT NULL,
-                    ADD COLUMN final_installment_commission_agent_id INT NULL";
-                
-                $result = $this->pdo->exec($alterQuery);
-                
-                if ($result !== false) {
-                    error_log("TableController::ensureCommissionColumnsExist - Commission agent ID columns created successfully");
-                } else {
-                    error_log("TableController::ensureCommissionColumnsExist - Error creating agent ID columns: " . print_r($this->pdo->errorInfo(), true));
+                    error_log("TableController::ensureCommissionColumnsExist - Tabela agenci_wyplaty nie istnieje");
                 }
-            } else {
-                error_log("TableController::ensureCommissionColumnsExist - Commission agent ID columns already exist");
+            } catch (PDOException $e) {
+                error_log("TableController::ensureCommissionColumnsExist - Błąd sprawdzania tabeli agenci_wyplaty: " . $e->getMessage());
             }
             
-            // Verify all required columns exist
-            $requiredColumns = [
-                'installment1_commission_invoice',
-                'installment2_commission_invoice',
-                'installment3_commission_invoice',
-                'final_installment_commission_invoice',
-                'installment1_commission_agent_id',
-                'installment2_commission_agent_id',
-                'installment3_commission_agent_id',
-                'final_installment_commission_agent_id'
-            ];
-            
-            $stmt = $this->pdo->query("DESCRIBE test2");
-            $existingColumns = $stmt->fetchAll(PDO::FETCH_COLUMN);
-            
-            $allColumnsExist = true;
-            foreach ($requiredColumns as $column) {
-                if (!in_array($column, $existingColumns)) {
-                    error_log("TableController::ensureCommissionColumnsExist - Missing column: {$column}");
-                    $allColumnsExist = false;
+            // If payment table doesn't exist, create it
+            if (!$paymentTableExists) {
+                $createPaymentTableSql = "
+                    CREATE TABLE `agenci_wyplaty` (
+                        `id_wyplaty` int(11) NOT NULL AUTO_INCREMENT,
+                        `id_sprawy` int(11) NOT NULL,
+                        `id_agenta` int(11) NOT NULL,
+                        `opis_raty` varchar(50) NOT NULL,
+                        `kwota` decimal(10,2) NOT NULL,
+                        `czy_oplacone` tinyint(1) DEFAULT 0,
+                        `numer_faktury` varchar(100) DEFAULT NULL,
+                        `data_platnosci` date DEFAULT NULL,
+                        `data_utworzenia` timestamp NOT NULL DEFAULT current_timestamp(),
+                        `data_modyfikacji` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+                        PRIMARY KEY (`id_wyplaty`),
+                        UNIQUE KEY `unique_wyplata` (`id_sprawy`,`id_agenta`,`opis_raty`),
+                        KEY `id_agenta` (`id_agenta`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_polish_ci
+                ";
+                
+                $this->pdo->exec($createPaymentTableSql);
+                error_log("TableController::ensureCommissionColumnsExist - Utworzono tabelę agenci_wyplaty");
+                
+                // Add foreign key constraints
+                $addPaymentConstraintsSql = "
+                    ALTER TABLE `agenci_wyplaty`
+                    ADD CONSTRAINT `agenci_wyplaty_ibfk_1` FOREIGN KEY (`id_sprawy`) REFERENCES `sprawy` (`id_sprawy`) ON DELETE CASCADE,
+                    ADD CONSTRAINT `agenci_wyplaty_ibfk_2` FOREIGN KEY (`id_agenta`) REFERENCES `agenci` (`id_agenta`) ON DELETE CASCADE
+                ";
+                
+                try {
+                    $this->pdo->exec($addPaymentConstraintsSql);
+                    error_log("TableController::ensureCommissionColumnsExist - Dodano klucze obce do tabeli agenci_wyplaty");
+                } catch (PDOException $e) {
+                    error_log("TableController::ensureCommissionColumnsExist - Błąd dodawania kluczy obcych: " . $e->getMessage());
                 }
             }
             
-            if ($allColumnsExist) {
-                error_log("TableController::ensureCommissionColumnsExist - All commission columns verified");
-            }
-        } catch (\PDOException $e) {
-            error_log("TableController::ensureCommissionColumnsExist - ERROR: " . $e->getMessage());
-            // Don't throw an exception, just log the error
+            error_log("TableController::ensureCommissionColumnsExist - Zakończono pomyślnie");
+        } catch (PDOException $e) {
+            error_log("TableController::ensureCommissionColumnsExist - BŁĄD: " . $e->getMessage());
         }
     }
 

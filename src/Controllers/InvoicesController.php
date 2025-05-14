@@ -31,7 +31,7 @@ class InvoicesController {
         return str_replace('`', '``', $columnName);
     }
 
-    /** Obsługuje import plików kalkulacyjnych – konwertuje do CSV i wrzuca rekordy do `test` */
+    /** Obsługuje import plików kalkulacyjnych – konwertuje do CSV i wrzuca rekordy do `faktury` */
     public function importCsv(): void {
         error_log("InvoicesController::importCsv - Start");
         header('Content-Type: application/json; charset=UTF-8');
@@ -123,7 +123,7 @@ class InvoicesController {
             
             // Pobierz faktyczne kolumny z bazy danych
             $tableColumns = [];
-            $colStmt = $pdo->query("DESCRIBE `test`");
+            $colStmt = $pdo->query("DESCRIBE `faktury`");
             while ($row = $colStmt->fetch(PDO::FETCH_ASSOC)) {
                 $tableColumns[] = $row['Field'];
             }
@@ -201,14 +201,14 @@ class InvoicesController {
             error_log("InvoicesController::importCsv - Preparing database statements");
             
             // Zapytanie do sprawdzenia czy faktura istnieje - używa prepared statement
-            $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM `test` WHERE `numer` = ?");
+            $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM `faktury` WHERE `numer` = ?");
             
             // Zapytanie do wstawienia nowej faktury - używa prepared statement
-            $insertStmt = $pdo->prepare("INSERT INTO `test` ($colList) VALUES ($placeholders)");
+            $insertStmt = $pdo->prepare("INSERT INTO `faktury` ($colList) VALUES ($placeholders)");
             
             // Zapytanie do aktualizacji istniejącej faktury - używa prepared statement
             $updateCols = implode(',', array_map(fn($c) => "`$c` = ?", $safeValidColumns));
-            $updateStmt = $pdo->prepare("UPDATE `test` SET $updateCols WHERE `numer` = ?");
+            $updateStmt = $pdo->prepare("UPDATE `faktury` SET $updateCols WHERE `numer` = ?");
 
             error_log("InvoicesController::importCsv - Starting database transaction");
             $pdo->beginTransaction();
