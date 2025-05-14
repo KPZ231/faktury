@@ -261,7 +261,7 @@
             left: 0;
             background-color: rgba(0, 0, 0, 0.85);
             color: white;
-            padding: 10px;
+            padding: 10px 15px;
             border-radius: 4px;
             z-index: 1000;
             min-width: 200px;
@@ -274,6 +274,7 @@
         
         .has-payment-info {
             position: relative;
+            cursor: help;
         }
         
         .has-payment-info:after {
@@ -292,6 +293,144 @@
         .tooltip-separator {
             border-top: 1px dotted rgba(255, 255, 255, 0.3);
             margin: 5px 0;
+        }
+        
+        /* Improved design for the agent payment tooltip */
+        .agent-payment-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-10px);
+            background-color: #333;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 5px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            font-size: 13px;
+            line-height: 1.5;
+            width: max-content;
+            max-width: 320px;
+            pointer-events: none;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .agent-payment-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -8px;
+            border-width: 8px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        
+        .has-payment-info:hover .agent-payment-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(-8px);
+        }
+        
+        .agent-payment-tooltip b {
+            color: #8bc34a;
+            font-weight: 600;
+        }
+
+        /* Commission invoice display styles */
+        .commission-invoice-display {
+            margin-top: 8px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            padding: 8px 10px;
+            font-size: 13px;
+            border-left: 3px solid #4CAF50;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .invoice-info-header {
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #333;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .invoice-agent-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            padding: 3px 0;
+            border-bottom: 1px dotted #ddd;
+        }
+        
+        .invoice-agent-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .invoice-agent-name {
+            font-weight: 500;
+            color: #444;
+        }
+        
+        .invoice-number {
+            color: #4CAF50;
+            font-family: monospace;
+            background: #eef7ee;
+            padding: 2px 5px;
+            border-radius: 3px;
+            border: 1px solid #d4e8d4;
+        }
+
+        /* Hide technical field names like INSTALLMENT1_COMMISSION_INVOICE */
+        [class*="INSTALLMENT"],
+        [id*="INSTALLMENT"],
+        .technical-field-name,
+        th[data-column*="installment"],
+        th[data-column*="commission_invoice"],
+        th[data-column*="INSTALLMENT"] {
+            display: none !important;
+        }
+        
+        /* Style the table headers to be more readable */
+        th.sortable, 
+        th.collapsible {
+            text-transform: capitalize;
+        }
+        
+        /* Override any technical field names that might be displayed in modals */
+        .modal-content h3 {
+            text-transform: capitalize;
+        }
+        
+        /* Hide any direct display of installment_ fields in table cells */
+        td[data-field*="installment_"] .raw-field-name {
+            display: none;
+        }
+        
+        /* Fix for the commission form to hide the technical field names in dropdowns */
+        option[value*="INSTALLMENT"],
+        label[for*="INSTALLMENT"] {
+            display: none !important;
+        }
+        
+        /* Ensure all modals have proper styling */
+        .modal-content {
+            position: relative;
+        }
+        
+        /* Replace technical commission headers with user-friendly ones */
+        .commission-display-header:before {
+            content: "Faktura prowizji";
+            font-weight: bold;
+        }
+        
+        .commission-display-header .technical-text {
+            display: none;
         }
     </style>
     <script>
@@ -592,193 +731,142 @@
             function initAgentPaymentNotifications() {
                 console.log("Initializing agent payment notifications");
                 
-                // Look for all installment cells in the table
-                document.querySelectorAll('.data-table tbody tr').forEach(row => {
-                    // Get all cells in the row
-                    const cells = Array.from(row.querySelectorAll('td'));
+                // Look for all rate cells in the table
+                document.querySelectorAll('.data-table tbody td').forEach(cell => {
+                    // Check if this is a rate cell
+                    const columnHeader = getColumnForCell(cell);
+                    if (!columnHeader || !columnHeader.match(/^Rata \d+$/)) return;
                     
-                    // Find all agent cells in the row (Agent 1, Agent 2, Agent 3)
-                    const agentCells = {};
-                    const agentRates = {};
+                    // Get the rate number
+                    const rateNumber = columnHeader.match(/\d+/)[0];
+                    if (!rateNumber) return;
                     
-                    // Collect agent info
-                    cells.forEach(cell => {
-                        if (cell.classList.contains('agent-column')) {
-                            // Extract agent info and installment rates
-                            const agentName = cell.dataset.name || '';
-                            
-                            // Figure out which agent number this is
-                            let agentNumber = 0;
-                            const columnHeader = getColumnForCell(cell);
-                            
-                            if (columnHeader) {
-                                if (columnHeader.includes('Agent 1')) agentNumber = 1;
-                                else if (columnHeader.includes('Agent 2')) agentNumber = 2;
-                                else if (columnHeader.includes('Agent 3')) agentNumber = 3;
-                            }
-                            
-                            if (agentNumber > 0 && agentName) {
-                                agentCells[agentNumber] = cell;
-                                agentRates[agentNumber] = {
-                                    name: agentName,
-                                    rata1: cell.dataset.rata1 || '',
-                                    rata2: cell.dataset.rata2 || '',
-                                    rata3: cell.dataset.rata3 || '',
-                                    rata4: cell.dataset.rata4 || ''
-                                };
-                            }
-                        }
+                    // Get the row and case ID
+                    const row = cell.closest('tr');
+                    if (!row) return;
+                    
+                    const caseId = row.getAttribute('data-id');
+                    if (!caseId) return;
+                    
+                    // Get all agent cells in this row
+                    const agentCells = Array.from(row.querySelectorAll('.agent-column'));
+                    if (agentCells.length === 0) return;
+                    
+                    // Check if installment is paid
+                    const paidColumn = `Opłacona ${rateNumber}`;
+                    const paidCell = Array.from(row.querySelectorAll('td')).find(td => {
+                        const header = getColumnForCell(td);
+                        return header === paidColumn;
                     });
                     
-                    // Also get Kuba's data
-                    const kubaCell = cells.find(cell => 
-                        cell.classList.contains('agent-column') && 
-                        (cell.dataset.name === 'Kuba' || cell.textContent.trim() === 'Kuba')
-                    );
+                    const isPaid = paidCell && paidCell.textContent.includes('Tak');
                     
-                    let kubaRates = null;
-                    if (kubaCell) {
-                        kubaRates = {
-                            name: 'Kuba',
-                            rata1: kubaCell.dataset.rata1 || '',
-                            rata2: kubaCell.dataset.rata2 || '',
-                            rata3: kubaCell.dataset.rata3 || '',
-                            rata4: kubaCell.dataset.rata4 || ''
-                        };
+                    // If paid, add special class
+                    if (isPaid) {
+                        cell.classList.add('rate-paid');
+                        row.classList.add('has-paid-installment');
                     }
                     
-                    // Process all installment cells (1-4)
-                    for (let i = 1; i <= 4; i++) {
-                        // Find rate cell by exact text matching
-                        const rateCell = cells.find(cell => {
-                            const header = getColumnForCell(cell);
-                            return header === `Rata ${i}`;
+                    // Create tooltip content
+                    let tooltipContent = '';
+                    
+                    // Get invoice number for this installment if available
+                    let invoiceField;
+                    switch(rateNumber) {
+                        case '1': invoiceField = 'installment1_paid_invoice'; break;
+                        case '2': invoiceField = 'installment2_paid_invoice'; break;
+                        case '3': invoiceField = 'installment3_paid_invoice'; break;
+                        case '4': invoiceField = 'final_installment_paid_invoice'; break;
+                    }
+                    
+                    // If we have invoice data for this installment, add to tooltip
+                    if (row.hasAttribute(invoiceField) && row[invoiceField]) {
+                        const invoiceNumber = row[invoiceField];
+                        tooltipContent += `<div class="tooltip-section"><b>Faktura klienta:</b> ${invoiceNumber}</div>`;
+                        tooltipContent += '<div class="tooltip-separator"></div>';
+                    }
+                    
+                    // Add commission payment info
+                    let commissionField;
+                    switch(rateNumber) {
+                        case '1': commissionField = 'installment1_commission_paid'; break;
+                        case '2': commissionField = 'installment2_commission_paid'; break;
+                        case '3': commissionField = 'installment3_commission_paid'; break;
+                        case '4': commissionField = 'final_installment_commission_paid'; break;
+                    }
+                    
+                    // Check if commission is paid
+                    const commissionPaid = row.hasAttribute(commissionField) && row[commissionField] == 1;
+                    
+                    // Add commission invoice if available
+                    let commissionInvoiceField;
+                    switch(rateNumber) {
+                        case '1': commissionInvoiceField = 'installment1_commission_invoice'; break;
+                        case '2': commissionInvoiceField = 'installment2_commission_invoice'; break;
+                        case '3': commissionInvoiceField = 'installment3_commission_invoice'; break;
+                        case '4': commissionInvoiceField = 'final_installment_commission_invoice'; break;
+                    }
+                    
+                    if (commissionPaid && row.hasAttribute(commissionInvoiceField) && row[commissionInvoiceField]) {
+                        const commissionInvoice = row[commissionInvoiceField];
+                        tooltipContent += `<div class="tooltip-section"><b>Faktura prowizji:</b> ${commissionInvoice}</div>`;
+                        tooltipContent += '<div class="tooltip-separator"></div>';
+                    }
+                    
+                    // Get payment amounts for each agent
+                    let agentPayments = '';
+                    
+                    agentCells.forEach(agentCell => {
+                        // Get agent name
+                        const agentName = agentCell.dataset.name || agentCell.textContent.trim();
+                        if (!agentName) return;
+                        
+                        // Get agent rate amount
+                        const rateKey = `rata${rateNumber}`;
+                        const rateValue = agentCell.dataset[rateKey];
+                        if (!rateValue || rateValue === '0' || rateValue === '0 zł') return;
+                        
+                        // Check if the value is actually a number > 0
+                        const numericValue = parseFloat(rateValue.replace(/[^\d,.]/g, '').replace(',', '.'));
+                        if (isNaN(numericValue) || numericValue <= 0) return;
+                        
+                        // Properly format the amount
+                        let formattedAmount = rateValue;
+                        if (!formattedAmount.includes('zł')) {
+                            formattedAmount += ' zł';
+                        }
+                        
+                        agentPayments += `<div><b>${agentName}:</b> ${formattedAmount}</div>`;
+                    });
+                    
+                    // Add agent payments to tooltip
+                    if (agentPayments) {
+                        tooltipContent += `<div class="tooltip-section"><b>Płatności dla agentów:</b></div>`;
+                        tooltipContent += agentPayments;
+                    }
+                    
+                    // If we have tooltip content, add it
+                    if (tooltipContent) {
+                        // Create tooltip container
+                        const tooltip = document.createElement('div');
+                        tooltip.className = 'agent-payment-tooltip';
+                        tooltip.innerHTML = tooltipContent;
+                        tooltip.style.display = 'none';
+                        
+                        // Add tooltip to cell
+                        cell.appendChild(tooltip);
+                        
+                        // Mark cell as having tooltip
+                        cell.classList.add('has-payment-info');
+                        
+                        // Show/hide tooltip on hover
+                        cell.addEventListener('mouseenter', () => {
+                            tooltip.style.display = 'block';
                         });
                         
-                        // If rate cell exists
-                        if (rateCell) {
-                            const isPaid = cells.some(cell => {
-                                const header = getColumnForCell(cell);
-                                return header === `Opłacona ${i}` && cell.textContent.trim() === 'Tak';
-                            });
-                            
-                            // If paid, mark with red highlight (existing functionality)
-                            if (isPaid) {
-                                rateCell.classList.add('rate-paid');
-                                row.classList.add('has-paid-installment');
-                            }
-                            
-                            // Create tooltip with agent payment information
-                            let tooltipContent = '';
-                            
-                            // Get invoice number for this installment if available
-                            let invoiceField;
-                            switch(i) {
-                                case 1: invoiceField = 'installment1_paid_invoice'; break;
-                                case 2: invoiceField = 'installment2_paid_invoice'; break;
-                                case 3: invoiceField = 'installment3_paid_invoice'; break;
-                                case 4: invoiceField = 'final_installment_paid_invoice'; break;
-                            }
-                            
-                            // Get commission invoice number if available
-                            let commissionInvoiceField;
-                            switch(i) {
-                                case 1: commissionInvoiceField = 'installment1_commission_invoice'; break;
-                                case 2: commissionInvoiceField = 'installment2_commission_invoice'; break;
-                                case 3: commissionInvoiceField = 'installment3_commission_invoice'; break;
-                                case 4: commissionInvoiceField = 'final_installment_commission_invoice'; break;
-                            }
-                            
-                            // If installment is paid, show invoice numbers
-                            if (isPaid) {
-                                // Add invoice info to tooltip if available
-                                if (row.hasAttribute(invoiceField) && row[invoiceField]) {
-                                    tooltipContent += `<div class="tooltip-section">Faktura klienta: <strong>${row[invoiceField]}</strong></div>`;
-                                }
-                                
-                                // Add commission invoice info if available
-                                if (row.hasAttribute(commissionInvoiceField) && row[commissionInvoiceField]) {
-                                    tooltipContent += `<div class="tooltip-section">Faktura prowizji: <strong>${row[commissionInvoiceField]}</strong></div>`;
-                                }
-                                
-                                // Add section separator if we have invoice info
-                                if (tooltipContent) {
-                                    tooltipContent += `<div class="tooltip-separator"></div>`;
-                                }
-                            }
-                            
-                            // Add info for each agent that has a positive amount
-                            Object.keys(agentRates).forEach(agentNum => {
-                                const agent = agentRates[agentNum];
-                                const rateKey = `rata${i}`;
-                                const rateValue = agent[rateKey];
-                                
-                                // Check if agent has a rate value
-                                if (rateValue && rateValue !== '0' && rateValue !== '0 zł' && 
-                                    rateValue !== '0,00' && rateValue !== '0,00 zł') {
-                                    
-                                    // Extract the numeric value (remove zł, spaces and formatting)
-                                    let numericValue = rateValue;
-                                    if (typeof numericValue === 'string') {
-                                        numericValue = numericValue.replace(/[^\d,.]/g, '');
-                                        numericValue = numericValue.replace(',', '.');
-                                        numericValue = parseFloat(numericValue);
-                                    }
-                                    
-                                    // If rate is a positive number
-                                    if (numericValue > 0) {
-                                        tooltipContent += `<strong>${agent.name}</strong>: ${rateValue}<br>`;
-                                    }
-                                }
-                            });
-                            
-                            // Add Kuba's payment info if applicable
-                            if (kubaRates) {
-                                const rateKey = `rata${i}`;
-                                const rateValue = kubaRates[rateKey];
-                                
-                                if (rateValue && rateValue !== '0' && rateValue !== '0 zł' && 
-                                    rateValue !== '0,00' && rateValue !== '0,00 zł') {
-                                    
-                                    let numericValue = rateValue;
-                                    if (typeof numericValue === 'string') {
-                                        numericValue = numericValue.replace(/[^\d,.]/g, '');
-                                        numericValue = numericValue.replace(',', '.');
-                                        numericValue = parseFloat(numericValue);
-                                    }
-                                    
-                                    if (numericValue > 0) {
-                                        tooltipContent += `<strong>Kuba</strong>: ${rateValue}<br>`;
-                                    }
-                                }
-                            }
-                            
-                            // Add tooltip if there's content
-                            if (tooltipContent) {
-                                // Check if a tooltip already exists
-                                let tooltip = rateCell.querySelector('.agent-payment-tooltip');
-                                if (!tooltip) {
-                                    tooltip = document.createElement('div');
-                                    tooltip.className = 'agent-payment-tooltip';
-                                    rateCell.appendChild(tooltip);
-                                    
-                                    // Add hover behavior for showing tooltip
-                                    rateCell.addEventListener('mouseenter', () => {
-                                        tooltip.style.display = 'block';
-                                    });
-                                    
-                                    rateCell.addEventListener('mouseleave', () => {
-                                        tooltip.style.display = 'none';
-                                    });
-                                }
-                                
-                                // Update tooltip content
-                                tooltip.innerHTML = tooltipContent;
-                                
-                                // Add a hover indicator to show there's tooltip info available
-                                rateCell.classList.add('has-payment-info');
-                            }
-                        }
+                        cell.addEventListener('mouseleave', () => {
+                            tooltip.style.display = 'none';
+                        });
                     }
                 });
             }
@@ -1122,742 +1210,21 @@
         function initCommissionCheckboxes() {
             console.log("Initializing commission checkboxes");
             
-            document.querySelectorAll('.commission-checkbox-container').forEach(container => {
-                const checkbox = container.querySelector('.commission-checkbox');
-                const label = container.querySelector('.commission-checkbox-label');
-                
-                // Apply initial styles based on checkbox state
-                const cell = checkbox.closest('td');
-                if (!cell) return;
-                
-                // Get agent information for this installment
-                const installmentNum = checkbox.dataset.installment;
-                const agentInfo = getAgentPaymentInfo(cell, installmentNum);
-                
-                if (checkbox.checked) {
-                    // If checked, mark as paid
-                    cell.classList.add('commission-paid');
-                    cell.classList.remove('commission-needed');
+            // Find all commission checkboxes
+            document.querySelectorAll('.commission-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function(e) {
+                    const caseId = this.dataset.caseId;
+                    const installment = this.dataset.installment;
+                    const isChecked = this.checked;
                     
-                    // Always add the agent payment info tooltip, even for paid commissions
-                    if (agentInfo) {
-                        const tooltip = document.createElement('div');
-                        tooltip.className = 'agent-payment-tooltip';
-                        tooltip.innerHTML = agentInfo;
-                        cell.appendChild(tooltip);
+                    if (isChecked) {
+                        // If checked, open commission payment modal
+                        e.preventDefault(); // Prevent default checkbox behavior
+                        this.checked = false; // Uncheck until payment confirmed
                         
-                        // Show tooltip on cell hover
-                        cell.addEventListener('mouseenter', () => {
-                            tooltip.style.display = 'block';
-                        });
-                        
-                        cell.addEventListener('mouseleave', () => {
-                            tooltip.style.display = 'none';
-                        });
-                        
-                        // Mark cell to show it has payment info
-                        cell.classList.add('has-payment-info');
+                        // Show payment modal for all agents for this case
+                        openSimpleCommissionModal(caseId, installment);
                     }
-                } else {
-                    // If not checked, mark as needing attention
-                    cell.classList.remove('commission-paid');
-                    cell.classList.add('commission-needed');
-                    
-                    // Add tooltip with agent info
-                    if (agentInfo) {
-                        const tooltip = document.createElement('div');
-                        tooltip.className = 'agent-payment-tooltip';
-                        tooltip.innerHTML = agentInfo;
-                        cell.appendChild(tooltip);
-                        
-                        // Show tooltip on cell hover
-                        cell.addEventListener('mouseenter', () => {
-                            tooltip.style.display = 'block';
-                        });
-                        
-                        cell.addEventListener('mouseleave', () => {
-                            tooltip.style.display = 'none';
-                        });
-                        
-                        // Mark cell to show it has payment info
-                        cell.classList.add('has-payment-info');
-                    }
-                }
-                
-                checkbox.addEventListener('change', function() {
-                    console.log("Commission checkbox changed:", this.checked);
-                    
-                    // Handle commission checkbox interaction
-                    handleCommissionCheckboxChange(this, label);
-                });
-            });
-            
-            // Set up modal event listeners
-            setupCommissionModal();
-        }
-        
-        // Global variable to track the current checkbox being processed
-        let currentCommissionCheckbox = null;
-
-        // Handle commission checkbox change
-        function handleCommissionCheckboxChange(checkbox, label) {
-            console.log("Handling commission checkbox change");
-            
-            // Get row and case ID
-            const caseId = checkbox.dataset.caseId;
-            const installmentNumber = checkbox.dataset.installment;
-            const isChecked = checkbox.checked;
-            const row = checkbox.closest('tr');
-            
-            // Check if this row is selected
-            if (!row.classList.contains('selected-row')) {
-                // If not selected, prevent change and show warning
-                checkbox.checked = !isChecked; // Revert the change
-                showNotification("Najpierw wybierz wiersz, klikając na niego lub zaznaczając pole wyboru z lewej strony", "error");
-                return;
-            }
-            
-            console.log(`Case ID: ${caseId}, Installment: ${installmentNumber}, Checked: ${isChecked}`);
-            
-            // Store the current checkbox for use in modal
-            currentCommissionCheckbox = checkbox;
-            
-            // If the checkbox is being checked (from unchecked to checked)
-            if (isChecked) {
-                // Show the invoice modal
-                showCommissionInvoiceModal();
-                
-                // The actual update will happen when the user confirms in the modal
-                return;
-            } else {
-                // For unchecking, update status with empty invoice number to clear it
-                updateCommissionUI(checkbox, false);
-                updateCommissionStatus(caseId, installmentNumber, 0, '');
-            }
-        }
-
-        // Set up commission modal
-        function setupCommissionModal() {
-            const modal = document.getElementById('commissionInvoiceModal');
-            const closeBtn = document.querySelector('.modal-close');
-            const saveBtn = document.getElementById('saveInvoiceButton');
-            const cancelBtn = document.getElementById('cancelInvoiceButton');
-            const invoiceInput = document.getElementById('commissionInvoiceNumber');
-            const agentSelect = document.getElementById('agentSelect');
-            const agentInfoContainer = document.getElementById('agentInfoContainer');
-            
-            // Close button click
-            closeBtn.addEventListener('click', () => {
-                hideCommissionInvoiceModal();
-                resetCheckbox();
-            });
-            
-            // Cancel button click
-            cancelBtn.addEventListener('click', () => {
-                hideCommissionInvoiceModal();
-                resetCheckbox();
-            });
-            
-            // Save button click
-            saveBtn.addEventListener('click', () => {
-                const invoiceNumber = invoiceInput.value.trim();
-                const selectedAgentId = agentSelect.value;
-                const selectedAgentName = agentSelect.options[agentSelect.selectedIndex].dataset.name || '';
-                
-                saveCommissionInvoice(invoiceNumber, selectedAgentId, selectedAgentName);
-            });
-            
-            // Press Enter to save
-            invoiceInput.addEventListener('keyup', (e) => {
-                if (e.key === 'Enter') {
-                    const invoiceNumber = invoiceInput.value.trim();
-                    const selectedAgentId = agentSelect.value;
-                    const selectedAgentName = agentSelect.options[agentSelect.selectedIndex].dataset.name || '';
-                    
-                    saveCommissionInvoice(invoiceNumber, selectedAgentId, selectedAgentName);
-                }
-            });
-            
-            // Close when clicking outside the modal
-            window.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    hideCommissionInvoiceModal();
-                    resetCheckbox();
-                }
-            });
-            
-            // Handle agent selection change
-            agentSelect.addEventListener('change', function() {
-                updateAgentInfo(this.value, agentInfoContainer, invoiceInput.value);
-            });
-        }
-        
-        // Function to update agent information in the modal
-        function updateAgentInfo(agentId, container, invoiceNumber) {
-            if (!agentId) {
-                container.classList.remove('show');
-                container.innerHTML = '';
-                return;
-            }
-            
-            const selectedOption = document.querySelector(`#agentSelect option[value="${agentId}"]`);
-            if (!selectedOption) return;
-            
-            const agentName = selectedOption.dataset.name || selectedOption.textContent;
-            const agentRole = selectedOption.dataset.role || '';
-            const agentPercentage = selectedOption.dataset.percentage || '';
-            
-            // Create agent info HTML with local data
-            let infoHTML = `
-                <div class="agent-name-display">
-                    <i class="fa-solid fa-user"></i> ${agentName}
-                </div>
-                <div class="agent-info-row">
-                    <span class="agent-info-label">Rola:</span>
-                    <span class="agent-info-value">${agentRole || 'Brak'}</span>
-                </div>
-            `;
-            
-            // Add percentage if available
-            if (agentPercentage) {
-                infoHTML += `
-                    <div class="agent-info-row">
-                        <span class="agent-info-label">Prowizja:</span>
-                        <span class="agent-info-value">${agentPercentage}%</span>
-                    </div>
-                `;
-            }
-            
-            // Add invoice number if provided
-            if (invoiceNumber) {
-                infoHTML += `
-                    <div class="agent-info-row">
-                        <span class="agent-info-label">Numer faktury:</span>
-                        <span class="agent-info-value">${invoiceNumber}</span>
-                    </div>
-                `;
-            }
-            
-            // Update container
-            container.innerHTML = infoHTML;
-            container.classList.add('show');
-        }
-
-        // Show the commission invoice modal
-        function showCommissionInvoiceModal() {
-            const modal = document.getElementById('commissionInvoiceModal');
-            const invoiceInput = document.getElementById('commissionInvoiceNumber');
-            const agentSelect = document.getElementById('agentSelect');
-            const agentInfoContainer = document.getElementById('agentInfoContainer');
-            
-            // Clear previous input
-            invoiceInput.value = '';
-            agentSelect.value = '';
-            agentInfoContainer.innerHTML = '';
-            agentInfoContainer.classList.remove('show');
-            
-            // Show the modal
-            modal.style.display = 'block';
-            
-            // Focus on the input field
-            setTimeout(() => {
-                invoiceInput.focus();
-            }, 100);
-        }
-
-        // Hide the commission invoice modal
-        function hideCommissionInvoiceModal() {
-            const modal = document.getElementById('commissionInvoiceModal');
-            modal.style.display = 'none';
-        }
-
-        // Reset the checkbox to its previous state
-        function resetCheckbox() {
-            if (currentCommissionCheckbox) {
-                currentCommissionCheckbox.checked = false;
-            }
-        }
-
-        // Save the commission invoice number
-        function saveCommissionInvoice(invoiceNumber, agentId = '', agentName = '') {
-            if (!currentCommissionCheckbox) {
-                console.error("No active checkbox found");
-                hideCommissionInvoiceModal();
-                return;
-            }
-            
-            const caseId = currentCommissionCheckbox.dataset.caseId;
-            const installmentNumber = currentCommissionCheckbox.dataset.installment;
-            
-            // If no invoice number is provided but agent is selected, show a warning
-            if (!invoiceNumber && agentId) {
-                showNotification("Proszę podać numer faktury dla prowizji", "error");
-                return;
-            }
-            
-            // Update UI
-            updateCommissionUI(currentCommissionCheckbox, true, invoiceNumber, agentId, agentName);
-            
-            // Update server
-            updateCommissionStatus(caseId, installmentNumber, 1, invoiceNumber, agentId);
-            
-            // Hide modal
-            hideCommissionInvoiceModal();
-        }
-
-        // Update commission UI based on state
-        function updateCommissionUI(checkbox, isChecked, invoiceNumber = '', agentId = '', agentName = '') {
-            const cell = checkbox.closest('td');
-            
-            if (!cell) return;
-            
-            // Get agent payment info before making any changes
-            const agentInfo = getAgentPaymentInfo(cell, checkbox.dataset.installment);
-            
-            if (isChecked) {
-                // Update style for checked state
-                cell.classList.add('commission-paid');
-                cell.classList.remove('commission-needed');
-                
-                // Remove any existing tooltip
-                const existingTooltip = cell.querySelector('.agent-payment-tooltip');
-                if (existingTooltip) existingTooltip.remove();
-                
-                // Add invoice info if provided
-                if (invoiceNumber) {
-                    const invoiceInfo = document.createElement('div');
-                    invoiceInfo.className = 'commission-invoice-info';
-                    invoiceInfo.innerHTML = '<i class="fa-solid fa-receipt"></i>';
-                    
-                    let tooltipText = `Prowizja wypłacona. Faktura: ${invoiceNumber}`;
-                    if (agentName) {
-                        tooltipText += `<br>Agent: ${agentName}`;
-                    }
-                    
-                    const tooltip = document.createElement('div');
-                    tooltip.className = 'commission-invoice-tooltip';
-                    tooltip.innerHTML = tooltipText;
-                    
-                    invoiceInfo.appendChild(tooltip);
-                    cell.querySelector('.commission-checkbox-container').appendChild(invoiceInfo);
-                }
-                
-                // Always re-add tooltip with agent payment info if it exists
-                if (agentInfo) {
-                    const tooltip = document.createElement('div');
-                    tooltip.className = 'agent-payment-tooltip';
-                    tooltip.innerHTML = agentInfo;
-                    cell.appendChild(tooltip);
-                    
-                    // Show tooltip on hover
-                    cell.addEventListener('mouseenter', () => {
-                        tooltip.style.display = 'block';
-                    });
-                    
-                    cell.addEventListener('mouseleave', () => {
-                        tooltip.style.display = 'none';
-                    });
-                    
-                    // Mark cell to show it has payment info
-                    cell.classList.add('has-payment-info');
-                }
-            } else {
-                // Update style for unchecked state
-                cell.classList.remove('commission-paid');
-                cell.classList.add('commission-needed');
-                
-                // Remove invoice info if exists
-                const existingInfo = cell.querySelector('.commission-invoice-info');
-                if (existingInfo) existingInfo.remove();
-                
-                // Check if we need to re-add agent tooltip
-                if (!cell.querySelector('.agent-payment-tooltip')) {
-                    if (agentInfo) {
-                        const tooltip = document.createElement('div');
-                        tooltip.className = 'agent-payment-tooltip';
-                        tooltip.innerHTML = agentInfo;
-                        cell.appendChild(tooltip);
-                        
-                        cell.addEventListener('mouseenter', () => {
-                            tooltip.style.display = 'block';
-                        });
-                        
-                        cell.addEventListener('mouseleave', () => {
-                            tooltip.style.display = 'none';
-                        });
-                        
-                        // Mark cell to show it has payment info
-                        cell.classList.add('has-payment-info');
-                    }
-                }
-            }
-            
-            // Show notification
-            let message;
-            if (isChecked) {
-                message = `Prowizja za ratę ${checkbox.dataset.installment} została oznaczona jako wypłacona.`;
-                if (agentName) {
-                    message += ` Agent: ${agentName}`;
-                }
-            } else {
-                message = `Prowizja za ratę ${checkbox.dataset.installment} została oznaczona jako niewypłacona.`;
-            }
-            
-            showNotification(message, isChecked ? 'info' : 'error');
-        }
-
-        // Function to update commission status on server
-        function updateCommissionStatus(caseId, installmentNumber, status, invoiceNumber = '', agentId = '') {
-            console.log(`Updating commission status: Case ${caseId}, Installment ${installmentNumber}, Status ${status}, Invoice: ${invoiceNumber}, Agent: ${agentId}`);
-            
-            // Create payload including agent ID if provided
-            const payload = {
-                case_id: caseId,
-                installment_number: installmentNumber,
-                status: status,
-                invoice_number: invoiceNumber
-            };
-            
-            // Add agent_id to payload if provided
-            if (agentId) {
-                payload.agent_id = agentId;
-            }
-            
-            // Debug JSON payload
-            const jsonPayload = JSON.stringify(payload);
-            console.log("JSON Payload:", jsonPayload);
-            
-            // Add debug info
-            console.log("Sending AJAX request to /update-commission-status");
-            
-            // Send AJAX request to update status
-            fetch('/update-commission-status', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: jsonPayload
-            })
-            .then(response => {
-                console.log("AJAX Response status:", response.status);
-                if (!response.ok) {
-                    console.error("HTTP Error:", response.status, response.statusText);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Commission status update response:', data);
-                
-                if (data.success) {
-                    console.log("Update successful, status saved in database for case", caseId, "installment", installmentNumber);
-                    // Pokazuję powiadomienie o sukcesie
-                    showNotification(`Prowizja za ratę ${installmentNumber} została zapisana w bazie danych.`, 'info');
-                } else {
-                    // If there was an error, revert the checkbox state
-                    console.error("Error updating commission:", data.message);
-                    const checkbox = document.querySelector(`.commission-checkbox[data-case-id="${caseId}"][data-installment="${installmentNumber}"]`);
-                    if (checkbox) {
-                        checkbox.checked = !checkbox.checked;
-                        
-                        // Also update the cell class
-                        updateCommissionUI(checkbox, checkbox.checked);
-                        
-                        // Show error notification
-                        showNotification(`Błąd: ${data.message}`, 'error');
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error updating commission status:', error);
-                console.error('Error details:', error.stack);
-                
-                // Revert the checkbox state on error
-                const checkbox = document.querySelector(`.commission-checkbox[data-case-id="${caseId}"][data-installment="${installmentNumber}"]`);
-                if (checkbox) {
-                    checkbox.checked = !checkbox.checked;
-                    
-                    // Also update the cell class
-                    updateCommissionUI(checkbox, checkbox.checked);
-                    
-                    // Show error notification
-                    showNotification('Błąd połączenia podczas aktualizacji statusu prowizji.', 'error');
-                }
-            });
-        }
-
-        // Hide commission paid columns
-        function hideCommissionColumns() {
-            console.log("Hiding commission paid columns");
-            
-            // Build array of column patterns to hide
-            const patternsToHide = [
-                'installment1_commission_paid',
-                'installment2_commission_paid',
-                'installment3_commission_paid',
-                'final_installment_commission_paid',
-                'INSTALLMENT1_COMMISSION_PAID',
-                'INSTALLMENT2_COMMISSION_PAID',
-                'INSTALLMENT3_COMMISSION_PAID',
-                'FINAL_INSTALLMENT_COMMISSION_PAID',
-                // Add commission invoice patterns
-                'installment1_commission_invoice',
-                'installment2_commission_invoice',
-                'installment3_commission_invoice',
-                'final_installment_commission_invoice',
-                'INSTALLMENT1_COMMISSION_INVOICE',
-                'INSTALLMENT2_COMMISSION_INVOICE',
-                'INSTALLMENT3_COMMISSION_INVOICE',
-                'FINAL_INSTALLMENT_COMMISSION_INVOICE'
-            ];
-            
-            // Function to check if column matches any of our patterns
-            function shouldHideColumn(columnName) {
-                return patternsToHide.some(pattern => 
-                    columnName === pattern || 
-                    columnName.includes(pattern) ||
-                    // Handle case variations
-                    columnName.toLowerCase() === pattern.toLowerCase() ||
-                    columnName.toLowerCase().includes(pattern.toLowerCase())
-                );
-            }
-            
-            // Hide columns based on data-column attribute
-            document.querySelectorAll('th[data-column], td').forEach(element => {
-                const column = element.getAttribute('data-column');
-                if (column && shouldHideColumn(column)) {
-                    element.style.display = 'none';
-                }
-            });
-            
-            // Also check column text for header cells without data-column
-            document.querySelectorAll('th').forEach(header => {
-                const headerText = header.textContent.trim();
-                if (shouldHideColumn(headerText)) {
-                    const index = Array.from(header.parentNode.children).indexOf(header);
-                    
-                    // Hide this header
-                    header.style.display = 'none';
-                    
-                    // Hide all cells in this column
-                    document.querySelectorAll('tr').forEach(row => {
-                        const cells = row.querySelectorAll('td');
-                        if (cells.length > index) {
-                            cells[index].style.display = 'none';
-                        }
-                    });
-                }
-            });
-        }
-
-        // Get information about agent payments for this installment
-        function getAgentPaymentInfo(cell, installmentNum) {
-            // Try to get information from parent row
-            const row = cell.closest('tr');
-            if (!row) return null;
-            
-            let agentInfo = '';
-            
-            // Check if we have a commission invoice number for this installment
-            const caseId = row.getAttribute('data-id') || '';
-            if (caseId) {
-                // Get commission invoice field name based on installment number
-                let commissionInvoiceField;
-                let commissionPaidField;
-                
-                switch(installmentNum) {
-                    case '1': 
-                        commissionInvoiceField = 'installment1_commission_invoice'; 
-                        commissionPaidField = 'installment1_commission_paid';
-                        break;
-                    case '2': 
-                        commissionInvoiceField = 'installment2_commission_invoice'; 
-                        commissionPaidField = 'installment2_commission_paid';
-                        break;
-                    case '3': 
-                        commissionInvoiceField = 'installment3_commission_invoice'; 
-                        commissionPaidField = 'installment3_commission_paid';
-                        break;
-                    case '4': 
-                        commissionInvoiceField = 'final_installment_commission_invoice'; 
-                        commissionPaidField = 'final_installment_commission_paid';
-                        break;
-                    default: 
-                        commissionInvoiceField = '';
-                        commissionPaidField = '';
-                }
-                
-                // Only show commission invoice number if the commission has been paid
-                // Check if the commission paid checkbox is checked
-                const commissionPaid = cell.querySelector('.commission-checkbox')?.checked || false;
-                
-                // If the commission is paid, display the invoice number (if available)
-                if (commissionPaid) {
-                    // Try to get the invoice number from dataset
-                    const invoiceNumber = row.getAttribute(`data-${commissionInvoiceField}`) || '';
-                    if (invoiceNumber) {
-                        agentInfo += `<div class="tooltip-section">Faktura prowizji: <strong>${invoiceNumber}</strong></div>`;
-                        agentInfo += '<div class="tooltip-separator"></div>';
-                    }
-                }
-            }
-            
-            // Get invoice number for this installment if available
-            let invoiceField;
-            switch(installmentNum) {
-                case '1': invoiceField = 'installment1_paid_invoice'; break;
-                case '2': invoiceField = 'installment2_paid_invoice'; break;
-                case '3': invoiceField = 'installment3_paid_invoice'; break;
-                case '4': invoiceField = 'final_installment_paid_invoice'; break;
-            }
-            
-            // If we have invoice data for this installment, add to tooltip
-            if (row.hasAttribute(invoiceField) && row[invoiceField]) {
-                const invoiceNumber = row[invoiceField];
-                agentInfo += `<div class="tooltip-section">Faktura klienta: <strong>${invoiceNumber}</strong></div>`;
-                agentInfo += '<div class="tooltip-separator"></div>';
-            }
-            
-            // Find all agent cells in the row
-            const agentCells = row.querySelectorAll('.agent-column');
-            agentCells.forEach(agentCell => {
-                const agentName = agentCell.dataset.name || agentCell.textContent.trim();
-                const rateKey = 'rata' + installmentNum;
-                const rateValue = agentCell.dataset[rateKey];
-                
-                if (rateValue && rateValue !== '0' && rateValue !== '0 zł' && 
-                    rateValue !== '0,00' && rateValue !== '0,00 zł') {
-                    
-                    // Extract numeric value
-                    let numericValue = rateValue;
-                    if (typeof numericValue === 'string') {
-                        numericValue = numericValue.replace(/[^\d,.]/g, '');
-                        numericValue = numericValue.replace(',', '.');
-                        numericValue = parseFloat(numericValue);
-                    }
-                    
-                    // If rate is positive, add to agent info
-                    if (numericValue > 0) {
-                        agentInfo += `<strong>${agentName}</strong>: ${rateValue}<br>`;
-                    }
-                }
-            });
-            
-            return agentInfo;
-        }
-
-        // Function to show notification
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type} show`;
-            notification.innerHTML = `<i class="fa-solid fa-${type === 'info' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
-            document.body.appendChild(notification);
-            
-            // Remove notification after delay
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => notification.remove(), 500);
-            }, 3000);
-        }
-
-        // Function to initialize row hover tooltips
-        function initRowHoverTooltips() {
-            console.log("Initializing row hover tooltips");
-            
-            // Create a tooltip element for reuse
-            const tooltip = document.createElement('div');
-            tooltip.className = 'case-info-tooltip';
-            document.body.appendChild(tooltip);
-            
-            // Add hover event to table rows
-            document.querySelectorAll('.data-table tbody tr').forEach(row => {
-                // Add mouseover event
-                row.addEventListener('mouseover', function(e) {
-                    // Get case data
-                    const caseId = this.dataset.id;
-                    const caseName = this.querySelector('td:nth-child(3)').textContent; // Assuming 'Sprawa' is 3rd column
-                    
-                    // Get all agent information from the row
-                    const agentInfo = [];
-                    
-                    // Find all agent cells
-                    const agentCells = this.querySelectorAll('.agent-column');
-                    agentCells.forEach(cell => {
-                        const agentName = cell.dataset.name || cell.textContent.trim();
-                        const agentPercent = cell.dataset.percent || '';
-                        
-                        // Only add if we have a name
-                        if (agentName) {
-                            agentInfo.push(`<div><strong>${agentName}</strong>: ${agentPercent}</div>`);
-                        }
-                    });
-                    
-                    // Get installment information
-                    const installmentInfo = [];
-                    for (let i = 1; i <= 4; i++) {
-                        // Find rate column and paid status
-                        const rateCell = Array.from(this.querySelectorAll('td')).find(cell => {
-                            const header = getColumnForCell(cell);
-                            return header === `Rata ${i}`;
-                        });
-                        
-                        const paidCell = Array.from(this.querySelectorAll('td')).find(cell => {
-                            const header = getColumnForCell(cell);
-                            return header === `Opłacona ${i}`;
-                        });
-                        
-                        if (rateCell && paidCell) {
-                            const rateAmount = rateCell.textContent.trim();
-                            const isPaid = paidCell.textContent.includes('Tak');
-                            
-                            const status = isPaid ? '<span style="color: #4CAF50">opłacona</span>' : 
-                                               '<span style="color: #f44336">nieopłacona</span>';
-                            
-                            installmentInfo.push(`<div>Rata ${i}: ${rateAmount} (${status})</div>`);
-                        }
-                    }
-                    
-                    // Build tooltip content
-                    let tooltipContent = `
-                        <div style="margin-bottom: 8px; font-weight: bold; font-size: 14px;">${caseName}</div>
-                        <div style="margin-bottom: 5px; font-size: 12px; color: #aaa;">ID: ${caseId}</div>
-                    `;
-                    
-                    if (agentInfo.length > 0) {
-                        tooltipContent += `
-                            <div style="margin: 5px 0; border-top: 1px dotted #555; padding-top: 5px;">
-                                <div style="margin-bottom: 5px; color: #aaa;">Agenci:</div>
-                                ${agentInfo.join('')}
-                            </div>
-                        `;
-                    }
-                    
-                    if (installmentInfo.length > 0) {
-                        tooltipContent += `
-                            <div style="margin: 5px 0; border-top: 1px dotted #555; padding-top: 5px;">
-                                <div style="margin-bottom: 5px; color: #aaa;">Raty:</div>
-                                ${installmentInfo.join('')}
-                            </div>
-                        `;
-                    }
-                    
-                    // Update and show tooltip
-                    tooltip.innerHTML = tooltipContent;
-                    tooltip.style.display = 'block';
-                    
-                    // Position tooltip near the cursor
-                    tooltip.style.left = e.pageX + 15 + 'px';
-                    tooltip.style.top = e.pageY + 15 + 'px';
-                });
-                
-                // Add mouseout event
-                row.addEventListener('mouseout', function() {
-                    tooltip.style.display = 'none';
-                });
-                
-                // Add mousemove event to update tooltip position
-                row.addEventListener('mousemove', function(e) {
-                    tooltip.style.left = e.pageX + 15 + 'px';
-                    tooltip.style.top = e.pageY + 15 + 'px';
                 });
             });
         }
@@ -1908,54 +1275,6 @@
             </li>
         </ul>
     </nav>
-
-    <!-- Commission Invoice Modal -->
-    <div id="commissionInvoiceModal" class="modal">
-        <div class="modal-content">
-            <span class="modal-close">&times;</span>
-            <h3>Podaj numer faktury</h3>
-            <p>Wprowadź numer faktury dla prowizji:</p>
-            
-            <div class="input-group">
-                <label for="commissionInvoiceNumber">Numer faktury:</label>
-                <input type="text" id="commissionInvoiceNumber" placeholder="Numer faktury" class="modal-input">
-            </div>
-            
-            <div class="input-group">
-                <label for="agentSelect">Wybierz agenta:</label>
-                <select id="agentSelect" class="modal-input agent-select">
-                    <option value="">-- Wybierz agenta --</option>
-                    <?php
-                    // Pobierz listę agentów z bazy danych
-                    require_once __DIR__ . '/../../config/database.php';
-                    global $pdo;
-                    try {
-                        $agentsQuery = "SELECT agent_id, imie, nazwisko FROM agenci ORDER BY nazwisko, imie";
-                        $agentsStmt = $pdo->query($agentsQuery);
-                        $agents = $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
-                        
-                        foreach ($agents as $agent) {
-                            echo '<option value="' . $agent['agent_id'] . '" data-name="' . htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko']) . '">' . 
-                                htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko']) . 
-                                '</option>';
-                        }
-                    } catch (PDOException $e) {
-                        error_log("Błąd pobierania agentów: " . $e->getMessage());
-                    }
-                    ?>
-                </select>
-            </div>
-            
-            <div id="agentInfoContainer" class="agent-info-container">
-                <!-- Agent information will be displayed here when agent is selected -->
-            </div>
-            
-            <div class="modal-buttons">
-                <button id="saveInvoiceButton" class="modal-button save-button">Zapisz</button>
-                <button id="cancelInvoiceButton" class="modal-button cancel-button">Anuluj</button>
-            </div>
-        </div>
-    </div>
 
     <header>
         <h1>Podejrzyj Tabele</h1>
@@ -2011,6 +1330,11 @@
         <?php endif; ?>
     </section>
 
+    <!-- Include the commission modal -->
+    <?php include_once __DIR__ . '/components/commission_modal.php'; ?>
+    
+    <!-- Include the commission management JS -->
+    <script src="/assets/js/commission-management.js"></script>
 </body>
 
 </html>

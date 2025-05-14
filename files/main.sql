@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Maj 09, 2025 at 12:04 PM
+-- Generation Time: Maj 12, 2025 at 09:39 AM
 -- Wersja serwera: 10.4.32-MariaDB
 -- Wersja PHP: 8.2.12
 
@@ -39,9 +39,34 @@ CREATE TABLE `agenci` (
 --
 
 INSERT INTO `agenci` (`agent_id`, `imie`, `nazwisko`, `sprawy`) VALUES
-(1, 'Robert', 'Kucharczyk', '[\"1\", \"2\", \"3\", \"4\", \"5\", \"6\", \"8\", \"10\", \"11\", \"13\"]'),
+(1, 'Robert', 'Kucharczyk', '[\"1\", \"2\", \"3\", \"4\", \"5\", \"6\", \"8\", \"10\", \"11\", \"13\", \"15\"]'),
 (2, 'Kacper', 'Storczyk', '[\"6\", \"12\"]'),
-(3, 'Dawid', 'Lewandowski', '[\"7\", \"8\", \"9\", \"10\", \"11\", \"14\"]');
+(3, 'Dawid', 'Lewandowski', '[\"7\", \"8\", \"9\", \"10\", \"11\", \"14\", \"16\"]'),
+(4, 'Robert ', 'Kubica', '[\"16\"]');
+
+-- --------------------------------------------------------
+
+--
+-- Struktura tabeli dla tabeli `commission_payments`
+--
+
+CREATE TABLE `commission_payments` (
+  `id` int(11) NOT NULL,
+  `case_id` int(11) NOT NULL,
+  `installment_number` int(11) NOT NULL,
+  `agent_id` varchar(255) NOT NULL,
+  `invoice_number` varchar(255) DEFAULT NULL,
+  `status` tinyint(4) DEFAULT 0,
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `commission_payments`
+--
+
+INSERT INTO `commission_payments` (`id`, `case_id`, `installment_number`, `agent_id`, `invoice_number`, `status`, `created_at`, `updated_at`) VALUES
+(5, 16, 1, '3', 'FV3/242311', 1, '2025-05-12 09:35:44', NULL);
 
 -- --------------------------------------------------------
 
@@ -62,10 +87,9 @@ CREATE TABLE `sprawa_agent` (
 --
 
 INSERT INTO `sprawa_agent` (`id`, `sprawa_id`, `agent_id`, `rola`, `percentage`) VALUES
-(21, 11, 1, 'agent_1', 10.00),
-(22, 12, 2, 'agent_1', 10.00),
-(24, 14, 3, 'agent_1', 11.00),
-(25, 13, 1, 'agent_1', 10.00);
+(26, 15, 1, 'agent_1', 10.00),
+(27, 16, 4, 'agent_1', 5.00),
+(28, 16, 3, 'agent_2', 5.00);
 
 -- --------------------------------------------------------
 
@@ -206,18 +230,24 @@ CREATE TABLE `test2` (
   `installment1_commission_paid` tinyint(1) DEFAULT 0,
   `installment2_commission_paid` tinyint(1) DEFAULT 0,
   `installment3_commission_paid` tinyint(1) DEFAULT 0,
-  `final_installment_commission_paid` tinyint(1) DEFAULT 0
+  `final_installment_commission_paid` tinyint(1) DEFAULT 0,
+  `installment1_commission_invoice` varchar(255) DEFAULT NULL,
+  `installment2_commission_invoice` varchar(255) DEFAULT NULL,
+  `installment3_commission_invoice` varchar(255) DEFAULT NULL,
+  `final_installment_commission_invoice` varchar(255) DEFAULT NULL,
+  `installment1_commission_agent_id` int(11) DEFAULT NULL,
+  `installment2_commission_agent_id` int(11) DEFAULT NULL,
+  `installment3_commission_agent_id` int(11) DEFAULT NULL,
+  `final_installment_commission_agent_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `test2`
 --
 
-INSERT INTO `test2` (`id`, `case_name`, `is_completed`, `amount_won`, `upfront_fee`, `success_fee_percentage`, `total_commission`, `kuba_percentage`, `kuba_payout`, `agent1_percentage`, `agent2_percentage`, `agent3_percentage`, `agent4_percentage`, `agent5_percentage`, `installment1_amount`, `installment1_paid`, `installment2_amount`, `installment2_paid`, `installment3_amount`, `installment3_paid`, `final_installment_amount`, `final_installment_paid`, `kuba_installment1_amount`, `kuba_invoice_number`, `kuba_installment2_amount`, `kuba_installment3_amount`, `kuba_final_installment_amount`, `agent1_installment1_amount`, `agent1_installment2_amount`, `agent1_installment3_amount`, `agent1_final_installment_amount`, `agent2_installment1_amount`, `agent2_installment2_amount`, `agent2_installment3_amount`, `agent2_final_installment_amount`, `agent3_installment1_amount`, `agent3_installment2_amount`, `agent3_installment3_amount`, `agent3_final_installment_amount`, `created_at`, `updated_at`, `installment1_paid_invoice`, `installment2_paid_invoice`, `installment3_paid_invoice`, `final_installment_paid_invoice`, `installment1_commission_paid`, `installment2_commission_paid`, `installment3_commission_paid`, `final_installment_commission_paid`) VALUES
-(11, 'Andrzej A', 0, 300000.00, 9000.00, 8.00, 33000.00, 25.00, 15.00, 10.00, 0.00, 0.00, NULL, NULL, 3000.00, 0, 3000.00, 0, 3000.00, 0, 24000.00, 0, 450.00, NULL, 450.00, 450.00, 3600.00, 300.00, 300.00, 300.00, 2400.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, '2025-05-07 12:22:57', '2025-05-08 10:21:27', NULL, NULL, NULL, NULL, 0, 0, 0, 0),
-(12, 'Rafał S', 0, 1000000.00, 5000.00, 5.00, 55000.00, 25.00, 15.00, 10.00, 0.00, 0.00, NULL, NULL, 2000.00, 0, 2000.00, 0, 1000.00, 0, 50000.00, 0, 300.00, NULL, 300.00, 150.00, 7500.00, 200.00, 200.00, 100.00, 5000.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, '2025-05-08 10:24:12', '2025-05-08 10:24:17', NULL, NULL, NULL, NULL, 0, 0, 0, 0),
-(13, 'Ewa Lewandowska', 1, 300000.00, 9000.00, 8.00, 33000.00, 25.00, 15.00, 10.00, 0.00, 0.00, NULL, NULL, 3000.00, 1, 3000.00, 1, 3000.00, 0, 24000.00, 0, 450.00, NULL, 450.00, 450.00, 3600.00, 300.00, 300.00, 300.00, 2400.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, '2025-05-08 12:34:49', '2025-05-09 10:03:15', 'FV/14/12/2024', 'FV/6/03/2025', NULL, NULL, 1, 1, 0, 0),
-(14, 'TRUNCATE test2;', 0, 1337.00, 500.00, 10.50, 640.39, 25.00, 14.00, 11.00, 0.00, 0.00, NULL, NULL, 250.00, 0, 250.00, 0, NULL, 0, 140.39, 0, 35.00, NULL, 35.00, 0.00, 19.65, 27.50, 27.50, 0.00, 15.44, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, '2025-05-08 13:59:38', '2025-05-08 13:59:57', NULL, NULL, NULL, NULL, 0, 0, 0, 0);
+INSERT INTO `test2` (`id`, `case_name`, `is_completed`, `amount_won`, `upfront_fee`, `success_fee_percentage`, `total_commission`, `kuba_percentage`, `kuba_payout`, `agent1_percentage`, `agent2_percentage`, `agent3_percentage`, `agent4_percentage`, `agent5_percentage`, `installment1_amount`, `installment1_paid`, `installment2_amount`, `installment2_paid`, `installment3_amount`, `installment3_paid`, `final_installment_amount`, `final_installment_paid`, `kuba_installment1_amount`, `kuba_invoice_number`, `kuba_installment2_amount`, `kuba_installment3_amount`, `kuba_final_installment_amount`, `agent1_installment1_amount`, `agent1_installment2_amount`, `agent1_installment3_amount`, `agent1_final_installment_amount`, `agent2_installment1_amount`, `agent2_installment2_amount`, `agent2_installment3_amount`, `agent2_final_installment_amount`, `agent3_installment1_amount`, `agent3_installment2_amount`, `agent3_installment3_amount`, `agent3_final_installment_amount`, `created_at`, `updated_at`, `installment1_paid_invoice`, `installment2_paid_invoice`, `installment3_paid_invoice`, `final_installment_paid_invoice`, `installment1_commission_paid`, `installment2_commission_paid`, `installment3_commission_paid`, `final_installment_commission_paid`, `installment1_commission_invoice`, `installment2_commission_invoice`, `installment3_commission_invoice`, `final_installment_commission_invoice`, `installment1_commission_agent_id`, `installment2_commission_agent_id`, `installment3_commission_agent_id`, `final_installment_commission_agent_id`) VALUES
+(15, 'Ewa Lewandowska', 0, 300000.00, 9000.00, 8.00, 33000.00, 25.00, 15.00, 10.00, 0.00, 0.00, NULL, NULL, 3000.00, 1, 3000.00, 1, 3000.00, 0, 24000.00, 0, 450.00, NULL, 450.00, 450.00, 3600.00, 300.00, 300.00, 300.00, 2400.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, '2025-05-09 12:34:55', '2025-05-12 07:36:40', 'FV/14/12/2024', 'FV/6/03/2025', NULL, NULL, 0, 0, 0, 0, 'FV.123123', 'FS-135', NULL, NULL, 1, 1, NULL, NULL),
+(16, 'Katarzyna Wiśniewska	', 0, 45000.00, 12000.00, 5.00, 14250.00, 15.00, 5.00, 5.00, 5.00, 0.00, NULL, NULL, 6000.00, 1, 6000.00, 0, NULL, 0, 2250.00, 0, 300.00, NULL, 300.00, 0.00, 112.50, 300.00, 300.00, 0.00, 112.50, 300.00, 300.00, 0.00, 112.50, 0.00, 0.00, 0.00, 0.00, '2025-05-09 12:58:08', '2025-05-12 07:36:40', 'FV/3/01/2025', NULL, NULL, NULL, 1, 0, 0, 0, 'FV3/242311', NULL, NULL, NULL, 3, NULL, NULL, NULL);
 
 --
 -- Indeksy dla zrzutów tabel
@@ -228,6 +258,14 @@ INSERT INTO `test2` (`id`, `case_name`, `is_completed`, `amount_won`, `upfront_f
 --
 ALTER TABLE `agenci`
   ADD PRIMARY KEY (`agent_id`);
+
+--
+-- Indeksy dla tabeli `commission_payments`
+--
+ALTER TABLE `commission_payments`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `case_id` (`case_id`),
+  ADD KEY `agent_id` (`agent_id`);
 
 --
 -- Indeksy dla tabeli `sprawa_agent`
@@ -257,13 +295,19 @@ ALTER TABLE `test2`
 -- AUTO_INCREMENT for table `agenci`
 --
 ALTER TABLE `agenci`
-  MODIFY `agent_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `agent_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT for table `commission_payments`
+--
+ALTER TABLE `commission_payments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `sprawa_agent`
 --
 ALTER TABLE `sprawa_agent`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
 
 --
 -- AUTO_INCREMENT for table `sprawy`
@@ -275,7 +319,7 @@ ALTER TABLE `sprawy`
 -- AUTO_INCREMENT for table `test2`
 --
 ALTER TABLE `test2`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- Constraints for dumped tables
