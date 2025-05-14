@@ -21,54 +21,17 @@ class TableController
         require_once __DIR__ . '/../../config/database.php';
         global $pdo;
         $this->pdo = $pdo;
-        error_log("TableController::index - Połączenie z bazą danych zainicjalizowane");
         
-        // Ensure commission invoice columns exist
-        $this->ensureCommissionColumnsExist();
+        // Sync agent cases before calculating commissions
+        $this->syncAgentCases();
         
-        // Check if payment statuses should be synchronized automatically
-        // Do this only once per hour to avoid excessive database operations
-        $lastSync = isset($_SESSION['last_payment_sync']) ? $_SESSION['last_payment_sync'] : 0;
-        $currentTime = time();
-        $oneHourInSeconds = 3600;
+        // Calculate commissions
+        $this->calculateCommissions();
         
-        if ($currentTime - $lastSync > $oneHourInSeconds) {
-            error_log("TableController::index - Auto-syncing payment statuses (last sync was " . 
-                     ($lastSync > 0 ? date('Y-m-d H:i:s', $lastSync) : 'never') . ")");
-            $this->syncPaymentStatusesInternal();
-        } else {
-            error_log("TableController::index - Skipping auto-sync, last sync was less than an hour ago");
-        }
-
-        // Pobierz listę agentów
-        error_log("TableController::index - Pobieranie listy agentów");
-        $agents = $this->getAgents();
-        error_log("TableController::index - Znaleziono " . count($agents) . " agentów");
-
-        // Jeśli wybrano agenta, wyświetl sprawy tego agenta
-        $selectedAgentId = isset($_GET['agent_id']) ? $_GET['agent_id'] : null;
-        $selectedAgent = null;
-        error_log("TableController::index - Wybrany agent ID: " . ($selectedAgentId ?: 'brak'));
-
-        // Handle the special Jakub case
-        if ($selectedAgentId === 'jakub' || $selectedAgentId === 'Jakub') {
-            $selectedAgent = [
-                'imie' => 'Jakub',
-                'nazwisko' => 'Kowalski',
-                'agent_id' => 'jakub'
-            ];
-            error_log("TableController::index - Wybrano specjalnego agenta Jakub");
-        } elseif ($selectedAgentId) {
-            foreach ($agents as $agent) {
-                if ($agent['agent_id'] == $selectedAgentId) {
-                    $selectedAgent = $agent;
-                    error_log("TableController::index - Znaleziono wybranego agenta: " . $agent['imie'] . " " . $agent['nazwisko']);
-                    break;
-                }
-            }
-        }
-
-        error_log("TableController::index - Renderowanie widoku tabeli");
+        // Sync payment statuses
+        $this->syncPaymentStatusesInternal();
+        
+        // Render the view
         include __DIR__ . '/../Views/table.php';
         error_log("TableController::index - Zakończono");
     }
@@ -163,6 +126,44 @@ class TableController
                     } else {
                         error_log("Nieznana rola agenta: {$agent['rola']}");
                     }
+                }
+
+                // Sprawdź czy sprawa jest w sprawy JSON dla Roberta Kucharczyka
+                $robertQuery = "SELECT agent_id, sprawy FROM agenci WHERE imie = 'Robert' AND nazwisko = 'Kucharczyk'";
+                $robertStmt = $this->pdo->query($robertQuery);
+                $robertData = $robertStmt->fetch(PDO::FETCH_ASSOC);
+                error_log("Sprawy Roberta Kucharczyka: " . ($robertData ? $robertData['sprawy'] : 'nie znaleziono'));
+
+                if ($robertData && $robertData['sprawy']) {
+                    $sprawyIds = json_decode($robertData['sprawy'], true);
+                    if (is_array($sprawyIds) && in_array($id, $sprawyIds)) {
+                        error_log("Sprawa {$id} jest w sprawach Roberta");
+                        // Jeśli sprawa jest w sprawy Roberta, a nie ma go w sprawa_agent, dodaj go jako agent_1
+                        if (!in_array($robertData['agent_id'], array_column($agents, 'agent_id'))) {
+                            $agent1Percentage = 10.00; // Domyślny procent dla Roberta
+                            error_log("Dodano Roberta Kucharczyka jako agent_1 z procentem {$agent1Percentage}");
+                            
+                            // Dodaj wpis do sprawa_agent
+                            $insertQuery = "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola, percentage) VALUES (:sprawa_id, :agent_id, 'agent_1', :percentage)";
+                            $insertStmt = $this->pdo->prepare($insertQuery);
+                            try {
+                                $insertStmt->execute([
+                                    ':sprawa_id' => $id,
+                                    ':agent_id' => $robertData['agent_id'],
+                                    ':percentage' => $agent1Percentage
+                                ]);
+                                error_log("Dodano wpis do sprawa_agent dla Roberta");
+                            } catch (PDOException $e) {
+                                error_log("Błąd podczas dodawania wpisu do sprawa_agent: " . $e->getMessage());
+                            }
+                        } else {
+                            error_log("Robert już jest w sprawa_agent dla sprawy {$id}");
+                        }
+                    } else {
+                        error_log("Sprawa {$id} nie jest w sprawach Roberta");
+                    }
+                } else {
+                    error_log("Nie znaleziono spraw Roberta Kucharczyka");
                 }
                 
                 // Aktualizacja wartości procentowych w rekordzie dla kompatybilności
@@ -519,7 +520,7 @@ class TableController
             // Convert to integer for normal agent IDs
             $agentId = (int)$agentId;
             
-            // Pobierz wszystkie sprawy przypisane do tego agenta z tabeli sprawa_agent
+            // First, get cases from sprawa_agent table
             $query = "
                 SELECT t.*, sa.rola, sa.percentage 
                 FROM test2 t
@@ -529,7 +530,37 @@ class TableController
             
             $stmt = $this->pdo->prepare($query);
             $stmt->execute([':agent_id' => $agentId]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $casesFromSprawaAgent = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Then, get cases from agenci.sprawy JSON field
+            $query = "SELECT sprawy FROM agenci WHERE agent_id = :agent_id";
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute([':agent_id' => $agentId]);
+            $sprawyJson = $stmt->fetchColumn();
+            
+            if ($sprawyJson) {
+                $sprawyIds = json_decode($sprawyJson, true);
+                if (is_array($sprawyIds)) {
+                    // Get cases that are in sprawy but not in sprawa_agent
+                    $placeholders = str_repeat('?,', count($sprawyIds) - 1) . '?';
+                    $query = "
+                        SELECT t.*, 'agent_1' as rola, 10.00 as percentage
+                        FROM test2 t
+                        WHERE t.id IN ($placeholders)
+                        AND t.id NOT IN (SELECT sprawa_id FROM sprawa_agent WHERE agent_id = ?)
+                        ORDER BY t.id DESC";
+                    
+                    $params = array_merge($sprawyIds, [$agentId]);
+                    $stmt = $this->pdo->prepare($query);
+                    $stmt->execute($params);
+                    $casesFromSprawy = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // Merge both results
+                    return array_merge($casesFromSprawaAgent, $casesFromSprawy);
+                }
+            }
+            
+            return $casesFromSprawaAgent;
         } catch (\PDOException $e) {
             error_log('Error fetching agent cases: ' . $e->getMessage());
             return [];
@@ -1925,7 +1956,7 @@ class TableController
             $installmentNumber = $input['installment_number'];
             $status = (int)$input['status'];
             $invoiceNumber = isset($input['invoice_number']) ? $input['invoice_number'] : '';
-            $agentId = isset($input['agent_id']) ? (int)$input['agent_id'] : null;
+            $agentId = isset($input['agent_id']) ? $input['agent_id'] : null;
             
             error_log("TableController::updateCommissionStatusAjax - Parameters: case_id=$caseId, installment_number=$installmentNumber, status=$status, invoice_number=$invoiceNumber, agent_id=" . ($agentId ? $agentId : 'null'));
             
@@ -1934,7 +1965,7 @@ class TableController
                 throw new \Exception("Invalid installment number. Must be 1, 2, 3, or 4.");
             }
             
-            // Map installment number to database column
+            // Map installment number to database columns
             $columnMap = [
                 1 => 'installment1_commission_paid',
                 2 => 'installment2_commission_paid',
@@ -1969,67 +2000,162 @@ class TableController
             // Check if columns exist, if not create them
             $this->ensureCommissionColumnsExist();
             
-            // Update the commission paid status, invoice number, and agent ID
-            $query = "UPDATE test2 SET {$column} = :status";
+            // Start a transaction to ensure data consistency
+            $this->pdo->beginTransaction();
             
-            // Add invoice number to query if provided
-            if (!empty($invoiceNumber)) {
-                $query .= ", {$invoiceColumn} = :invoice_number";
+            try {
+                // 1. First update the test2 table as before
+                $query = "UPDATE test2 SET {$column} = :status";
+                
+                // Add invoice number to query if provided
+                if (!empty($invoiceNumber)) {
+                    $query .= ", {$invoiceColumn} = :invoice_number";
+                }
+                
+                // Add agent ID to query if provided
+                if ($agentId !== null) {
+                    $query .= ", {$agentColumn} = :agent_id";
+                }
+                
+                $query .= " WHERE id = :case_id";
+                
+                error_log("TableController::updateCommissionStatusAjax - SQL query for test2: " . $query);
+                
+                $stmt = $this->pdo->prepare($query);
+                $params = [
+                    ':status' => $status,
+                    ':case_id' => $caseId
+                ];
+                
+                // Add invoice parameter if provided
+                if (!empty($invoiceNumber)) {
+                    $params[':invoice_number'] = $invoiceNumber;
+                }
+                
+                // Add agent ID parameter if provided
+                if ($agentId !== null) {
+                    $params[':agent_id'] = $agentId;
+                }
+                
+                $test2UpdateSuccess = $stmt->execute($params);
+                
+                if (!$test2UpdateSuccess) {
+                    error_log("TableController::updateCommissionStatusAjax - SQL error updating test2: " . print_r($stmt->errorInfo(), true));
+                    throw new \Exception("Database error updating test2: " . implode(", ", $stmt->errorInfo()));
+                }
+                
+                $test2RowCount = $stmt->rowCount();
+                error_log("TableController::updateCommissionStatusAjax - test2 rows affected: " . $test2RowCount);
+                
+                // 2. Handle the commission_payments table
+                // If status=0, delete any existing records
+                if ($status == 0) {
+                    $deleteQuery = "DELETE FROM commission_payments 
+                                  WHERE case_id = :case_id 
+                                  AND installment_number = :installment_number";
+                    
+                    $deleteStmt = $this->pdo->prepare($deleteQuery);
+                    $deleteParams = [
+                        ':case_id' => $caseId,
+                        ':installment_number' => $installmentNumber
+                    ];
+                    
+                    // If agent ID is provided, only delete for that agent
+                    if ($agentId !== null) {
+                        $deleteQuery .= " AND agent_id = :agent_id";
+                        $deleteParams[':agent_id'] = $agentId;
+                    }
+                    
+                    $deleteStmt = $this->pdo->prepare($deleteQuery);
+                    $deleteSuccess = $deleteStmt->execute($deleteParams);
+                    
+                    error_log("TableController::updateCommissionStatusAjax - Deleted from commission_payments: " . 
+                             ($deleteSuccess ? "success" : "failed") . ", rows: " . $deleteStmt->rowCount());
+                }
+                // If status=1, insert or update record in commission_payments
+                else if ($status == 1 && $agentId !== null) {
+                    // First check if a record already exists
+                    $checkQuery = "SELECT id FROM commission_payments 
+                                 WHERE case_id = :case_id 
+                                 AND installment_number = :installment_number
+                                 AND agent_id = :agent_id";
+                    
+                    $checkStmt = $this->pdo->prepare($checkQuery);
+                    $checkParams = [
+                        ':case_id' => $caseId,
+                        ':installment_number' => $installmentNumber,
+                        ':agent_id' => $agentId
+                    ];
+                    
+                    $checkStmt->execute($checkParams);
+                    $existingRecord = $checkStmt->fetch(\PDO::FETCH_ASSOC);
+                    
+                    if ($existingRecord) {
+                        // Update existing record
+                        $updateQuery = "UPDATE commission_payments 
+                                      SET invoice_number = :invoice_number, 
+                                          status = :status, 
+                                          updated_at = NOW() 
+                                      WHERE id = :id";
+                        
+                        $updateStmt = $this->pdo->prepare($updateQuery);
+                        $updateParams = [
+                            ':invoice_number' => $invoiceNumber,
+                            ':status' => $status,
+                            ':id' => $existingRecord['id']
+                        ];
+                        
+                        $updateSuccess = $updateStmt->execute($updateParams);
+                        
+                        error_log("TableController::updateCommissionStatusAjax - Updated commission_payments: " . 
+                                 ($updateSuccess ? "success" : "failed") . ", rows: " . $updateStmt->rowCount());
+                    } else {
+                        // Insert new record
+                        $insertQuery = "INSERT INTO commission_payments 
+                                      (case_id, installment_number, agent_id, invoice_number, status, created_at) 
+                                      VALUES (:case_id, :installment_number, :agent_id, :invoice_number, :status, NOW())";
+                        
+                        $insertStmt = $this->pdo->prepare($insertQuery);
+                        $insertParams = [
+                            ':case_id' => $caseId,
+                            ':installment_number' => $installmentNumber,
+                            ':agent_id' => $agentId,
+                            ':invoice_number' => $invoiceNumber,
+                            ':status' => $status
+                        ];
+                        
+                        $insertSuccess = $insertStmt->execute($insertParams);
+                        $lastInsertId = $this->pdo->lastInsertId();
+                        
+                        error_log("TableController::updateCommissionStatusAjax - Inserted into commission_payments: " . 
+                                 ($insertSuccess ? "success, ID: " . $lastInsertId : "failed"));
+                    }
+                } else {
+                    error_log("TableController::updateCommissionStatusAjax - Skipping commission_payments update: status=$status, agent_id=" . ($agentId ?? 'null'));
+                }
+                
+                // Commit the transaction
+                $this->pdo->commit();
+                
+                // Return success response
+                $response = [
+                    'success' => true,
+                    'message' => "Commission payment status for installment {$installmentNumber} updated successfully",
+                    'case_id' => $caseId,
+                    'installment_number' => $installmentNumber,
+                    'status' => $status,
+                    'invoice_number' => $invoiceNumber,
+                    'agent_id' => $agentId,
+                    'rows_affected' => $test2RowCount
+                ];
+                error_log("TableController::updateCommissionStatusAjax - Success response: " . json_encode($response));
+                echo json_encode($response);
+                
+            } catch (\Exception $e) {
+                // Rollback transaction on error
+                $this->pdo->rollBack();
+                throw $e;
             }
-            
-            // Add agent ID to query if provided
-            if ($agentId !== null) {
-                $query .= ", {$agentColumn} = :agent_id";
-            }
-            
-            $query .= " WHERE id = :case_id";
-            
-            error_log("TableController::updateCommissionStatusAjax - SQL query: " . $query);
-            
-            $stmt = $this->pdo->prepare($query);
-            $params = [
-                ':status' => $status,
-                ':case_id' => $caseId
-            ];
-            
-            // Add invoice parameter if provided
-            if (!empty($invoiceNumber)) {
-                $params[':invoice_number'] = $invoiceNumber;
-            }
-            
-            // Add agent ID parameter if provided
-            if ($agentId !== null) {
-                $params[':agent_id'] = $agentId;
-            }
-            
-            $success = $stmt->execute($params);
-            
-            if (!$success) {
-                error_log("TableController::updateCommissionStatusAjax - SQL error: " . print_r($stmt->errorInfo(), true));
-                throw new \Exception("Database error: " . implode(", ", $stmt->errorInfo()));
-            }
-            
-            // Log the row count to see if any rows were affected
-            $rowCount = $stmt->rowCount();
-            error_log("TableController::updateCommissionStatusAjax - Rows affected: " . $rowCount);
-            
-            if ($rowCount === 0) {
-                error_log("TableController::updateCommissionStatusAjax - Warning: No rows were updated. Case ID may not exist: " . $caseId);
-            }
-            
-            // Return success response
-            $response = [
-                'success' => true,
-                'message' => "Commission payment status for installment {$installmentNumber} updated successfully",
-                'case_id' => $caseId,
-                'installment_number' => $installmentNumber,
-                'status' => $status,
-                'invoice_number' => $invoiceNumber,
-                'agent_id' => $agentId,
-                'rows_affected' => $rowCount
-            ];
-            error_log("TableController::updateCommissionStatusAjax - Success response: " . json_encode($response));
-            echo json_encode($response);
             
         } catch (\Exception $e) {
             error_log("TableController::updateCommissionStatusAjax - ERROR: " . $e->getMessage());
@@ -2214,6 +2340,44 @@ class TableController
             ];
             
             echo json_encode($response);
+        }
+    }
+
+    /**
+     * Synchronizes agent cases between agenci and sprawa_agent tables
+     */
+    private function syncAgentCases(): void
+    {
+        try {
+            // Get all agents and their cases from agenci table
+            $query = "SELECT agent_id, sprawy FROM agenci WHERE sprawy IS NOT NULL AND sprawy != '[]'";
+            $stmt = $this->pdo->query($query);
+            $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($agents as $agent) {
+                $agentId = $agent['agent_id'];
+                $sprawy = json_decode($agent['sprawy'], true);
+
+                if (!is_array($sprawy)) {
+                    continue;
+                }
+
+                foreach ($sprawy as $sprawaId) {
+                    // Check if this case is already linked in sprawa_agent
+                    $checkQuery = "SELECT id FROM sprawa_agent WHERE sprawa_id = ? AND agent_id = ?";
+                    $checkStmt = $this->pdo->prepare($checkQuery);
+                    $checkStmt->execute([$sprawaId, $agentId]);
+                    
+                    if (!$checkStmt->fetch()) {
+                        // If not linked, add it with default values
+                        $insertQuery = "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola, percentage) VALUES (?, ?, 'agent_1', 10.00)";
+                        $insertStmt = $this->pdo->prepare($insertQuery);
+                        $insertStmt->execute([$sprawaId, $agentId]);
+                    }
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Error syncing agent cases: " . $e->getMessage());
         }
     }
 }

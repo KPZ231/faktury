@@ -77,6 +77,66 @@
     .split-item:last-child {
       border-bottom: none;
     }
+
+    /* New styles for currency inputs */
+    .currency-input {
+      background-color: #f8f9fa;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 16px;
+      color: #212529;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+      position: relative;
+    }
+
+    .currency-input:focus {
+      border-color: #80bdff;
+      outline: 0;
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+      background-color: #fff;
+    }
+
+    .currency-input::after {
+      content: " zł";
+      position: absolute;
+      right: 10px;
+      color: #6c757d;
+    }
+
+    /* Highlight current input value */
+    .currency-input-wrapper {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+
+    .currency-input-wrapper::after {
+      content: "zł";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #6c757d;
+      pointer-events: none;
+    }
+
+    .currency-display {
+      position: absolute;
+      top: -20px;
+      right: 10px;
+      background-color: #e3f2fd;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #0d47a1;
+      display: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .currency-input:focus + .currency-display {
+      display: block;
+    }
   </style>
 </head>
 
@@ -164,7 +224,10 @@
       <div class="field-group">
         <label>
           <span class="field-label">Wywalczona kwota:</span>
-          <input type="number" step="0.01" name="amount_won" id="amount_won">
+          <div class="currency-input-wrapper">
+            <input type="number" step="0.01" name="amount_won" id="amount_won" class="currency-input">
+            <span class="currency-display" id="amount_won_display"></span>
+          </div>
           <span class="error-message" id="error_amount_won"></span>
         </label>
       </div>
@@ -172,7 +235,10 @@
       <div class="field-group">
         <label>
           <span class="field-label">Opłata wstępna:</span>
-          <input type="number" step="0.01" name="upfront_fee" id="upfront_fee">
+          <div class="currency-input-wrapper">
+            <input type="number" step="0.01" name="upfront_fee" id="upfront_fee" class="currency-input">
+            <span class="currency-display" id="upfront_fee_display"></span>
+          </div>
           <span class="error-message" id="error_upfront_fee"></span>
         </label>
       </div>
@@ -180,7 +246,10 @@
       <div class="field-group">
         <label>
           <span class="field-label">Procent success fee:</span>
-          <input type="number" step="0.01" name="success_fee_percentage" id="success_fee_percentage">
+          <div class="currency-input-wrapper">
+            <input type="number" step="0.01" name="success_fee_percentage" id="success_fee_percentage" class="currency-input">
+            <span class="currency-display" id="success_fee_percentage_display"></span>
+          </div>
           <span class="error-message" id="error_success_fee_percentage"></span>
         </label>
       </div>
@@ -188,7 +257,10 @@
       <div class="field-group">
         <label>
           <span class="field-label">Prowizja Kuby:</span>
-          <input type="number" step="0.01" name="kuba_percentage" id="kuba_percentage">
+          <div class="currency-input-wrapper">
+            <input type="number" step="0.01" name="kuba_percentage" id="kuba_percentage" class="currency-input">
+            <span class="currency-display" id="kuba_percentage_display"></span>
+          </div>
           <span class="error-message" id="error_kuba_percentage"></span>
         </label>
       </div>
@@ -219,8 +291,8 @@
       </label>
       <br>
       <label>
-        Liczba rat (0-4):
-        <input id="installmentsCount" type="number" min="0" max="4" value="0">
+        Liczba rat (0-6):
+        <input id="installmentsCount" type="number" min="0" max="6" value="0">
       </label>
     </fieldset>
 
@@ -259,6 +331,32 @@
 
     // Lista agentów pobrana z PHP
     const agents = <?php echo json_encode($agents); ?>;
+    
+    // Funkcja do aktualizacji wyświetlania wartości w polach walutowych
+    function updateInputDisplay(input) {
+      const value = parseFloat(input.value);
+      const displayId = input.id + '_display';
+      const displayElement = document.getElementById(displayId);
+      
+      if (displayElement) {
+        if (!isNaN(value)) {
+          // Formatuj wartość z separatorem tysięcy
+          const formattedValue = formatNumberWithSpaces(value);
+          
+          // Jeśli to pole procentowe, dodaj znak %, w przeciwnym razie zł
+          const unit = input.id.includes('percentage') ? '%' : ' zł';
+          displayElement.textContent = formattedValue + unit;
+          displayElement.style.display = 'block';
+        } else {
+          displayElement.style.display = 'none';
+        }
+      }
+    }
+    
+    // Formatowanie liczb z separatorem tysięcy
+    function formatNumberWithSpaces(num) {
+      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    }
 
     // Funkcja pomocnicza: przycinanie wartości do zakresu [min..max]
     function clampInput(el) {
@@ -321,14 +419,30 @@
         // Pole procentu dla agenta
         const percentContainer = document.createElement('label');
         percentContainer.innerHTML = ` Procent: `;
+        
+        // Wrapper dla inputu z walutą
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'currency-input-wrapper';
+        
         const percentInput = document.createElement('input');
         percentInput.type = 'number';
         percentInput.step = '0.01';
         percentInput.name = `agent${i}_percentage`;
         percentInput.id = `agent${i}_percentage`;
-        percentInput.className = 'agent-percentage';
-        percentInput.addEventListener('input', calculateAll);
-        percentContainer.appendChild(percentInput);
+        percentInput.className = 'agent-percentage currency-input';
+        percentInput.addEventListener('input', function() {
+          calculateAll();
+          updateInputDisplay(this);
+        });
+        
+        // Dodaj element wyświetlający wartość
+        const displaySpan = document.createElement('span');
+        displaySpan.className = 'currency-display';
+        displaySpan.id = `agent${i}_percentage_display`;
+        
+        inputWrapper.appendChild(percentInput);
+        inputWrapper.appendChild(displaySpan);
+        percentContainer.appendChild(inputWrapper);
 
         // Dodanie elementu dla wyświetlania kwoty agenta
         const amountDisplay = document.createElement('div');
@@ -400,14 +514,30 @@
         
         const lbl = document.createElement('label');
         lbl.innerHTML = `<span class="field-label">Rata ${i} kwota:</span>`;
+        
+        // Wrapper dla inputu walutowego
+        const inputWrapper = document.createElement('div');
+        inputWrapper.className = 'currency-input-wrapper';
+        
         const input = document.createElement('input');
         input.type = 'number';
         input.step = '0.01';
         input.name = `installment${i}_amount`;
         input.id = `installment${i}_amount`;
-        input.className = 'installment-amount';
-        input.addEventListener('input', calculateAll);
-        lbl.appendChild(input);
+        input.className = 'installment-amount currency-input';
+        input.addEventListener('input', function() {
+          calculateAll();
+          updateInputDisplay(this);
+        });
+        
+        // Dodaj element wyświetlający wartość
+        const displaySpan = document.createElement('span');
+        displaySpan.className = 'currency-display';
+        displaySpan.id = `installment${i}_amount_display`;
+        
+        inputWrapper.appendChild(input);
+        inputWrapper.appendChild(displaySpan);
+        lbl.appendChild(inputWrapper);
 
         // Dodajemy span dla komunikatu błędu dla raty
         const errorSpan = document.createElement('span');
@@ -762,10 +892,22 @@
     });
 
     // Dodanie eventów do pól podstawowych dla obliczeń na żywo
-    document.getElementById('amount_won').addEventListener('input', calculateAll);
-    document.getElementById('upfront_fee').addEventListener('input', calculateAll);
-    document.getElementById('success_fee_percentage').addEventListener('input', calculateAll);
-    document.getElementById('kuba_percentage').addEventListener('input', calculateAll);
+    document.getElementById('amount_won').addEventListener('input', function() {
+      calculateAll();
+      updateInputDisplay(this);
+    });
+    document.getElementById('upfront_fee').addEventListener('input', function() {
+      calculateAll();
+      updateInputDisplay(this);
+    });
+    document.getElementById('success_fee_percentage').addEventListener('input', function() {
+      calculateAll();
+      updateInputDisplay(this);
+    });
+    document.getElementById('kuba_percentage').addEventListener('input', function() {
+      calculateAll();
+      updateInputDisplay(this);
+    });
 
     // Walidacja formularza na każdej zmianie
     document.getElementById('wizardForm').addEventListener('input', validateForm);
@@ -774,6 +916,13 @@
     renderAgents();
     renderInstallments();
     calculateAll();
+    
+    // Inicjalizacja wyświetlania wartości dla istniejących pól
+    document.querySelectorAll('.currency-input').forEach(input => {
+      if (input.value) {
+        updateInputDisplay(input);
+      }
+    });
 
     // Zapobieganie przesłaniu formularza, jeśli nie jest poprawny
     document.getElementById('wizardForm').addEventListener('submit', function(e) {

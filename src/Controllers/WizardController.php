@@ -89,7 +89,7 @@ class WizardController
 
         // 4. Walidacja pól rat (jeśli są podane)
         $totalInstallments = 0;
-        for ($i = 1; $i <= 3; $i++) {
+        for ($i = 1; $i <= 6; $i++) {
             $installmentField = "installment{$i}_amount";
             if (isset($data[$installmentField]) && $data[$installmentField] !== '') {
                 error_log("WizardController::store - Walidacja raty {$i}: " . $data[$installmentField]);
@@ -141,7 +141,13 @@ class WizardController
             'installment2_paid',
             'installment3_amount',
             'installment3_paid',
-            'final_installment_paid', // dodałem to pole
+            'installment4_amount',
+            'installment4_paid',
+            'installment5_amount',
+            'installment5_paid',
+            'installment6_amount',
+            'installment6_paid',
+            'final_installment_paid',
         ];
         error_log("WizardController::store - Przygotowano " . count($columns) . " kolumn do zapisu");
 
@@ -151,6 +157,9 @@ class WizardController
             'installment1_paid',
             'installment2_paid',
             'installment3_paid',
+            'installment4_paid',
+            'installment5_paid',
+            'installment6_paid',
             'final_installment_paid',
         ];
 

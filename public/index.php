@@ -16,6 +16,9 @@ use Dell\Faktury\Controllers\TableController;
 use Dell\Faktury\Controllers\LoginController;
 use Dell\Faktury\Controllers\DatabaseManageController;
 use Dell\Faktury\Controllers\InvoicesController;
+use Dell\Faktury\Controllers\CommissionController;
+use Dell\Faktury\Controllers\TestController;
+use Dell\Faktury\Controllers\PaymentController;
 
 // Sprawdź, czy użytkownik jest zalogowany i przekieruj na stronę logowania jeśli nie
 $uri = $_SERVER['REQUEST_URI'];
@@ -67,6 +70,9 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     // Add new route for getting case agents
     $r->addRoute('GET', '/get-case-agents', [TableController::class, 'getCaseAgentsAjax']);
     
+    // Add new route for getting commission payments
+    $r->addRoute('GET', '/get-commission-payments', [CommissionController::class, 'getCommissionPaymentsForDisplay']);
+    
     // Add new route for getting agent commission information
     $r->addRoute('GET', '/get-agent-commission', [AgentController::class, 'getAgentCommission']);
     
@@ -87,6 +93,13 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     $r->addRoute('GET',    '/login',       [LoginController::class, 'showLoginForm']);
     $r->addRoute('POST',   '/login',       [LoginController::class, 'login']);
     $r->addRoute('GET',    '/logout',      [LoginController::class, 'logout']);
+
+    $r->addRoute('GET',    '/test',       [TestController::class, 'index']);
+    $r->addRoute('POST',   '/toggle-case-status', [TestController::class, 'toggleCaseStatus']);
+    
+    // Payment API endpoints
+    $r->addRoute('POST',   '/update-payment',       [PaymentController::class, 'updatePayment']);
+    $r->addRoute('GET',    '/get-payment-status',   [PaymentController::class, 'getPaymentStatus']);
 });
 error_log("Routes setup complete");
 
