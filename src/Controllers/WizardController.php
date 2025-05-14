@@ -189,29 +189,20 @@ class WizardController
         // Dodajemy powiązania agentów z nową sprawą
         error_log("WizardController::store - Rozpoczęcie dodawania powiązań agentów");
         for ($i = 1; $i <= 5; $i++) {
-            if (isset($data["agent{$i}_id"]) && !empty($data["agent{$i}_id"]) && 
+            if (isset($data["agent{$i}_id_agenta"]) && !empty($data["agent{$i}_id_agenta"]) && 
                 isset($data["agent{$i}_percentage"]) && $data["agent{$i}_percentage"] !== '') {
                 
-                $agentId = (int)$data["agent{$i}_id"];
+                $agentId = (int)$data["agent{$i}_id_agenta"];
                 $percentage = (float)$data["agent{$i}_percentage"];
                 error_log("WizardController::store - Dodawanie powiązania dla Agenta {$i}, ID: {$agentId}, procent: {$percentage}");
                 
-                // 1. Dodaj wpis do tabeli sprawa_agent
+                // 1. Dodaj wpis do tabeli prowizje_agentow_spraw
                 $stmt = $this->db->prepare(
-                    "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola, percentage) 
-                     VALUES (?, ?, ?, ?)"
+                    "INSERT INTO prowizje_agentow_spraw (id_sprawy, id_agenta, udzial_prowizji_proc) 
+                     VALUES (?, ?, ?)"
                 );
-                $stmt->execute([$newCaseId, $agentId, "agent_{$i}", $percentage]);
-                error_log("WizardController::store - Dodano powiązanie w tabeli sprawa_agent");
-                
-                // 2. Aktualizuj pole sprawy w tabeli agentów (istniejący kod)
-                $stmt = $this->db->prepare(
-                    "UPDATE agenci 
-                     SET sprawy = JSON_ARRAY_APPEND(sprawy, '$', ?)
-                     WHERE agent_id = ?"
-                );
-                $stmt->execute([$newCaseId, $agentId]);
-                error_log("WizardController::store - Zaktualizowano pole 'sprawy' dla agenta ID: {$agentId}");
+                $stmt->execute([$newCaseId, $agentId, $percentage/100]); // Dzielimy przez 100, bo w bazie jest w formacie 0.xxxx
+                error_log("WizardController::store - Dodano powiązanie w tabeli prowizje_agentow_spraw");
             } else {
                 error_log("WizardController::store - Agent {$i} nie jest wybrany lub nie ma określonego procentu");
             }
@@ -220,37 +211,28 @@ class WizardController
         // 2. Dodatkowo – zawsze dodajemy sprawę do agenta o imieniu Kuba.
         // Możemy najpierw wyszukać jego ID:
         error_log("WizardController::store - Wyszukiwanie agenta Kuba");
-        $stmt = $this->db->prepare("SELECT agent_id FROM agenci WHERE LOWER(imie) IN ('jakub', 'kuba') LIMIT 1");
+        $stmt = $this->db->prepare("SELECT id_agenta FROM agenci WHERE LOWER(nazwa_agenta) IN ('jakub', 'kuba') LIMIT 1");
         $stmt->execute();
         $kuba = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($kuba) {
-            error_log("WizardController::store - Znaleziono Kubę, agent_id: " . $kuba['agent_id']);
+            error_log("WizardController::store - Znaleziono Kubę, id_agenta: " . $kuba['id_agenta']);
             // Sprawdź, czy Kuba nie jest już przypisany do tej sprawy
             $stmt = $this->db->prepare(
-                "SELECT COUNT(*) FROM sprawa_agent 
-                 WHERE sprawa_id = ? AND agent_id = ?"
+                "SELECT COUNT(*) FROM prowizje_agentow_spraw 
+                 WHERE id_sprawy = ? AND id_agenta = ?"
             );
-            $stmt->execute([$newCaseId, $kuba['agent_id']]);
+            $stmt->execute([$newCaseId, $kuba['id_agenta']]);
             $exists = (int)$stmt->fetchColumn();
             error_log("WizardController::store - Kuba już przypisany do tej sprawy: " . ($exists ? 'Tak' : 'Nie'));
             
             if ($exists === 0) {
-                error_log("WizardController::store - Dodawanie Kuby z rolą 'kuba' i procentem: " . $kubaPercentage);
-                // Dodaj Kubę z rolą 'kuba' i procentem z formularza
+                error_log("WizardController::store - Dodawanie Kuby z procentem: " . $kubaPercentage);
+                // Dodaj Kubę z procentem z formularza
                 $stmt = $this->db->prepare(
-                    "INSERT INTO sprawa_agent (sprawa_id, agent_id, rola, percentage) 
-                     VALUES (?, ?, 'kuba', ?)"
+                    "INSERT INTO prowizje_agentow_spraw (id_sprawy, id_agenta, udzial_prowizji_proc) 
+                     VALUES (?, ?, ?)"
                 );
-                $stmt->execute([$newCaseId, $kuba['agent_id'], $kubaPercentage]);
-                
-                // Zaktualizuj jego pole sprawy w tabeli agenci
-                error_log("WizardController::store - Aktualizacja pola 'sprawy' dla Kuby");
-                $stmt = $this->db->prepare(
-                    "UPDATE agenci 
-                     SET sprawy = JSON_ARRAY_APPEND(sprawy, '$', ?)
-                     WHERE agent_id = ?"
-                );
-                $stmt->execute([$newCaseId, $kuba['agent_id']]);
+                $stmt->execute([$newCaseId, $kuba['id_agenta'], $kubaPercentage/100]); // Dzielimy przez 100, bo w bazie jest w formacie 0.xxxx
                 error_log("WizardController::store - Zaktualizowano dane Kuby");
             }
         } else {

@@ -194,7 +194,7 @@
   <?php
     // Pobieranie agentów z bazy danych
     global $pdo;
-    $agentsQuery = $pdo->query("SELECT agent_id, imie, nazwisko FROM agenci ORDER BY nazwisko, imie");
+    $agentsQuery = $pdo->query("SELECT id_agenta, nazwa_agenta FROM agenci ORDER BY nazwa_agenta");
     $agents = $agentsQuery->fetchAll(PDO::FETCH_ASSOC);
   ?>
 
@@ -388,8 +388,8 @@
         const selectContainer = document.createElement('label');
         selectContainer.innerHTML = `Agent ${i}: `;
         const select = document.createElement('select');
-        select.name = `agent${i}_id`;
-        select.id = `agent${i}_id`;
+        select.name = `agent${i}_id_agenta`;
+        select.id = `agent${i}_id_agenta`;
         select.className = 'agent-select';
         
         // Dodajemy event do obsługi zmiany agenta
@@ -408,8 +408,8 @@
         // Opcje agentów
         agents.forEach(agent => {
           const option = document.createElement('option');
-          option.value = agent.agent_id;
-          option.textContent = `${agent.imie} ${agent.nazwisko}`;
+          option.value = agent.id_agenta;
+          option.textContent = agent.nazwa_agenta;
           select.appendChild(option);
         });
 
@@ -476,7 +476,7 @@
       // Pobierz wszystkie wybrane wartości
       const selectedAgents = [];
       for (let i = 1; i <= count; i++) {
-        const select = document.getElementById(`agent${i}_id`);
+        const select = document.getElementById(`agent${i}_id_agenta`);
         if (select && select.value) {
           selectedAgents.push(select.value);
         }
@@ -484,7 +484,7 @@
       
       // Dla każdego selecta, zaktualizuj dostępność opcji
       for (let i = 1; i <= count; i++) {
-        const select = document.getElementById(`agent${i}_id`);
+        const select = document.getElementById(`agent${i}_id_agenta`);
         if (!select) continue;
         
         const currentValue = select.value;
@@ -656,7 +656,7 @@
       agentInputs.forEach((input, index) => {
         // Sprawdzanie zduplikowanych agentów
         const agentId = index + 1;
-        const agentSelect = document.getElementById(`agent${agentId}_id`);
+        const agentSelect = document.getElementById(`agent${agentId}_id_agenta`);
         
         if (agentSelect && agentSelect.value) {
           const agentValue = agentSelect.value;
