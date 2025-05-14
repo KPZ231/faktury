@@ -127,31 +127,30 @@ class WizardController
         // Jeśli walidacja się powiodła, przetwarzamy dalszą część zapisu
         error_log("WizardController::store - Walidacja zakończona sukcesem, przygotowanie do zapisu");
 
-        // Lista kolumn zgodna ze strukturą tabeli test2 (pomijamy id, auto_increment)
+        // Lista kolumn zgodna ze strukturą tabeli sprawy (pomijamy id_sprawy, auto_increment)
         $columns = [
-            'case_name',
-            'is_completed',
-            'amount_won',
-            'upfront_fee',
-            'success_fee_percentage',
-            'kuba_percentage',
-            'installment1_amount',
-            'installment1_paid',
-            'installment2_amount',
-            'installment2_paid',
-            'installment3_amount',
-            'installment3_paid',
-            'final_installment_paid', // dodałem to pole
+            'identyfikator_sprawy', // zamiast case_name
+            'czy_zakonczona',       // zamiast is_completed
+            'wywalczona_kwota',     // zamiast amount_won
+            'oplata_wstepna',       // zamiast upfront_fee
+            'stawka_success_fee',   // zamiast success_fee_percentage (wymaga konwersji)
+            'uwagi'                 // nowe pole na ewentualne uwagi
         ];
         error_log("WizardController::store - Przygotowano " . count($columns) . " kolumn do zapisu");
 
-        // Zdefiniuj od razu, które kolumny traktujesz jako boolean
+        // Zdefiniuj, które kolumny traktujesz jako boolean
         $booleanFields = [
-            'is_completed',
-            'installment1_paid',
-            'installment2_paid',
-            'installment3_paid',
-            'final_installment_paid',
+            'czy_zakonczona',
+        ];
+
+        // Mapowanie pól formularza na kolumny tabeli
+        $fieldMapping = [
+            'identyfikator_sprawy' => 'case_name',
+            'czy_zakonczona' => 'is_completed',
+            'wywalczona_kwota' => 'amount_won',
+            'oplata_wstepna' => 'upfront_fee',
+            'stawka_success_fee' => 'success_fee_percentage',
+            'uwagi' => 'uwagi'
         ];
 
         $cols   = [];
@@ -160,15 +159,32 @@ class WizardController
         foreach ($columns as $col) {
             $cols[] = "`$col`";
 
-            // Jeśli to pole boolean – zawsze wstawiamy 0
+            // Jeśli to pole boolean – zawsze wstawiamy wartość z formularza lub 0
             if (in_array($col, $booleanFields, true)) {
-                $values[] = '0';
-                error_log("WizardController::store - Pole boolean {$col}: ustawiono 0");
+                $formField = $fieldMapping[$col];
+                $value = isset($data[$formField]) ? 1 : 0; // checkbox - jeśli istnieje to 1, jeśli nie to 0
+                $values[] = $value;
+                error_log("WizardController::store - Pole boolean {$col}: ustawiono {$value}");
+                continue;
+            }
+
+            // Specjalna obsługa dla stawki success fee - konwersja z procentów (np. 8%) na format dziesiętny (0.0800)
+            if ($col === 'stawka_success_fee') {
+                $formField = $fieldMapping[$col];
+                if (isset($data[$formField]) && $data[$formField] !== '') {
+                    $successFee = floatval($data[$formField]) / 100; // Konwersja z % na format dziesiętny
+                    $values[] = $this->db->quote($successFee);
+                    error_log("WizardController::store - Pole {$col}: ustawiono {$successFee} (z {$data[$formField]}%)");
+                } else {
+                    $values[] = 'NULL';
+                    error_log("WizardController::store - Pole {$col}: ustawiono NULL");
+                }
                 continue;
             }
 
             // Pozostałe pola przetwarzamy normalnie
-            $val = $data[$col] ?? null;
+            $formField = $fieldMapping[$col];
+            $val = $data[$formField] ?? null;
             if ($val === '' || $val === null) {
                 $values[] = 'NULL';
                 error_log("WizardController::store - Pole {$col}: ustawiono NULL");
@@ -178,7 +194,7 @@ class WizardController
             }
         }
 
-        $sql = "INSERT INTO `test2` (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $values) . ")";
+        $sql = "INSERT INTO `sprawy` (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $values) . ")";
         error_log("WizardController::store - SQL insert: " . $sql);
         $this->db->exec($sql);
         
@@ -237,6 +253,63 @@ class WizardController
             }
         } else {
             error_log("WizardController::store - UWAGA: Nie znaleziono agenta Kuba w bazie danych");
+        }
+        
+        // Dodajemy raty do tabeli oplaty_spraw
+        error_log("WizardController::store - Rozpoczęcie dodawania rat do tabeli oplaty_spraw");
+        
+        // Policz liczbę rat na podstawie danych z formularza
+        $installmentsCount = 0;
+        for ($i = 1; $i <= 4; $i++) { // Maksymalnie 4 raty
+            $installmentField = "installment{$i}_amount";
+            if (isset($data[$installmentField]) && $data[$installmentField] !== '' && floatval($data[$installmentField]) > 0) {
+                $installmentsCount++;
+            }
+        }
+        
+        error_log("WizardController::store - Wykryto {$installmentsCount} rat do dodania");
+        
+        // Dodaj raty do tabeli oplaty_spraw
+        for ($i = 1; $i <= $installmentsCount; $i++) {
+            $installmentField = "installment{$i}_amount";
+            if (isset($data[$installmentField]) && $data[$installmentField] !== '' && floatval($data[$installmentField]) > 0) {
+                $amount = floatval($data[$installmentField]);
+                error_log("WizardController::store - Dodawanie raty {$i}, kwota: {$amount} zł");
+                
+                $stmt = $this->db->prepare(
+                    "INSERT INTO oplaty_spraw (id_sprawy, opis_raty, oczekiwana_kwota, czy_oplacona) 
+                     VALUES (?, ?, ?, ?)"
+                );
+                $stmt->execute([$newCaseId, "Rata {$i}", $amount, 0]);
+                error_log("WizardController::store - Dodano ratę {$i} do tabeli oplaty_spraw");
+            }
+        }
+        
+        // Sprawdź, czy należy dodać ratę ostateczną na podstawie całkowitej prowizji
+        $upfrontFee = floatval($data['upfront_fee'] ?? 0);
+        $amountWon = floatval($data['amount_won'] ?? 0);
+        $successFeePercentage = floatval($data['success_fee_percentage'] ?? 0);
+        
+        $totalCommission = $upfrontFee + ($amountWon * ($successFeePercentage / 100));
+        $totalInstallments = 0;
+        
+        for ($i = 1; $i <= $installmentsCount; $i++) {
+            $installmentField = "installment{$i}_amount";
+            if (isset($data[$installmentField]) && $data[$installmentField] !== '') {
+                $totalInstallments += floatval($data[$installmentField]);
+            }
+        }
+        
+        $finalInstallment = $totalCommission - $totalInstallments;
+        if ($finalInstallment > 0) {
+            error_log("WizardController::store - Dodawanie ostatniej raty, kwota: {$finalInstallment} zł");
+            
+            $stmt = $this->db->prepare(
+                "INSERT INTO oplaty_spraw (id_sprawy, opis_raty, oczekiwana_kwota, czy_oplacona) 
+                 VALUES (?, ?, ?, ?)"
+            );
+            $stmt->execute([$newCaseId, "Rata końcowa", $finalInstallment, 0]);
+            error_log("WizardController::store - Dodano ostatnią ratę do tabeli oplaty_spraw");
         }
 
         error_log("WizardController::store - Zakończono dodawanie sprawy, przekierowanie do /wizard");
