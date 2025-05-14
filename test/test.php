@@ -197,7 +197,11 @@ $liczbaRat = count($ratyOpis);
     <meta charset="UTF-8">
     <title>Podsumowanie Spraw</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<<<<<<< HEAD
     <link rel="stylesheet" href="../public/assets/css/style.css">
+=======
+    <link rel="stylesheet" href="style.css">
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
      <style>
         /* Reset i podstawy */
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.4; margin: 20px; background-color: #f9f9f9; color: #333;}

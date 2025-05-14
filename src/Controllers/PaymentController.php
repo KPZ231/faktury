@@ -132,16 +132,22 @@ class PaymentController {
                 return;
             }
             
+<<<<<<< HEAD
             // Log received data
             error_log("Received payment data: " . print_r($data, true));
             
             // Validate required fields
             if (!isset($data['case_id']) || !isset($data['agent_id']) || !isset($data['installment_number'])) {
                 error_log("Missing required fields in payment data");
+=======
+            // Validate required fields
+            if (!isset($data['case_id']) || !isset($data['agent_id']) || !isset($data['installment_number'])) {
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Missing required fields']);
                 return;
             }
+<<<<<<< HEAD
 
             // Validate installment number (should be 1-6)
             $installmentNumber = intval($data['installment_number']);
@@ -159,21 +165,68 @@ class PaymentController {
                           WHERE case_id = ? AND agent_id = ? AND installment_number = ?";
             $checkStmt = $this->pdo->prepare($checkQuery);
             $checkStmt->execute([$data['case_id'], $data['agent_id'], $installmentNumber]);
+=======
+            
+            // Check if 'amount' column exists
+            $hasAmountColumn = false;
+            try {
+            $columnCheck = $this->pdo->query("SHOW COLUMNS FROM commission_payments LIKE 'amount'");
+            $hasAmountColumn = $columnCheck->rowCount() > 0;
+            } catch (PDOException $e) {
+                error_log("Error checking for amount column: " . $e->getMessage());
+                // Continue with hasAmountColumn = false
+            }
+            
+            // Check if the record already exists
+            $checkQuery = "SELECT id FROM commission_payments 
+                          WHERE case_id = ? AND agent_id = ? AND installment_number = ?
+                          LIMIT 1";
+            $checkStmt = $this->pdo->prepare($checkQuery);
+            $checkStmt->execute([
+                $data['case_id'],
+                $data['agent_id'],
+                $data['installment_number']
+            ]);
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
             $existingRecord = $checkStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($existingRecord) {
                 // Update existing record
                 $updateQuery = "UPDATE commission_payments SET 
                                status = ?,
+<<<<<<< HEAD
                                invoice_number = ?,
                                updated_at = NOW()";
                 
+=======
+                               invoice_number = ?";
+                
+                // Check if updated_at column exists
+                $hasUpdatedAtColumn = false;
+                try {
+                $columnCheck = $this->pdo->query("SHOW COLUMNS FROM commission_payments LIKE 'updated_at'");
+                    $hasUpdatedAtColumn = $columnCheck->rowCount() > 0;
+                    if ($hasUpdatedAtColumn) {
+                    $updateQuery .= ", updated_at = NOW()";
+                }
+                } catch (PDOException $e) {
+                    error_log("Error checking for updated_at column: " . $e->getMessage());
+                    // Continue without adding updated_at field
+                }
+                
+                // Initialize params array
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
                 $params = [
                     $data['status'],
                     $data['invoice_number'] ?? null
                 ];
                 
+<<<<<<< HEAD
                 if (isset($data['amount'])) {
+=======
+                // Add amount field if it exists
+                if ($hasAmountColumn && isset($data['amount'])) {
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
                     $updateQuery .= ", amount = ?";
                     $params[] = $data['amount'];
                 }
@@ -181,9 +234,12 @@ class PaymentController {
                 $updateQuery .= " WHERE id = ?";
                 $params[] = $existingRecord['id'];
                 
+<<<<<<< HEAD
                 error_log("Executing update query: " . $updateQuery);
                 error_log("With params: " . print_r($params, true));
                 
+=======
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
                 $updateStmt = $this->pdo->prepare($updateQuery);
                 $updateResult = $updateStmt->execute($params);
                 
@@ -192,6 +248,7 @@ class PaymentController {
             } else {
                 // Insert new record
                 $insertQuery = "INSERT INTO commission_payments 
+<<<<<<< HEAD
                                (case_id, agent_id, installment_number, status, invoice_number, created_at, updated_at) 
                                VALUES (?, ?, ?, ?, ?, NOW(), NOW())";
                 
@@ -212,10 +269,36 @@ class PaymentController {
                 
                 error_log("Executing insert query: " . $insertQuery);
                 error_log("With params: " . print_r($params, true));
+=======
+                               (case_id, agent_id, installment_number";
+                
+                $values = "(?, ?, ?";
+                $params = [
+                    $data['case_id'],
+                    $data['agent_id'],
+                    $data['installment_number']
+                ];
+                
+                // Add amount field if it exists
+                if ($hasAmountColumn) {
+                    $insertQuery .= ", amount";
+                    $values .= ", ?";
+                    $params[] = $data['amount'] ?? 0;
+                }
+                
+                // Add standard fields
+                $insertQuery .= ", status, invoice_number, created_at)";
+                $values .= ", ?, ?, NOW())";
+                $params[] = $data['status'];
+                $params[] = $data['invoice_number'] ?? null;
+                
+                $insertQuery .= " VALUES " . $values;
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
                 
                 $insertStmt = $this->pdo->prepare($insertQuery);
                 $insertResult = $insertStmt->execute($params);
                 
+<<<<<<< HEAD
                 error_log("Inserted new record, result: " . ($insertResult ? 'success' : 'failed'));
             }
             
@@ -236,6 +319,13 @@ class PaymentController {
             ]);
             
             error_log("Updated test2 table, result: " . ($updateTest2Result ? 'success' : 'failed'));
+=======
+                error_log("Inserted new record, result: " . ($insertResult ? 'success' : 'failed') . ", last insert ID: " . $this->pdo->lastInsertId());
+            }
+            
+            // Also update the corresponding commission_paid field in test2 table
+            $this->updateCommissionPaidStatus($data['case_id'], $data['installment_number'], $data['status'], $data['invoice_number'] ?? null);
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
             
             // Return success response
             header('Content-Type: application/json');
@@ -252,4 +342,39 @@ class PaymentController {
             echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
         }
     }
+<<<<<<< HEAD
+=======
+    
+    /**
+     * Helper method to update commission paid status in test2 table
+     */
+    private function updateCommissionPaidStatus(int $caseId, int $installmentNumber, int $status, ?string $invoiceNumber): void {
+        try {
+            $fieldMapping = [
+                1 => ['paid' => 'installment1_commission_paid', 'invoice' => 'installment1_commission_invoice'],
+                2 => ['paid' => 'installment2_commission_paid', 'invoice' => 'installment2_commission_invoice'],
+                3 => ['paid' => 'installment3_commission_paid', 'invoice' => 'installment3_commission_invoice'],
+                4 => ['paid' => 'final_installment_commission_paid', 'invoice' => 'final_installment_commission_invoice']
+            ];
+            
+            if (!isset($fieldMapping[$installmentNumber])) {
+                error_log("Invalid installment number: $installmentNumber");
+                return;
+            }
+            
+            $paidField = $fieldMapping[$installmentNumber]['paid'];
+            $invoiceField = $fieldMapping[$installmentNumber]['invoice'];
+            
+            $query = "UPDATE test2 SET {$paidField} = ?, {$invoiceField} = ? WHERE id = ?";
+            $stmt = $this->pdo->prepare($query);
+            $result = $stmt->execute([$status, $invoiceNumber, $caseId]);
+            
+            error_log("Updated test2 table for case $caseId, installment $installmentNumber, result: " . ($result ? 'success' : 'failed'));
+            
+        } catch (PDOException $e) {
+            error_log("Error updating commission paid status: " . $e->getMessage());
+            // Let this error pass through as it's not critical
+        }
+    }
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
 } 

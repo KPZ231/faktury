@@ -4,7 +4,10 @@ namespace Dell\Faktury\Controllers;
 
 use PDO;
 use PDOException;
+<<<<<<< HEAD
 use Exception;
+=======
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
 
 class TestController {
     private $pdo;
@@ -155,6 +158,7 @@ class TestController {
             error_log("Error syncing payment statuses: " . $e->getMessage());
         }
     }
+<<<<<<< HEAD
 
     /**
      * Toggle case completion status
@@ -196,4 +200,6 @@ class TestController {
             ]);
         }
     }
+=======
+>>>>>>> e87997622cb53a0ba6003109bcc2dc586904bc28
 }
