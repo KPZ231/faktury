@@ -10,114 +10,91 @@ global $pdo;
 $epsilon = 0.01; // For floating point comparisons
 $kuba_id = 1; // Assuming Kuba's agent ID is 1
 
-// Get agent list
-$agentsQuery = "SELECT agent_id, imie, nazwisko FROM agenci ORDER BY nazwisko, imie";
+// Get agent list (now using new schema)
+$agentsQuery = "SELECT id_agenta, nazwa_agenta FROM agenci ORDER BY nazwa_agenta";
 $agentsStmt = $pdo->query($agentsQuery);
 $agenci = [];
 while ($agent = $agentsStmt->fetch(PDO::FETCH_ASSOC)) {
-    $agenci[$agent['agent_id']] = $agent['imie'] . ' ' . $agent['nazwisko'];
+    $agenci[$agent['id_agenta']] = $agent['nazwa_agenta'];
 }
 
 // Define raty structure
 $ratyOpis = ['Rata 1', 'Rata 2', 'Rata 3', 'Rata 4'];
 $liczbaRat = count($ratyOpis);
 
-// Get all cases/sprawy
+// Get all cases/sprawy (new schema)
 $sprawyQuery = "SELECT 
-    t.id as id_sprawy,
-    t.case_name as identyfikator_sprawy,
-    t.is_completed as czy_zakonczona,
-    t.amount_won as wywalczona_kwota,
-    t.upfront_fee as oplata_wstepna,
-    t.success_fee_percentage as stawka_success_fee,
-    t.total_commission as calosc_prowizji,
-    t.case_name as imie_nazwisko_klienta,
-    t.kuba_payout as do_wyplaty_kuba_proc
-    FROM test2 t
-    ORDER BY t.created_at DESC";
+    s.id_sprawy,
+    s.identyfikator_sprawy,
+    s.czy_zakonczona,
+    s.wywalczona_kwota,
+    s.oplata_wstepna,
+    s.stawka_success_fee,
+    s.identyfikator_sprawy as imie_nazwisko_klienta
+    FROM sprawy s
+    ORDER BY s.id_sprawy DESC";
 $sprawyStmt = $pdo->query($sprawyQuery);
 $sprawyData = [];
 
-// Process each case
 while ($sprawa = $sprawyStmt->fetch(PDO::FETCH_ASSOC)) {
     $id_sprawy = $sprawa['id_sprawy'];
     
-    // Get agent commissions for this case
-    $prowizjeQuery = "SELECT agent_id, percentage FROM sprawa_agent WHERE sprawa_id = ?";
+    // Get agent commissions for this case (new schema)
+    $prowizjeQuery = "SELECT id_agenta, udzial_prowizji_proc FROM prowizje_agentow_spraw WHERE id_sprawy = ?";
     $prowizjeStmt = $pdo->prepare($prowizjeQuery);
     $prowizjeStmt->execute([$id_sprawy]);
-    
     $sprawa['prowizje_proc'] = [];
     while ($prowizja = $prowizjeStmt->fetch(PDO::FETCH_ASSOC)) {
-        // Store the percentage as is - don't divide by 100 since format_percent has been updated
-        $sprawa['prowizje_proc'][$prowizja['agent_id']] = $prowizja['percentage'];
+        $sprawa['prowizje_proc'][$prowizja['id_agenta']] = $prowizja['udzial_prowizji_proc'];
     }
-    
-    // Map the installment fields from test2 table structure
+
+    // Oblicz całość prowizji
+    $sprawa['calosc_prowizji'] = floatval($sprawa['oplata_wstepna']) + (floatval($sprawa['wywalczona_kwota']) * floatval($sprawa['stawka_success_fee']));
+
+    // Oblicz do_wyplaty_kuba_proc (jako udział, np. 0.25 = 25%)
+    $suma_udzialow = 0.0;
+    foreach ($sprawa['prowizje_proc'] as $udzial) {
+        $suma_udzialow += floatval($udzial);
+    }
+    $sprawa['do_wyplaty_kuba_proc'] = max(0, 1.0 - $suma_udzialow);
+
+    // Map the installment fields from oplaty_spraw
     $sprawa['oplaty'] = [];
-    
-    // Rata 1
-    $sprawa['oplaty']['Rata 1'] = [
-        'kwota' => $sprawa['id_sprawy'] ? $pdo->query("SELECT installment1_amount FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : null,
-        'is_paid_display' => $sprawa['id_sprawy'] ? (bool)$pdo->query("SELECT installment1_paid FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : false,
-        'faktura_id' => null,
-        'paying_invoice_number' => $sprawa['id_sprawy'] ? $pdo->query("SELECT installment1_paid_invoice FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : null
-    ];
-    
-    // Rata 2
-    $sprawa['oplaty']['Rata 2'] = [
-        'kwota' => $sprawa['id_sprawy'] ? $pdo->query("SELECT installment2_amount FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : null,
-        'is_paid_display' => $sprawa['id_sprawy'] ? (bool)$pdo->query("SELECT installment2_paid FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : false,
-        'faktura_id' => null,
-        'paying_invoice_number' => $sprawa['id_sprawy'] ? $pdo->query("SELECT installment2_paid_invoice FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : null
-    ];
-    
-    // Rata 3
-    $sprawa['oplaty']['Rata 3'] = [
-        'kwota' => $sprawa['id_sprawy'] ? $pdo->query("SELECT installment3_amount FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : null,
-        'is_paid_display' => $sprawa['id_sprawy'] ? (bool)$pdo->query("SELECT installment3_paid FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : false,
-        'faktura_id' => null,
-        'paying_invoice_number' => $sprawa['id_sprawy'] ? $pdo->query("SELECT installment3_paid_invoice FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : null
-    ];
-    
-    // Rata 4 (final installment)
-    $sprawa['oplaty']['Rata 4'] = [
-        'kwota' => $sprawa['id_sprawy'] ? $pdo->query("SELECT final_installment_amount FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : null,
-        'is_paid_display' => $sprawa['id_sprawy'] ? (bool)$pdo->query("SELECT final_installment_paid FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : false,
-        'faktura_id' => null,
-        'paying_invoice_number' => $sprawa['id_sprawy'] ? $pdo->query("SELECT final_installment_paid_invoice FROM test2 WHERE id = {$sprawa['id_sprawy']}")->fetchColumn() : null
-    ];
-    
-    // Get commission payment info from commission_payments table
-    $commissionQuery = "SELECT * FROM commission_payments WHERE case_id = ? ORDER BY installment_number";
-    $commissionStmt = $pdo->prepare($commissionQuery);
-    $commissionStmt->execute([$id_sprawy]);
-    
-    while ($commission = $commissionStmt->fetch(PDO::FETCH_ASSOC)) {
-        $rataIndex = $commission['installment_number'] - 1; // Convert from 1-based to 0-based index
-        if (isset($ratyOpis[$rataIndex])) {
-            $opisRaty = $ratyOpis[$rataIndex];
-            // Update commission status and invoice number if available
-            $sprawa['oplaty'][$opisRaty]['commission_status'] = (bool)$commission['status'];
-            $sprawa['oplaty'][$opisRaty]['commission_invoice'] = $commission['invoice_number'];
-            $sprawa['oplaty'][$opisRaty]['commission_agent_id'] = $commission['agent_id'];
-        }
+    foreach ($ratyOpis as $opisRaty) {
+        $stmt = $pdo->prepare("SELECT oczekiwana_kwota, czy_oplacona FROM oplaty_spraw WHERE id_sprawy = ? AND opis_raty = ?");
+        $stmt->execute([$id_sprawy, $opisRaty]);
+        $rata = $stmt->fetch(PDO::FETCH_ASSOC);
+        $sprawa['oplaty'][$opisRaty] = [
+            'kwota' => $rata['oczekiwana_kwota'] ?? null,
+            'is_paid_display' => (bool)($rata['czy_oplacona'] ?? false),
+            'faktura_id' => null,
+            'paying_invoice_number' => null
+        ];
     }
-    
+
+    // Get commission payment info from agenci_wyplaty (new schema)
+    $sprawa['prowizje_raty'] = [];
+    $stmt = $pdo->prepare("SELECT id_agenta, opis_raty, kwota, czy_oplacone, numer_faktury FROM agenci_wyplaty WHERE id_sprawy = ?");
+    $stmt->execute([$id_sprawy]);
+    while ($prow = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $sprawa['prowizje_raty'][$prow['opis_raty']][$prow['id_agenta']] = [
+            'kwota' => $prow['kwota'],
+            'czy_oplacone' => (bool)$prow['czy_oplacone'],
+            'numer_faktury' => $prow['numer_faktury']
+        ];
+    }
+
     $sprawyData[$id_sprawy] = $sprawa;
 }
 
 // Function to sync payment statuses (simplified version)
 function syncPaymentStatuses($pdo) {
-    // Match the database structure from main.sql
-    // Update commissions status based on the commission_payments table
-    $updateQuery = "UPDATE test2 t
-                   JOIN commission_payments cp ON t.id = cp.case_id
-                   SET t.installment1_commission_paid = CASE WHEN cp.installment_number = 1 THEN cp.status ELSE t.installment1_commission_paid END,
-                       t.installment2_commission_paid = CASE WHEN cp.installment_number = 2 THEN cp.status ELSE t.installment2_commission_paid END,
-                       t.installment3_commission_paid = CASE WHEN cp.installment_number = 3 THEN cp.status ELSE t.installment3_commission_paid END,
-                       t.final_installment_commission_paid = CASE WHEN cp.installment_number = 4 THEN cp.status ELSE t.final_installment_commission_paid END
-                   WHERE cp.status = 1";
+    // Update payment statuses based on agenci_wyplaty table
+    $updateQuery = "UPDATE oplaty_spraw os
+                   JOIN agenci_wyplaty aw ON os.id_sprawy = aw.id_sprawy 
+                   AND os.opis_raty COLLATE utf8mb4_polish_ci = aw.opis_raty
+                   SET os.czy_oplacona = aw.czy_oplacone
+                   WHERE aw.czy_oplacone = 1";
     $pdo->exec($updateQuery);
 }
 

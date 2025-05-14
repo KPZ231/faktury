@@ -78,16 +78,26 @@ class TableController
      */
     public function getAgents(): array
     {
-        error_log("TableController::getAgents - Start");
         try {
-            $query = "SELECT agent_id, imie, nazwisko FROM agenci ORDER BY nazwisko, imie";
+            $query = "SELECT id_agenta, nazwa_agenta FROM agenci ORDER BY nazwa_agenta";
             $stmt = $this->pdo->query($query);
             $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            error_log("TableController::getAgents - Pobrano " . count($agents) . " agentów");
-            return $agents;
+            
+            // Transform the data to match the expected format
+            $formattedAgents = [];
+            foreach ($agents as $agent) {
+                $nameParts = explode(' ', $agent['nazwa_agenta']);
+                $formattedAgents[] = [
+                    'agent_id' => $agent['id_agenta'],
+                    'imie' => $nameParts[0] ?? '',
+                    'nazwisko' => implode(' ', array_slice($nameParts, 1)) ?? '',
+                    'nazwa_agenta' => $agent['nazwa_agenta']
+                ];
+            }
+            
+            return $formattedAgents;
         } catch (PDOException $e) {
-            error_log("TableController::getAgents - BŁĄD: " . $e->getMessage());
-            error_log("TableController::getAgents - Stack trace: " . $e->getTraceAsString());
+            error_log('Error fetching agents: ' . $e->getMessage());
             return [];
         }
     }
@@ -493,25 +503,11 @@ class TableController
         try {
             // For the special Jakub agent, return all cases
             if ($agentId === 'jakub' || $agentId === 'Jakub') {
-                $query = "SELECT t.id, t.case_name, t.is_completed, t.amount_won, t.upfront_fee, 
-                    t.success_fee_percentage, t.total_commission, t.kuba_percentage, t.kuba_payout, 
-                    t.kuba_installment1_amount, t.kuba_installment2_amount, t.kuba_installment3_amount, 
-                    t.kuba_final_installment_amount, t.kuba_invoice_number, 
-                    t.agent1_installment1_amount, t.agent1_installment2_amount, t.agent1_installment3_amount, 
-                    t.agent1_final_installment_amount, t.agent2_installment1_amount, t.agent2_installment2_amount, 
-                    t.agent2_installment3_amount, t.agent2_final_installment_amount, t.agent3_installment1_amount, 
-                    t.agent3_installment2_amount, t.agent3_installment3_amount, t.agent3_final_installment_amount, 
-                    t.installment1_amount, t.installment1_paid, t.installment1_paid_invoice, 
-                    t.installment2_amount, t.installment2_paid, t.installment2_paid_invoice, 
-                    t.installment3_amount, t.installment3_paid, t.installment3_paid_invoice, 
-                    t.final_installment_amount, t.final_installment_paid, t.final_installment_paid_invoice,
-                    t.installment1_commission_paid, t.installment2_commission_paid, 
-                    t.installment3_commission_paid, t.final_installment_commission_paid,
-                    t.installment1_commission_invoice, t.installment2_commission_invoice,
-                    t.installment3_commission_invoice, t.final_installment_commission_invoice,
-                    NULL as rola, NULL as percentage 
-                    FROM test2 t 
-                    ORDER BY t.id DESC";
+                $query = "SELECT s.*, 
+                    NULL as rola, 
+                    NULL as udzial_prowizji_proc
+                    FROM sprawy s 
+                    ORDER BY s.id_sprawy DESC";
                 $stmt = $this->pdo->query($query);
                 return $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
@@ -519,13 +515,13 @@ class TableController
             // Convert to integer for normal agent IDs
             $agentId = (int)$agentId;
             
-            // Pobierz wszystkie sprawy przypisane do tego agenta z tabeli sprawa_agent
+            // Get all cases assigned to this agent from prowizje_agentow_spraw
             $query = "
-                SELECT t.*, sa.rola, sa.percentage 
-                FROM test2 t
-                JOIN sprawa_agent sa ON t.id = sa.sprawa_id
-                WHERE sa.agent_id = :agent_id
-                ORDER BY t.id DESC";
+                SELECT s.*, pas.udzial_prowizji_proc as percentage
+                FROM sprawy s
+                JOIN prowizje_agentow_spraw pas ON s.id_sprawy = pas.id_sprawy
+                WHERE pas.id_agenta = :agent_id
+                ORDER BY s.id_sprawy DESC";
             
             $stmt = $this->pdo->prepare($query);
             $stmt->execute([':agent_id' => $agentId]);
@@ -584,762 +580,209 @@ class TableController
     public function renderTable($agentId = null): void
     {
         try {
-            // Check if we're viewing special Jakub view
-            $isJakubView = ($agentId === 'jakub' || $agentId === 'Jakub');
-            
-            // Przelicz prowizje
-            $this->calculateCommissions();
-
-            // Jeśli podano ID agenta, pobierz tylko jego sprawy
-            if ($agentId && !$isJakubView) {
-                // Regular agent view - no highlighting for Kuba's data
+            if ($agentId) {
+                // Get cases for specific agent
                 $cases = $this->getAgentCases($agentId);
-                
-                // Pobierz dane wybranego agenta
-                $selectedAgentQuery = "SELECT imie, nazwisko FROM agenci WHERE agent_id = :agent_id";
-                $selectedAgentStmt = $this->pdo->prepare($selectedAgentQuery);
-                $selectedAgentStmt->execute([':agent_id' => $agentId]);
-                $selectedAgent = $selectedAgentStmt->fetch(PDO::FETCH_ASSOC);
-                $selectedAgentName = $selectedAgent ? ($selectedAgent['imie'] . ' ' . $selectedAgent['nazwisko']) : '';
-
-                if (empty($cases)) {
-                    echo '<p style="text-align:center;">Brak spraw dla wybranego agenta.</p>';
-                    return;
-                }
-
-                // Przygotuj dane do wyświetlenia
-                $rows = [];
-                foreach ($cases as $case) {
-                    // Pobierz rolę wybranego agenta w tej sprawie
-                    $roleQuery = "SELECT rola FROM sprawa_agent WHERE sprawa_id = :sprawa_id AND agent_id = :agent_id";
-                    $roleStmt = $this->pdo->prepare($roleQuery);
-                    $roleStmt->execute([':sprawa_id' => $case['id'], ':agent_id' => $agentId]);
-                    $roleData = $roleStmt->fetch(PDO::FETCH_ASSOC);
-                    $selectedRole = $roleData ? $roleData['rola'] : '';
-                    
-                    // Pobierz informacje o wszystkich agentach przypisanych do tej sprawy
-                    $agentsQuery = "
-                        SELECT a.imie, a.nazwisko, sa.rola, sa.percentage, sa.agent_id
-                        FROM sprawa_agent sa
-                        JOIN agenci a ON sa.agent_id = a.agent_id
-                        WHERE sa.sprawa_id = :sprawa_id
-                        ORDER BY sa.rola";
-                    
-                    $agentsStmt = $this->pdo->prepare($agentsQuery);
-                    $agentsStmt->execute([':sprawa_id' => $case['id']]);
-                    $agents = $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
-                    
-                    // Przygotuj dane agentów do wyświetlenia
-                    $agentsData = [];
-                    foreach ($agents as $agent) {
-                        $agentsData[$agent['rola']] = [
-                            'imie_nazwisko' => $agent['imie'] . ' ' . $agent['nazwisko'],
-                            'percentage' => $agent['percentage'],
-                            'agent_id' => $agent['agent_id']
-                        ];
-                    }
-                    
-                    // First case - when an agent is selected
-                    // Buduj wiersz danych z informacjami o sprawie i agentach
-                    $row = [
-                        'ID' => $case['id'], // Dodajemy ID do wiersza dla przycisku edycji
-                        'Akcje' => $this->renderActionButtons($case['id']), // Dodajemy przycisk edycji
-                        'Sprawa' => $case['case_name'],
-                        'Zakończona?' => $case['is_completed'] ? 'Tak' : 'Nie',
-                        'Wywalczona kwota' => $case['amount_won'],
-                        'Opłata wstępna' => $case['upfront_fee'],
-                        'Success fee %' => $case['success_fee_percentage'],
-                        'Całość prowizji' => $case['total_commission'],
-                    ];
-                    
-                    error_log("Dane sprawy ID {$case['id']}: Kuba%={$case['kuba_percentage']}, DoWypłaty={$case['kuba_payout']}");
-                    error_log("Raty Kuby: " . 
-                             "Rata 1=" . ($case['kuba_installment1_amount'] ?? 'brak') . ", " .
-                             "Rata 2=" . ($case['kuba_installment2_amount'] ?? 'brak') . ", " .
-                             "Rata 3=" . ($case['kuba_installment3_amount'] ?? 'brak') . ", " .
-                             "Rata 4=" . ($case['kuba_final_installment_amount'] ?? 'brak'));
-                    
-                    // 1. Dodaj dane Kuby - połączone w jedną sekcję "Kuba" w widoku
-                    $row['Kuba'] = [
-                        'Prowizja %' => $case['kuba_percentage'] . '%',
-                        'Do wypłaty' => $case['kuba_payout'] . '%',
-                        'Rata 1' => $case['kuba_installment1_amount'],
-                        'Rata 2' => $case['kuba_installment2_amount'],
-                        'Rata 3' => $case['kuba_installment3_amount'],
-                        'Rata 4' => $case['kuba_final_installment_amount'],
-                        'Nr faktury' => $case['kuba_invoice_number']
-                    ];
-                    
-                    // 2. Dodaj dane agentów do wiersza - każdy agent to osobna sekcja
-                    for ($i = 1; $i <= 3; $i++) {
-                        $agentRole = "agent_{$i}";
-                        if (isset($agentsData[$agentRole])) {
-                            // Sprawdź, czy to jest wybrany agent i dodaj odpowiednią klasę
-                            $isSelected = ($agentsData[$agentRole]['agent_id'] == $agentId);
-                            $cssClass = $isSelected ? 'agent-name-highlight selected-agent' : 'agent-name-highlight';
-                            
-                            // Utwórz nazwę agenta
-                            $agentName = sprintf(
-                                '<span class="%s">%s</span>', 
-                                $cssClass,
-                                htmlspecialchars($agentsData[$agentRole]['imie_nazwisko'])
-                            );
-                            
-                            // Dodaj procent prowizji z podświetleniem
-                            $percentValue = $agentsData[$agentRole]['percentage'];
-                            $percentDisplay = $isSelected ? 
-                                sprintf('<span class="selected-agent">%s%%</span>', $percentValue) : 
-                                $percentValue . '%';
-                                    
-                            // Przygotuj dane rat dla agenta
-                            $installment1 = $case["agent{$i}_installment1_amount"];
-                            $installment2 = $case["agent{$i}_installment2_amount"];
-                            $installment3 = $case["agent{$i}_installment3_amount"];
-                            $installment4 = $case["agent{$i}_final_installment_amount"];
-                            
-                            // Jeśli to wybrany agent, dodaj podświetlenie dla rat
-                            if ($isSelected) {
-                                $installment1 = sprintf('<span class="selected-agent">%s zł</span>', number_format((float)$installment1, 2, ',', ' '));
-                                $installment2 = sprintf('<span class="selected-agent">%s zł</span>', number_format((float)$installment2, 2, ',', ' '));
-                                $installment3 = sprintf('<span class="selected-agent">%s zł</span>', number_format((float)$installment3, 2, ',', ' '));
-                                $installment4 = sprintf('<span class="selected-agent">%s zł</span>', number_format((float)$installment4, 2, ',', ' '));
-                            }
-                            
-                            // Dodaj sekcję agenta
-                            $row["Agent {$i}"] = [
-                                'Nazwa' => $agentName,
-                                'Prowizja %' => $percentDisplay,
-                                'Rata 1' => $installment1,
-                                'Rata 2' => $installment2,
-                                'Rata 3' => $installment3,
-                                'Rata 4' => $installment4
-                            ];
-                        } else {
-                            $row["Agent {$i}"] = [
-                                'Nazwa' => '',
-                                'Prowizja %' => '',
-                                'Rata 1' => '',
-                                'Rata 2' => '',
-                                'Rata 3' => '',
-                                'Rata 4' => ''
-                            ];
-                        }
-                    }
-                    
-                    // 3. Dodaj ogólne raty na końcu
-                    $row = array_merge($row, [
-                        'Rata 1' => $case['installment1_amount'],
-                        'Opłacona 1' => $case['installment1_paid'] ? 'Tak' : 'Nie',
-                        'Rata 2' => $case['installment2_amount'],
-                        'Opłacona 2' => $case['installment2_paid'] ? 'Tak' : 'Nie',
-                        'Rata 3' => $case['installment3_amount'],
-                        'Opłacona 3' => $case['installment3_paid'] ? 'Tak' : 'Nie',
-                        'Rata 4' => $case['final_installment_amount'],
-                        'Opłacona 4' => $case['final_installment_paid'] ? 'Tak' : 'Nie',
-                    ]);
-                    
-                    // Store invoice data in the row without creating visible columns
-                    $row['installment1_paid_invoice'] = $case['installment1_paid_invoice'] ?? '';
-                    $row['installment2_paid_invoice'] = $case['installment2_paid_invoice'] ?? '';
-                    $row['installment3_paid_invoice'] = $case['installment3_paid_invoice'] ?? '';
-                    $row['final_installment_paid_invoice'] = $case['final_installment_paid_invoice'] ?? '';
-                    
-                    // Add commission payment status
-                    $row['installment1_commission_paid'] = $case['installment1_commission_paid'] ?? 0;
-                    $row['installment2_commission_paid'] = $case['installment2_commission_paid'] ?? 0;
-                    $row['installment3_commission_paid'] = $case['installment3_commission_paid'] ?? 0;
-                    $row['final_installment_commission_paid'] = $case['final_installment_commission_paid'] ?? 0;
-                    
-                    // Add commission invoice numbers
-                    $row['installment1_commission_invoice'] = $case['installment1_commission_invoice'] ?? '';
-                    $row['installment2_commission_invoice'] = $case['installment2_commission_invoice'] ?? '';
-                    $row['installment3_commission_invoice'] = $case['installment3_commission_invoice'] ?? '';
-                    $row['final_installment_commission_invoice'] = $case['final_installment_commission_invoice'] ?? '';
-                    
-                    $rows[] = $row;
-                }
             } else {
-                // Pobierz wszystkie sprawy z dołączonymi informacjami o agentach
-                $query = "
-                    SELECT 
-                        t.id,
-                        t.case_name AS 'Sprawa',
-                        CASE WHEN t.is_completed = 1 THEN 'Tak' WHEN t.is_completed = 0 THEN 'Nie' ELSE '' END AS 'Zakończona?',
-                        t.amount_won AS 'Wywalczona kwota',
-                        t.upfront_fee AS 'Opłata wstępna',
-                        t.success_fee_percentage AS 'Success fee %',
-                        t.total_commission AS 'Całość prowizji',
-                        t.kuba_percentage AS 'Prowizja % Kuba',
-                        t.kuba_payout AS 'Do wypłaty Kuba',
-                        t.kuba_installment1_amount AS 'Rata 1 – Kuba',
-                        t.kuba_installment2_amount AS 'Rata 2 – Kuba',
-                        t.kuba_installment3_amount AS 'Rata 3 – Kuba',
-                        t.kuba_final_installment_amount AS 'Rata 4 – Kuba',
-                        t.kuba_invoice_number AS 'Nr faktury',
-                        t.agent1_installment1_amount AS 'Rata 1 – Agent 1',
-                        t.agent1_installment2_amount AS 'Rata 2 – Agent 1',
-                        t.agent1_installment3_amount AS 'Rata 3 – Agent 1',
-                        t.agent1_final_installment_amount AS 'Rata 4 – Agent 1',
-                        t.agent2_installment1_amount AS 'Rata 1 – Agent 2',
-                        t.agent2_installment2_amount AS 'Rata 2 – Agent 2',
-                        t.agent2_installment3_amount AS 'Rata 3 – Agent 2',
-                        t.agent2_final_installment_amount AS 'Rata 4 – Agent 2',
-                        t.agent3_installment1_amount AS 'Rata 1 – Agent 3',
-                        t.agent3_installment2_amount AS 'Rata 2 – Agent 3',
-                        t.agent3_installment3_amount AS 'Rata 3 – Agent 3',
-                        t.agent3_final_installment_amount AS 'Rata 4 – Agent 3',
-                        t.installment1_amount AS 'Rata 1',
-                        CASE WHEN t.installment1_paid = 1 THEN 'Tak' WHEN t.installment1_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 1',
-                        t.installment1_paid_invoice,
-                        t.installment2_amount AS 'Rata 2',
-                        CASE WHEN t.installment2_paid = 1 THEN 'Tak' WHEN t.installment2_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 2',
-                        t.installment2_paid_invoice,
-                        t.installment3_amount AS 'Rata 3',
-                        CASE WHEN t.installment3_paid = 1 THEN 'Tak' WHEN t.installment3_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 3',
-                        t.installment3_paid_invoice,
-                        t.final_installment_amount AS 'Rata 4',
-                        CASE WHEN t.final_installment_paid = 1 THEN 'Tak' WHEN t.final_installment_paid = 0 THEN 'Nie' ELSE '' END AS 'Opłacona 4',
-                        t.final_installment_paid_invoice,
-                        t.installment1_commission_paid,
-                        t.installment2_commission_paid,
-                        t.installment3_commission_paid,
-                        t.final_installment_commission_paid,
-                        t.installment1_commission_invoice,
-                        t.installment2_commission_invoice,
-                        t.installment3_commission_invoice,
-                        t.final_installment_commission_invoice
-                    FROM test2 t
-                    ORDER BY t.id DESC";
-
+                // Get all cases
+                $query = "SELECT * FROM sprawy ORDER BY id_sprawy DESC";
                 $stmt = $this->pdo->query($query);
-                $casesTemp = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            // Prepare table headers
+            $headers = [
+                'ID' => 'id_sprawy',
+                'Sprawa' => 'identyfikator_sprawy',
+                'Zakończona?' => 'czy_zakonczona',
+                'Wywalczona kwota' => 'wywalczona_kwota',
+                'Opłata wstępna' => 'oplata_wstepna',
+                'Success fee %' => 'stawka_success_fee',
+                'Akcje' => 'actions'
+            ];
+
+            // Add agent columns
+            $headers['Kuba'] = 'kuba';
+            for ($i = 1; $i <= 3; $i++) {
+                $headers["Agent $i"] = "agent$i";
+            }
+
+            // Add payment status columns
+            $headers['Opłacona 1'] = 'oplacona_1';
+            $headers['Opłacona 2'] = 'oplacona_2';
+            $headers['Opłacona 3'] = 'oplacona_3';
+            $headers['Opłacona 4'] = 'oplacona_4';
+
+            // Start table
+            echo '<table class="data-table">';
+            echo '<thead><tr>';
+            foreach ($headers as $title => $column) {
+                $sortable = $column !== 'actions' ? 'sortable' : '';
+                echo "<th class=\"$sortable\" data-column=\"$column\">$title</th>";
+            }
+            echo '</tr></thead>';
+            echo '<tbody>';
+
+            foreach ($cases as $case) {
+                echo '<tr data-id="' . $case['id_sprawy'] . '">';
                 
-                $rows = [];
-                foreach ($casesTemp as $case) {
-                    $caseId = $case['id'];
-                    
-                    // Dodajemy kolumnę akcji z przyciskiem edycji
-                    $actionButtons = $this->renderActionButtons($caseId);
-                    $newCase = [
-                        'ID' => $caseId,
-                        'Akcje' => $actionButtons,
-                        'Sprawa' => $case['Sprawa'],
-                        'Zakończona?' => $case['Zakończona?'],
-                        'Wywalczona kwota' => $case['Wywalczona kwota'],
-                        'Opłata wstępna' => $case['Opłata wstępna'],
-                        'Success fee %' => $case['Success fee %'],
-                        'Całość prowizji' => $case['Całość prowizji']
-                    ];
-                    
-                    // Debug log to see all available keys in the case row
-                    error_log("Keys in case row for case ID {$caseId}: " . implode(", ", array_keys($case)));
-                    
-                    // 1. Dodaj dane Kuby - połączone w jedną sekcję "Kuba" w widoku
-                    $kubaData = [
-                        'Prowizja %' => $case['Prowizja % Kuba'],
-                        'Do wypłaty' => $case['Do wypłaty Kuba'],
-                        'Rata 1' => $case['Rata 1 – Kuba'],
-                        'Rata 2' => $case['Rata 2 – Kuba'],
-                        'Rata 3' => $case['Rata 3 – Kuba'],
-                        'Rata 4' => $case['Rata 4 – Kuba'],
-                        'Nr faktury' => $case['Nr faktury']
-                    ];
-                    
-                    // Dla widoku Jakuba, dodaj podświetlenie dla danych Kuby
-                    if ($isJakubView) {
-                        foreach ($kubaData as $key => $value) {
-                            if ($key !== 'Nr faktury') { // Nie formatuj numeru faktury
-                                if ($key === 'Prowizja %' || $key === 'Do wypłaty') {
-                                    $kubaData[$key] = '<span class="kuba-highlight">' . $value . '%</span>';
-                                } else {
-                                    $kubaData[$key] = '<span class="kuba-highlight">' . number_format((float)$value, 2, ',', ' ') . ' zł</span>';
-                                }
-                            }
-                        }
+                foreach ($headers as $title => $column) {
+                    if ($column === 'actions') {
+                        echo '<td class="action-buttons">' . $this->renderActionButtons($case['id_sprawy']) . '</td>';
+                    } elseif ($column === 'id_sprawy') {
+                        echo '<td>' . $case['id_sprawy'] . '</td>';
+                    } elseif ($column === 'czy_zakonczona') {
+                        $status = $case['czy_zakonczona'] ? 'Tak' : 'Nie';
+                        $class = $case['czy_zakonczona'] ? 'status-yes' : 'status-no';
+                        echo "<td><span class=\"$class\">$status</span></td>";
+                    } elseif ($column === 'stawka_success_fee') {
+                        echo '<td>' . number_format($case['stawka_success_fee'] * 100, 2) . '%</td>';
+                    } elseif ($column === 'kuba' || strpos($column, 'agent') === 0) {
+                        // Get agent data for this case
+                        $agentData = $this->getAgentDataForCase($case['id_sprawy'], $column);
+                        echo $this->renderAgentCell($agentData, $column);
+                    } elseif (strpos($column, 'oplacona_') === 0) {
+                        $installmentNum = substr($column, -1);
+                        $status = $this->getPaymentStatus($case['id_sprawy'], $installmentNum);
+                        $class = $status ? 'status-yes' : 'status-no';
+                        echo "<td><span class=\"$class\">" . ($status ? 'Tak' : 'Nie') . "</span></td>";
                     } else {
-                        // Formatuj bez podświetlenia
-                        foreach ($kubaData as $key => $value) {
-                            if ($key !== 'Nr faktury' && is_numeric($value)) { // Nie formatuj numeru faktury
-                                if ($key === 'Prowizja %' || $key === 'Do wypłaty') {
-                                    $kubaData[$key] = $value . '%';
-                                } else {
-                                    $kubaData[$key] = number_format((float)$value, 2, ',', ' ') . ' zł';
-                                }
-                            }
-                        }
-                    }
-                    
-                    $newCase['Kuba'] = $kubaData;
-                    
-                    // Pobierz informacje o agentach dla tej sprawy
-                    $agentsQuery = "
-                        SELECT a.imie, a.nazwisko, sa.rola, sa.percentage, sa.agent_id
-                        FROM sprawa_agent sa
-                        JOIN agenci a ON sa.agent_id = a.agent_id
-                        WHERE sa.sprawa_id = :sprawa_id
-                        ORDER BY sa.rola";
-                    
-                    $agentsStmt = $this->pdo->prepare($agentsQuery);
-                    $agentsStmt->execute([':sprawa_id' => $caseId]);
-                    $agents = $agentsStmt->fetchAll(PDO::FETCH_ASSOC);
-                    
-                    // 2. Przygotuj dane dla agentów 1-3
-                    for ($i = 1; $i <= 3; $i++) {
-                        $agentData = [
-                            'Nazwa' => '',
-                            'Prowizja %' => '',
-                            'Rata 1' => '',
-                            'Rata 2' => '',
-                            'Rata 3' => '',
-                            'Rata 4' => ''
-                        ];
-                        
-                        // Znajdź dane agenta o tej roli
-                        $agentFound = false;
-                        foreach ($agents as $agent) {
-                            if (preg_match('/agent_' . $i . '/', $agent['rola'])) {
-                                $agentFound = true;
-                                
-                                if ($isJakubView) {
-                                    // Dla Jakuba - zastosuj klasy podświetlenia agenta
-                                    $highlightClass = $this->getAgentHighlightClass($agent['agent_id']);
-                                    
-                                    // Nazwa agenta z podświetleniem
-                                    $agentData['Nazwa'] = sprintf(
-                                        '<span class="%s">%s</span>', 
-                                        $highlightClass,
-                                        htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'])
-                                    );
-                                    
-                                    // Procent prowizji z podświetleniem
-                                    $agentData['Prowizja %'] = sprintf(
-                                        '<span class="%s">%s%%</span>',
-                                        $highlightClass,
-                                        $agent['percentage']
-                                    );
-                                    
-                                    // Raty z podświetleniem
-                                    $rata1 = $case["Rata 1 – Agent {$i}"];
-                                    $rata2 = $case["Rata 2 – Agent {$i}"];
-                                    $rata3 = $case["Rata 3 – Agent {$i}"];
-                                    $rata4 = $case["Rata 4 – Agent {$i}"];
-                                    
-                                    $agentData['Rata 1'] = sprintf(
-                                        '<span class="%s">%s zł</span>',
-                                        $highlightClass,
-                                        number_format((float)$rata1, 2, ',', ' ')
-                                    );
-                                    
-                                    $agentData['Rata 2'] = sprintf(
-                                        '<span class="%s">%s zł</span>',
-                                        $highlightClass,
-                                        number_format((float)$rata2, 2, ',', ' ')
-                                    );
-                                    
-                                    $agentData['Rata 3'] = sprintf(
-                                        '<span class="%s">%s zł</span>',
-                                        $highlightClass,
-                                        number_format((float)$rata3, 2, ',', ' ')
-                                    );
-                                    
-                                    $agentData['Rata 4'] = sprintf(
-                                        '<span class="%s">%s zł</span>',
-                                        $highlightClass,
-                                        number_format((float)$rata4, 2, ',', ' ')
-                                    );
-                                } else {
-                                    // Dla normalnego widoku - podstawowe formatowanie
-                                    $agentData['Nazwa'] = sprintf(
-                                        '<span class="agent-name-highlight">%s</span>', 
-                                        htmlspecialchars($agent['imie'] . ' ' . $agent['nazwisko'])
-                                    );
-                                    
-                                    $agentData['Prowizja %'] = $agent['percentage'] . '%';
-                                    
-                                    // Formatuj raty
-                                    $rata1 = $case["Rata 1 – Agent {$i}"];
-                                    $rata2 = $case["Rata 2 – Agent {$i}"];
-                                    $rata3 = $case["Rata 3 – Agent {$i}"];
-                                    $rata4 = $case["Rata 4 – Agent {$i}"];
-                                    
-                                    $agentData['Rata 1'] = number_format((float)$rata1, 2, ',', ' ') . ' zł';
-                                    $agentData['Rata 2'] = number_format((float)$rata2, 2, ',', ' ') . ' zł';
-                                    $agentData['Rata 3'] = number_format((float)$rata3, 2, ',', ' ') . ' zł';
-                                    $agentData['Rata 4'] = number_format((float)$rata4, 2, ',', ' ') . ' zł';
-                                }
-                                
-                                break;
-                            }
-                        }
-                        
-                        $newCase["Agent {$i}"] = $agentData;
-                    }
-                    
-                    // 3. Dodaj ogólne raty na końcu
-                    $newCase = array_merge($newCase, [
-                        'Rata 1' => $case['Rata 1'],
-                        'Opłacona 1' => $case['Opłacona 1'],
-                        'Rata 2' => $case['Rata 2'],
-                        'Opłacona 2' => $case['Opłacona 2'],
-                        'Rata 3' => $case['Rata 3'],
-                        'Opłacona 3' => $case['Opłacona 3'],
-                        'Rata 4' => $case['Rata 4'],
-                        'Opłacona 4' => $case['Opłacona 4']
-                    ]);
-                    
-                    // Store invoice data in the row without creating visible columns
-                    $newCase['installment1_paid_invoice'] = $case['installment1_paid_invoice'] ?? '';
-                    $newCase['installment2_paid_invoice'] = $case['installment2_paid_invoice'] ?? '';
-                    $newCase['installment3_paid_invoice'] = $case['installment3_paid_invoice'] ?? '';
-                    $newCase['final_installment_paid_invoice'] = $case['final_installment_paid_invoice'] ?? '';
-                    
-                    // Add commission payment status
-                    $newCase['installment1_commission_paid'] = $case['installment1_commission_paid'] ?? 0;
-                    $newCase['installment2_commission_paid'] = $case['installment2_commission_paid'] ?? 0;
-                    $newCase['installment3_commission_paid'] = $case['installment3_commission_paid'] ?? 0;
-                    $newCase['final_installment_commission_paid'] = $case['final_installment_commission_paid'] ?? 0;
-                    
-                    // Add commission invoice numbers
-                    $newCase['installment1_commission_invoice'] = $case['installment1_commission_invoice'] ?? '';
-                    $newCase['installment2_commission_invoice'] = $case['installment2_commission_invoice'] ?? '';
-                    $newCase['installment3_commission_invoice'] = $case['installment3_commission_invoice'] ?? '';
-                    $newCase['final_installment_commission_invoice'] = $case['final_installment_commission_invoice'] ?? '';
-                    
-                    $rows[] = $newCase;
-                }
-            }
-
-            if (empty($rows)) {
-                echo '<p style="text-align:center;">Brak danych.</p>';
-                return;
-            }
-
-            // Define all headers before filtering
-            $allHeaders = array_keys(reset($rows));
-
-            // Filter out the invoice fields from the headers
-            $invoiceFields = ['installment1_paid_invoice', 'installment2_paid_invoice', 'installment3_paid_invoice', 'final_installment_paid_invoice'];
-            $allHeaders = array_filter($allHeaders, function($header) use ($invoiceFields) {
-                return !in_array($header, $invoiceFields);
-            });
-
-            // Filter out commission paid columns
-            $commissionFields = ['installment1_commission_paid', 'installment2_commission_paid', 'installment3_commission_paid', 'final_installment_commission_paid'];
-            $allHeaders = array_filter($allHeaders, function($header) use ($commissionFields) {
-                return !in_array($header, $commissionFields);
-            });
-            
-            // FILTR: zostawiamy tylko te nagłówki, które mają choć jeden nie-pusty rekord
-            $visibleHeaders = array_filter($allHeaders, function ($title) use ($rows) {
-                // For non-rate columns or Kuba's rates, keep the original logic
-                if (!(strpos($title, 'Rata') !== false && strpos($title, 'Agent') !== false)) {
-                    // Check if column has any non-empty values (original logic)
-                    foreach ($rows as $row) {
-                        if (isset($row[$title]) && $row[$title] !== '' && $row[$title] !== null) {
-                            // Handle array data (nested headers)
-                            if (is_array($row[$title])) {
-                                // At least one sub-value needs to be non-empty
-                                foreach ($row[$title] as $subValue) {
-                                    if ($subValue !== '' && $subValue !== null) {
-                                        return true;
-                                    }
-                                }
-                                return false;
-                            }
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-                
-                // For agent rate columns, check if they have any non-zero values
-                $hasNonZeroValue = false;
-                
-                foreach ($rows as $row) {
-                    if (!isset($row[$title])) continue;
-                    
-                    $value = $row[$title];
-                    
-                    // Check if it's nested data
-                    if (is_array($value)) {
-                        foreach ($value as $subValue) {
-                            if (is_string($subValue) && !empty($subValue)) {
-                                return true;
-                            }
-                        }
-                        continue;
-                    }
-                    
-                    $numericValue = 0;
-                    
-                    // Extract numeric value from possibly formatted or HTML content
-                    if (is_string($value)) {
-                        // Remove HTML tags if present
-                        $plainValue = strip_tags($value);
-                        
-                        // Extract first number from the string
-                        if (preg_match('/[0-9,.]+/', $plainValue, $matches)) {
-                            // Clean up and convert to float
-                            $cleanedValue = str_replace([',', ' ', 'zł'], ['', '', ''], $matches[0]);
-                            $numericValue = floatval(str_replace(',', '.', $cleanedValue));
-                        }
-                    } elseif (is_numeric($value)) {
-                        $numericValue = floatval($value);
-                    }
-                    
-                    // If column has a non-zero value, include it
-                    if ($numericValue > 0) {
-                        $hasNonZeroValue = true;
-                        break;
+                        echo '<td>' . htmlspecialchars($case[$column] ?? '') . '</td>';
                     }
                 }
                 
-                return $hasNonZeroValue;
-            });
-
-            error_log("Filtered out empty rate columns. Before: " . count($allHeaders) . ", After: " . count($visibleHeaders));
-
-            echo '<table class="data-table"><thead><tr>';
-            foreach ($visibleHeaders as $title) {
-                // Sprawdź czy to kolumna z zagnieżdżonymi danymi
-                $isCollapsible = false;
-                foreach ($rows as $row) {
-                    if (isset($row[$title]) && is_array($row[$title])) {
-                        $isCollapsible = true;
-                        break;
-                    }
-                }
-                
-                $collapseClass = $isCollapsible ? 'collapsible' : 'sortable';
-                $collapseIcon = $isCollapsible ? '<i class="fa-solid fa-chevron-right collapse-icon"></i>' : '';
-                
-                echo '<th class="' . $collapseClass . '" data-column="' . htmlspecialchars($title, ENT_QUOTES) . '">'
-                    . htmlspecialchars($title, ENT_QUOTES) . '</th>';
-            }
-            echo '</tr></thead><tbody>';
-
-            // Display rows using only the visible headers
-            foreach ($rows as $row) {
-                $dataAttributes = ' data-id="' . $row['ID'] . '"';
-                
-                // Add commission invoice attributes
-                if (isset($row['installment1_commission_invoice'])) {
-                    $dataAttributes .= ' data-installment1_commission_invoice="' . htmlspecialchars($row['installment1_commission_invoice'], ENT_QUOTES) . '"';
-                }
-                if (isset($row['installment2_commission_invoice'])) {
-                    $dataAttributes .= ' data-installment2_commission_invoice="' . htmlspecialchars($row['installment2_commission_invoice'], ENT_QUOTES) . '"';
-                }
-                if (isset($row['installment3_commission_invoice'])) {
-                    $dataAttributes .= ' data-installment3_commission_invoice="' . htmlspecialchars($row['installment3_commission_invoice'], ENT_QUOTES) . '"';
-                }
-                if (isset($row['final_installment_commission_invoice'])) {
-                    $dataAttributes .= ' data-final_installment_commission_invoice="' . htmlspecialchars($row['final_installment_commission_invoice'], ENT_QUOTES) . '"';
-                }
-                
-                echo '<tr' . $dataAttributes . '>';
-                foreach ($visibleHeaders as $title) {
-                    $value = $row[$title] ?? '';
-
-                    if ($title === 'Akcje') {
-                        // Dla kolumny akcji, po prostu wyświetl wartość HTML
-                        echo '<td class="action-buttons">' . $value . '</td>';
-                    } elseif ($title === 'ID') {
-                        // Dla kolumny ID, po prostu wyświetl wartość
-                        echo '<td>' . $value . '</td>';
-                    } elseif (is_array($value)) {
-                        // Kolumna z danymi agenta - używamy nowego formatu dla rozwijania w prawo
-                        if ($title === 'Kuba' || strpos($title, 'Agent') === 0) {
-                            // Wyciągnij dane agenta z tablicy
-                            $name = '';
-                            $percent = '';
-                            $wypłata = '';
-                            $rata1 = '';
-                            $rata2 = '';
-                            $rata3 = '';
-                            $rata4 = '';
-                            $invoice = '';
-                            
-                            foreach ($value as $key => $val) {
-                                if ($key === 'Nazwa') {
-                                    $name = $val;
-                                } elseif ($key === 'Prowizja %') {
-                                    $percent = $val;
-                                } elseif ($key === 'Do wypłaty') {
-                                    $wypłata = $val;
-                                } elseif ($key === 'Rata 1') {
-                                    $rata1 = $val;
-                                } elseif ($key === 'Rata 2') {
-                                    $rata2 = $val;
-                                } elseif ($key === 'Rata 3') {
-                                    $rata3 = $val;
-                                } elseif ($key === 'Rata 4') {
-                                    $rata4 = $val;
-                                } elseif ($key === 'Nr faktury') {
-                                    $invoice = $val;
-                                }
-                            }
-                            
-                            // Specjalne wyświetlanie dla Kuby
-                            if ($title === 'Kuba') {
-                                $displayName = 'Kuba';
-                                
-                                echo '<td class="agent-column" ' .
-                                     'data-name="' . htmlspecialchars($displayName, ENT_QUOTES) . '" ' .
-                                     'data-percent="' . strip_tags($percent) . '" ' .
-                                     'data-wypłata="' . strip_tags($wypłata) . '" ' .
-                                     'data-rata1="' . strip_tags($rata1) . '" ' .
-                                     'data-rata2="' . strip_tags($rata2) . '" ' .
-                                     'data-rata3="' . strip_tags($rata3) . '" ' .
-                                     'data-rata4="' . strip_tags($rata4) . '" ' .
-                                     'data-invoice="' . htmlspecialchars($invoice, ENT_QUOTES) . '">' .
-                                     $displayName .
-                                     '</td>';
-                            } else {
-                                // Standardowy przypadek dla Agentów 1-3
-                                // Pobierz nazwę agenta z wartości name
-                                $agentDisplayName = '';
-                                if (!empty($name)) {
-                                    $agentDisplayName = strip_tags($name);
-                                } else {
-                                    $agentDisplayName = $title; // Użyj tytułu kolumny jako nazwy
-                                }
-                                
-                                echo '<td class="agent-column" ' .
-                                     'data-name="' . htmlspecialchars($agentDisplayName, ENT_QUOTES) . '" ' .
-                                     'data-percent="' . strip_tags($percent) . '" ' .
-                                     'data-rata1="' . strip_tags($rata1) . '" ' .
-                                     'data-rata2="' . strip_tags($rata2) . '" ' .
-                                     'data-rata3="' . strip_tags($rata3) . '" ' .
-                                     'data-rata4="' . strip_tags($rata4) . '">' .
-                                     $name .
-                                     '</td>';
-                            }
-                        } else {
-                            // Obsługa innych kolumn z zagnieżdżonymi danymi (jeśli istnieją)
-                            echo '<td>' . print_r($value, true) . '</td>';
-                        }
-                    } elseif (is_numeric($value)) {
-                        if (strpos($title, 'Do wypłaty') !== false || 
-                            strpos($title, 'Prowizja %') !== false || 
-                            strpos($title, 'Success fee %') !== false) { 
-                            echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . '%</td>';
-                        } elseif (strpos($title, 'Wywalczona kwota') !== false ||
-                                  strpos($title, 'Opłata wstępna') !== false ||
-                                  strpos($title, 'Całość prowizji') !== false ||
-                                  strpos($title, 'Rata') !== false) {
-                            // Dodaj znak złotówki do wartości pieniężnych
-                            // Sprawdź czy to jest rata z przypisaną fakturą
-                            $invoiceInfo = '';
-                            $isPaid = false;
-                            $cssClass = 'currency';
-                            
-                            if (strpos($title, 'Rata') !== false) {
-                                $installmentNum = substr($title, -1); // Get the last character (the number)
-                                $paidKey = 'Opłacona ' . $installmentNum;
-                                
-                                // Check if installment is paid
-                                if (isset($row[$paidKey]) && $row[$paidKey] === 'Tak') {
-                                    // Mark this cell as a paid installment
-                                    $isPaid = true;
-                                    $cssClass .= ' rate-paid';
-                                    
-                                    // Get commission paid status
-                                    $commissionPaidField = '';
-                                    $commissionPaid = false;
-                                    $commissionInvoiceField = '';
-                                    $commissionInvoice = '';
-                                    
-                                    if ($installmentNum == '1') {
-                                        $commissionPaidField = 'installment1_commission_paid';
-                                        $commissionInvoiceField = 'installment1_commission_invoice';
-                                    } else if ($installmentNum == '2') {
-                                        $commissionPaidField = 'installment2_commission_paid';
-                                        $commissionInvoiceField = 'installment2_commission_invoice';
-                                    } else if ($installmentNum == '3') {
-                                        $commissionPaidField = 'installment3_commission_paid';
-                                        $commissionInvoiceField = 'installment3_commission_invoice';
-                                    } else if ($installmentNum == '4') {
-                                        $commissionPaidField = 'final_installment_commission_paid';
-                                        $commissionInvoiceField = 'final_installment_commission_invoice';
-                                    }
-                                    
-                                    if (isset($row[$commissionPaidField]) && $row[$commissionPaidField] == 1) {
-                                        $commissionPaid = true;
-                                    }
-                                    
-                                    // Check if we have commission invoice data
-                                    if (isset($row[$commissionInvoiceField]) && !empty($row[$commissionInvoiceField])) {
-                                        $commissionInvoice = htmlspecialchars($row[$commissionInvoiceField], ENT_QUOTES);
-                                    }
-                                    
-                                    // Determine invoice field name based on installment number
-                                    $invoiceField = '';
-                                    if ($installmentNum == '1') {
-                                        $invoiceField = 'installment1_paid_invoice';
-                                    } else if ($installmentNum == '2') {
-                                        $invoiceField = 'installment2_paid_invoice';
-                                    } else if ($installmentNum == '3') {
-                                        $invoiceField = 'installment3_paid_invoice';
-                                    } else if ($installmentNum == '4') {
-                                        $invoiceField = 'final_installment_paid_invoice';
-                                    }
-                                    
-                                    // If we have invoice data for this installment, display it
-                                    if (isset($row[$invoiceField]) && !empty($row[$invoiceField])) {
-                                        $invoiceNumber = htmlspecialchars($row[$invoiceField], ENT_QUOTES);
-                                        $invoiceInfo = '<div class="invoice-number">' . $invoiceNumber . '</div>';
-                                    }
-                                    
-                                    // Add commission paid checkbox
-                                    $checkedAttr = $commissionPaid ? 'checked' : '';
-                                    $installmentIdAttr = 'commission-' . $row['ID'] . '-' . $installmentNum;
-                                    
-                                    $invoiceInfo .= '
-                                    <div class="commission-checkbox-container">
-                                        <label class="commission-checkbox-label" title="Oznacz prowizję jako wypłaconą">
-                                            <input type="checkbox" ' . $checkedAttr . ' class="commission-checkbox" 
-                                            data-case-id="' . $row['ID'] . '" 
-                                            data-installment="' . $installmentNum . '" 
-                                            id="' . $installmentIdAttr . '">
-                                            <span>Prowizja wypłacona</span>
-                                        </label>';
-                                        
-                                    // Add invoice info icon if commission is paid and has invoice
-                                    if ($commissionPaid && !empty($commissionInvoice)) {
-                                        $invoiceInfo .= '
-                                            <div class="commission-invoice-info">
-                                                <i class="fa-solid fa-receipt"></i>
-                                                <div class="commission-invoice-tooltip">
-                                                    Prowizja wypłacona. Faktura: ' . $commissionInvoice . '
-                                                </div>
-                                            </div>';
-                                    }
-                                    
-                                    $invoiceInfo .= '</div>';
-                                }
-                            }
-                            
-                            echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . ' zł' . $invoiceInfo . '</td>';
-                        } else {
-                            echo '<td class="currency">' . number_format((float)$value, 2, ',', ' ') . '</td>';
-                        }
-                    } elseif ($value === 'Tak' || $value === 'Nie') {
-                        // Obsługa wartości boolean
-                        $statusClass = ($value === 'Tak') ? 'status-yes' : 'status-no';
-                        echo '<td><span class="status ' . $statusClass . '">' . htmlspecialchars($value, ENT_QUOTES) . '</span></td>';
-                    } else {
-                        // Zezwól na HTML w komórkach (np. dla nazw agentów)
-                        echo '<td>' . $value . '</td>';
-                    }
-                }
                 echo '</tr>';
             }
 
             echo '</tbody></table>';
         } catch (PDOException $e) {
-            echo '<p style="color:red; text-align:center;">Błąd: '
-                . htmlspecialchars($e->getMessage(), ENT_QUOTES) . '</p>';
+            error_log('Error rendering table: ' . $e->getMessage());
+            echo '<div class="error">Wystąpił błąd podczas ładowania danych.</div>';
         }
+    }
+
+    private function getAgentDataForCase($caseId, $agentColumn): array
+    {
+        try {
+            if ($agentColumn === 'kuba') {
+                // Special case for Kuba
+                return [
+                    'name' => 'Kuba',
+                    'percentage' => null,
+                    'installments' => []
+                ];
+            }
+
+            // Get agent number from column name
+            $agentNum = substr($agentColumn, -1);
+            
+            // Get agent data from prowizje_agentow_spraw
+            $query = "
+                SELECT a.nazwa_agenta, pas.udzial_prowizji_proc
+                FROM prowizje_agentow_spraw pas
+                JOIN agenci a ON pas.id_agenta = a.id_agenta
+                WHERE pas.id_sprawy = :case_id
+                ORDER BY pas.id_prowizji_agenta_sprawy
+                LIMIT 1 OFFSET :offset
+            ";
+            
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute([
+                ':case_id' => $caseId,
+                ':offset' => $agentNum - 1
+            ]);
+            
+            $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($agent) {
+                return [
+                    'name' => $agent['nazwa_agenta'],
+                    'percentage' => floatval($agent['udzial_prowizji_proc']) * 100,
+                    'installments' => $this->getAgentInstallments($caseId, $agent['id_agenta'])
+                ];
+            }
+            
+            return [
+                'name' => '',
+                'percentage' => null,
+                'installments' => []
+            ];
+        } catch (PDOException $e) {
+            error_log('Error getting agent data: ' . $e->getMessage());
+            return [
+                'name' => '',
+                'percentage' => null,
+                'installments' => []
+            ];
+        }
+    }
+
+    private function getAgentInstallments($caseId, $agentId): array
+    {
+        try {
+            $query = "
+                SELECT opis_raty, kwota, czy_oplacone, numer_faktury
+                FROM agenci_wyplaty
+                WHERE id_sprawy = :case_id AND id_agenta = :agent_id
+                ORDER BY opis_raty
+            ";
+            
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute([
+                ':case_id' => $caseId,
+                ':agent_id' => $agentId
+            ]);
+            
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log('Error getting agent installments: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    private function getPaymentStatus($caseId, $installmentNum): bool
+    {
+        try {
+            $query = "
+                SELECT czy_oplacone
+                FROM oplaty_spraw
+                WHERE id_sprawy = :case_id AND opis_raty = :installment
+            ";
+            
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute([
+                ':case_id' => $caseId,
+                ':installment' => "Rata $installmentNum"
+            ]);
+            
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $result && $result['czy_oplacone'];
+        } catch (PDOException $e) {
+            error_log('Error getting payment status: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function renderAgentCell($agentData, $column): string
+    {
+        $name = $agentData['name'];
+        $percentage = $agentData['percentage'];
+        $installments = $agentData['installments'];
+        
+        $html = "<td class=\"agent-column\" data-name=\"$name\"";
+        
+        if ($percentage !== null) {
+            $html .= " data-percent=\"$percentage%\"";
+        }
+        
+        foreach ($installments as $installment) {
+            $rateNum = substr($installment['opis_raty'], -1);
+            $html .= " data-rata$rateNum=\"{$installment['kwota']} zł\"";
+        }
+        
+        $html .= ">$name</td>";
+        
+        return $html;
     }
 
     /**
@@ -2255,11 +1698,13 @@ class TableController
             
             // Get agents assigned to this case
             $query = "
-                SELECT a.agent_id, a.imie, a.nazwisko, sa.rola, sa.percentage
-                FROM sprawa_agent sa
-                JOIN agenci a ON sa.agent_id = a.agent_id
-                WHERE sa.sprawa_id = :sprawa_id
-                ORDER BY sa.rola
+                SELECT a.id_agenta as agent_id, 
+                       a.nazwa_agenta,
+                       pas.udzial_prowizji_proc as percentage
+                FROM prowizje_agentow_spraw pas
+                JOIN agenci a ON pas.id_agenta = a.id_agenta
+                WHERE pas.id_sprawy = :sprawa_id
+                ORDER BY pas.id_prowizji_agenta_sprawy
             ";
             
             $stmt = $this->pdo->prepare($query);
@@ -2268,9 +1713,21 @@ class TableController
             
             error_log("TableController::getCaseAgentsAjax - Found " . count($agents) . " agents");
             
+            // Format agent data
+            $formattedAgents = [];
+            foreach ($agents as $agent) {
+                $nameParts = explode(' ', $agent['nazwa_agenta']);
+                $formattedAgents[] = [
+                    'agent_id' => $agent['agent_id'],
+                    'imie' => $nameParts[0] ?? '',
+                    'nazwisko' => implode(' ', array_slice($nameParts, 1)) ?? '',
+                    'percentage' => floatval($agent['percentage']) * 100 // Convert from decimal to percentage
+                ];
+            }
+            
             // Always add Kuba/Jakub as an option
             $kubaExists = false;
-            foreach ($agents as $agent) {
+            foreach ($formattedAgents as $agent) {
                 if (strtolower($agent['imie']) === 'kuba' || strtolower($agent['imie']) === 'jakub') {
                     $kubaExists = true;
                     break;
@@ -2283,17 +1740,16 @@ class TableController
                     'agent_id' => 'jakub',
                     'imie' => 'Jakub',
                     'nazwisko' => 'Kowalski',
-                    'rola' => 'kuba',
                     'percentage' => null
                 ];
-                array_unshift($agents, $kuba);
+                array_unshift($formattedAgents, $kuba);
             }
             
             // Return success response
             $response = [
                 'success' => true,
                 'message' => "Successfully retrieved agents for case ID: $caseId",
-                'agents' => $agents,
+                'agents' => $formattedAgents,
                 'case_id' => $caseId
             ];
             
