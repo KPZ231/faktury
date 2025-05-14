@@ -96,8 +96,9 @@ class AgentController
         error_log("AgentController::addAgent - Start");
         // Pobierz dane z formularza
         $nazwaAgenta = $_POST['nazwa_agenta'] ?? '';
+        $nadagent = isset($_POST['nadagent']) && !empty($_POST['nadagent']) ? trim($_POST['nadagent']) : null;
         
-        error_log("AgentController::addAgent - Dane agenta: nazwa=" . $nazwaAgenta);
+        error_log("AgentController::addAgent - Dane agenta: nazwa=" . $nazwaAgenta . ", nadagent=" . ($nadagent ?? 'null'));
         
         if (empty($nazwaAgenta)) {
             error_log("AgentController::addAgent - Brak wymaganych danych");
@@ -106,14 +107,26 @@ class AgentController
         }
         
         try {
-            error_log("AgentController::addAgent - Przygotowanie zapytania INSERT");
-            $stmt = $this->db->prepare(
-                "INSERT INTO agenci (nazwa_agenta) 
-                 VALUES (?)"
-            );
-            
-            error_log("AgentController::addAgent - Wykonanie zapytania INSERT");
-            $result = $stmt->execute([$nazwaAgenta]);
+            // Przygotuj zapytanie INSERT w zależności od tego czy mamy nadagenta
+            if ($nadagent) {
+                error_log("AgentController::addAgent - Przygotowanie zapytania INSERT z nadagentem");
+                $stmt = $this->db->prepare(
+                    "INSERT INTO agenci (nazwa_agenta, nadagent) 
+                     VALUES (?, ?)"
+                );
+                
+                error_log("AgentController::addAgent - Wykonanie zapytania INSERT");
+                $result = $stmt->execute([$nazwaAgenta, $nadagent]);
+            } else {
+                error_log("AgentController::addAgent - Przygotowanie zapytania INSERT bez nadagenta");
+                $stmt = $this->db->prepare(
+                    "INSERT INTO agenci (nazwa_agenta) 
+                     VALUES (?)"
+                );
+                
+                error_log("AgentController::addAgent - Wykonanie zapytania INSERT");
+                $result = $stmt->execute([$nazwaAgenta]);
+            }
             
             if ($result) {
                 error_log("AgentController::addAgent - Pomyślnie dodano agenta. Ostatnie ID: " . $this->db->lastInsertId());
@@ -245,5 +258,161 @@ class AgentController
                 'commission_percentage' => null
             ]);
         }
+    }
+
+    /**
+     * Sprawdza hierarchię agentów i zwraca najwyższego nadagenta
+     * Zapobiega cyklom w hierarchii
+     */
+    public function getAgentHierarchy(): void
+    {
+        error_log("AgentController::getAgentHierarchy - Start");
+        
+        // Sprawdź, czy przekazano nazwę agenta
+        if (!isset($_GET['agent_name'])) {
+            error_log("AgentController::getAgentHierarchy - Brak wymaganego parametru agent_name");
+            header('Content-Type: application/json');
+            echo json_encode([
+                'error' => 'Missing agent_name parameter'
+            ]);
+            return;
+        }
+        
+        $agentName = trim($_GET['agent_name']);
+        error_log("AgentController::getAgentHierarchy - Pobieranie hierarchii dla agenta: " . $agentName);
+        
+        try {
+            // Znajdź agenta z imieniem Kuba (lub Jakub)
+            $stmt = $this->db->prepare("SELECT id_agenta, nazwa_agenta FROM agenci WHERE LOWER(nazwa_agenta) IN ('kuba', 'jakub')");
+            $stmt->execute();
+            $kubaAgent = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Specjalny przypadek - pobierz tylko agenta Kuba
+            if (strtolower($agentName) === 'kuba' || strtolower($agentName) === 'jakub') {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'kuba_agent' => $kubaAgent
+                ]);
+                return;
+            }
+            
+            // Znajdź agenta
+            $stmt = $this->db->prepare("SELECT id_agenta, nazwa_agenta, nadagent FROM agenci WHERE nazwa_agenta = ?");
+            $stmt->execute([$agentName]);
+            $agent = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$agent) {
+                throw new \Exception("Agent o nazwie '{$agentName}' nie istnieje");
+            }
+            
+            // Sprawdź hierarchię nadagentów aż do najwyższego poziomu
+            $hierarchyPath = [];
+            $currentAgentName = $agentName;
+            $topAgent = null;
+            $visitedAgents = [$agentName]; // Używamy do wykrywania cykli
+            
+            while ($currentAgentName) {
+                $stmt = $this->db->prepare("SELECT id_agenta, nazwa_agenta, nadagent FROM agenci WHERE nazwa_agenta = ?");
+                $stmt->execute([$currentAgentName]);
+                $currentAgent = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$currentAgent) {
+                    break;
+                }
+                
+                $hierarchyPath[] = $currentAgent;
+                
+                // Jeśli nie ma nadagenta, znaleźliśmy szczyt hierarchii
+                if (!$currentAgent['nadagent']) {
+                    $topAgent = $currentAgent;
+                    break;
+                }
+                
+                // Sprawdź czy nie ma cyklu w hierarchii
+                if (in_array($currentAgent['nadagent'], $visitedAgents)) {
+                    error_log("AgentController::getAgentHierarchy - Wykryto cykl w hierarchii agentów");
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'error' => 'Wykryto cykl w hierarchii agentów. Wybierz innego nadagenta.'
+                    ]);
+                    return;
+                }
+                
+                $visitedAgents[] = $currentAgent['nadagent'];
+                $currentAgentName = $currentAgent['nadagent'];
+            }
+            
+            // Pobierz pełne drzewo agentów dla widoku
+            $allAgents = $this->getAllAgentsWithHierarchy();
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'agent' => $agent,
+                'hierarchy_path' => $hierarchyPath,
+                'top_agent' => $topAgent,
+                'kuba_agent' => $kubaAgent,
+                'full_tree' => $allAgents
+            ]);
+            
+        } catch (\Exception $e) {
+            error_log("AgentController::getAgentHierarchy - ERROR: " . $e->getMessage());
+            header('Content-Type: application/json');
+            echo json_encode([
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+    
+    /**
+     * Pobiera wszystkich agentów z informacją o hierarchii
+     * @return array
+     */
+    private function getAllAgentsWithHierarchy(): array
+    {
+        try {
+            // Pobierz wszystkich agentów
+            $stmt = $this->db->query("SELECT id_agenta, nazwa_agenta, IFNULL(nadagent, '') as nadagent FROM agenci ORDER BY nazwa_agenta ASC");
+            $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Zbuduj drzewo hierarchii
+            $tree = $this->buildAgentTreeFromDb($agents);
+            
+            return $tree;
+        } catch (\Exception $e) {
+            error_log("Error getting agent hierarchy: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Buduje drzewo hierarchii agentów na podstawie danych z bazy
+     * @param array $agents Lista wszystkich agentów
+     * @param string $parentName Nazwa nadagenta (lub pusta dla najwyższego poziomu)
+     * @return array Drzewo hierarchii
+     */
+    private function buildAgentTreeFromDb($agents, $parentName = ''): array
+    {
+        $tree = [];
+        
+        // Filtruj agentów dla danego poziomu
+        $levelAgents = array_filter($agents, function($agent) use ($parentName) {
+            return $agent['nadagent'] === $parentName;
+        });
+        
+        // Dla każdego znalezionego agenta, rekurencyjnie zbuduj jego poddrzewo
+        foreach ($levelAgents as $agent) {
+            // Rekurencyjne wywołanie dla dzieci tego agenta
+            $children = $this->buildAgentTreeFromDb($agents, $agent['nazwa_agenta']);
+            
+            // Dodaj dzieci do agenta, jeśli istnieją
+            if (!empty($children)) {
+                $agent['children'] = $children;
+            }
+            
+            // Dodaj agenta do drzewa
+            $tree[] = $agent;
+        }
+        
+        return $tree;
     }
 }

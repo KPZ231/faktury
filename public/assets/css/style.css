@@ -1789,3 +1789,620 @@ table.data-table td.hidden-column {
     font-weight: 500 !important;
     white-space: nowrap !important;
 }
+
+/* Agent hierarchy tree styling */
+.agent-tree {
+    margin: 20px 0;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.agent-tree-title {
+    font-size: 18px;
+    color: #495057;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+/* Hierarchy Container Styles */
+.hierarchy-container {
+    margin: 20px 0;
+    font-family: Arial, sans-serif;
+}
+
+.hierarchy-branch {
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.supervisor-box {
+    margin-bottom: 15px;
+}
+
+/* Connection Line Styles */
+.connection-line {
+    width: 2px;
+    height: 20px;
+    background-color: #6c757d;
+    margin: 5px 0;
+}
+
+.connection-t-line {
+    position: relative;
+    width: 15px;
+    height: 2px;
+    background-color: #6c757d;
+    margin-right: 10px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.connection-t-line:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 2px;
+    height: 10px;
+    background-color: #6c757d;
+    transform: translateY(-100%);
+}
+
+.subordinates-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.subordinate-item {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
+.subordinate-item:not(.last-item):after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -10px;
+    width: 2px;
+    height: 10px;
+    background-color: #6c757d;
+}
+
+/* Agent Node Styles */
+.agent-node {
+    padding: 8px 15px;
+    border-radius: 5px;
+    display: inline-block;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.agent-node.supervisor {
+    background-color: #007bff;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.agent-node.subordinate {
+    background-color: #6c757d;
+    color: white;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.agent-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Special Kuba Agent Style */
+.kuba-agent {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+    box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3) !important;
+    position: relative;
+}
+
+.kuba-agent:before {
+    content: '👑';
+    margin-right: 5px;
+}
+
+/* Dropdown Styles */
+option.has-supervisor {
+    color: #007bff;
+    background-color: #e7f1ff;
+    font-weight: bold;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .hierarchy-container {
+        padding-left: 20px;
+    }
+    
+    .agent-node {
+        font-size: 14px;
+        padding: 6px 10px;
+    }
+}
+
+/* jsTree custom styling */
+.jstree-default .jstree-icon.jstree-themeicon-custom {
+    background-size: contain !important;
+}
+
+#agent-tree-container {
+    min-height: 250px;
+    max-height: 600px;
+    overflow: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.02);
+    margin-top: 25px;
+    font-family: "Poppins", sans-serif;
+}
+
+/* Style for tree nodes */
+.jstree-default .jstree-anchor {
+    font-size: 15px;
+    line-height: 28px;
+    height: auto !important;
+    padding: 6px 12px !important;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    position: relative;
+    margin: 2px 0;
+}
+
+/* Hover effect for nodes */
+.jstree-default .jstree-hovered {
+    background-color: #e9f7fe !important;
+    box-shadow: inset 0 0 0 1px #e9f7fe, 0 3px 8px rgba(0, 123, 255, 0.1) !important;
+    color: #007bff !important;
+    transform: translateY(-2px);
+    z-index: 10;
+}
+
+/* Selected node style */
+.jstree-default .jstree-clicked {
+    background: linear-gradient(to right, #007bff, #4dabf7) !important;
+    color: white !important;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.2) !important;
+    border-radius: 6px;
+    border: none !important;
+}
+
+/* Line connecting nodes */
+.jstree-default .jstree-children .jstree-children:before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    width: 2px;
+    height: calc(100% - 10px);
+    background-color: #dee2e6;
+    z-index: 0;
+}
+
+/* Custom styling for different agent types */
+.jstree-default .jstree-icon.fa-user-tie {
+    color: #007bff !important;
+    font-size: 16px;
+}
+
+.jstree-default .jstree-icon.fa-user {
+    color: #6c757d !important;
+    font-size: 15px;
+}
+
+.jstree-default .jstree-icon.fa-crown {
+    color: #ffc107 !important;
+    font-size: 16px;
+    text-shadow: 0 0 3px rgba(255, 193, 7, 0.3);
+}
+
+/* Special styling for Kuba node */
+.jstree-default .jstree-node.kuba-agent > .jstree-anchor {
+    background: linear-gradient(to right, #fff3cd, #ffeeba) !important;
+    color: #856404 !important;
+    font-weight: bold;
+    border: 1px solid #ffc107;
+    box-shadow: 0 3px 10px rgba(255, 193, 7, 0.15);
+    padding-left: 35px !important;
+    border-radius: 8px;
+}
+
+.jstree-default .jstree-node.kuba-agent > .jstree-anchor::before {
+    content: '👑';
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 30%, transparent 70%);
+    padding: 3px;
+    border-radius: 50%;
+}
+
+/* Make tree more compact and readable */
+.jstree-default .jstree-node {
+    margin-left: 15px !important;
+}
+
+.jstree-default .jstree-container-ul > .jstree-node {
+    margin-left: 0 !important;
+}
+
+/* Add arrow-style to wholerow plugin */
+.jstree-default.jstree-wholerow .jstree-wholerow-clicked {
+    background: #007bff !important;
+}
+
+.jstree-default.jstree-wholerow .jstree-wholerow-hovered {
+    background: #e9f7fe !important;
+}
+
+/* Empty tree message styling */
+.jstree-default .jstree-node[id="no-agents"] > .jstree-anchor {
+    color: #6c757d;
+    font-style: italic;
+    background-color: #f8f9fa;
+    border: 1px dashed #ced4da;
+    text-align: center;
+    padding: 10px 15px !important;
+}
+
+/* Additional jsTree improvements */
+#agent-tree-container {
+    min-height: 200px;
+    max-height: 600px;
+    overflow: auto;
+    border: 1px solid #e3e3e3;
+}
+
+/* Improve node icons */
+.jstree-default .jstree-icon {
+    color: inherit;
+}
+
+/* Improve connector styles */
+.jstree-default .jstree-children {
+    position: relative;
+}
+
+.jstree-default .jstree-children::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 0;
+    bottom: 12px;
+    width: 1px;
+    background-color: #dee2e6;
+    z-index: 0;
+}
+
+.jstree-default .jstree-anchor {
+    position: relative;
+}
+
+.jstree-default .jstree-node {
+    position: relative;
+}
+
+.jstree-default .jstree-node::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 12px;
+    width: 10px;
+    height: 1px;
+    background-color: #dee2e6;
+    z-index: 0;
+}
+
+.jstree-default .jstree-last {
+    position: relative;
+}
+
+.jstree-default .jstree-last::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 0;
+    height: 12px;
+    width: 1px;
+    background-color: #dee2e6;
+    z-index: 0;
+}
+
+/* Improve Kuba highlighting */
+.jstree-default .jstree-node.kuba-agent > .jstree-anchor {
+    position: relative;
+    background-color: #fff3cd !important;
+    color: #856404 !important;
+    font-weight: bold;
+    border: 1px solid #ffc107;
+    padding-left: 30px !important;
+}
+
+.jstree-default .jstree-node.kuba-agent > .jstree-anchor::before {
+    content: '👑';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+}
+
+/* Better differentiate between supervisors and subordinates */
+.jstree-default .jstree-anchor[data-jstree='{"type":"supervisor"}'] {
+    font-weight: 600;
+}
+
+.jstree-default .jstree-anchor[data-jstree='{"type":"subordinate"}'] {
+    color: #6c757d;
+}
+
+/* Add hover effects to tree nodes */
+.jstree-default .jstree-anchor:hover {
+    background-color: #e9f7fe !important;
+    color: #007bff !important;
+    box-shadow: inset 0 0 0 1px #e9f7fe !important;
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+}
+
+/* Emphasize parent-child relationships on hover */
+.jstree-default .jstree-hovered + .jstree-children::before,
+.jstree-default .jstree-hovered + .jstree-children .jstree-node::before {
+    background-color: #007bff !important;
+}
+
+/* Tree container loading state */
+#agent-tree-container.jstree-loading {
+    background: url('/assets/images/loading.gif') center center no-repeat;
+    opacity: 0.5;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #agent-tree-container {
+        max-height: 400px;
+    }
+    
+    .jstree-default .jstree-anchor {
+        font-size: 14px;
+        padding: 4px 6px !important;
+    }
+}
+
+/* Enhanced jsTree styling */
+#agent-tree-container {
+    min-height: 250px;
+    max-height: 600px;
+    overflow: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.02);
+    margin-top: 25px;
+    font-family: "Poppins", sans-serif;
+}
+
+/* Create a card-like container for the tree */
+.agent-tree {
+    margin: 30px 0;
+    padding: 25px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    border: 1px solid #f0f0f0;
+}
+
+.agent-tree-title {
+    font-size: 20px;
+    color: #37474f;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 600;
+    position: relative;
+    padding-bottom: 12px;
+}
+
+.agent-tree-title:after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(to right, #007bff, #4dabf7);
+    border-radius: 3px;
+}
+
+/* Improved node styling */
+.jstree-default .jstree-anchor {
+    font-size: 15px;
+    line-height: 28px;
+    height: auto !important;
+    padding: 6px 12px !important;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    position: relative;
+    margin: 2px 0;
+}
+
+/* Enhanced supervisor nodes */
+.jstree-default .jstree-anchor[data-jstree='{"type":"supervisor"}'] {
+    font-weight: 600;
+    background-color: #e7f5ff;
+    border-left: 3px solid #007bff;
+    color: #0062cc;
+    box-shadow: 0 2px 5px rgba(0, 123, 255, 0.1);
+}
+
+/* Enhanced subordinate nodes */
+.jstree-default .jstree-anchor[data-jstree='{"type":"subordinate"}'] {
+    color: #495057;
+    background-color: #f8f9fa;
+    border-left: 3px solid #6c757d;
+    box-shadow: 0 2px 5px rgba(108, 117, 125, 0.05);
+}
+
+/* Icons for different agent types */
+.jstree-default .jstree-icon.fa-user-tie {
+    color: #007bff !important;
+    font-size: 16px;
+}
+
+.jstree-default .jstree-icon.fa-user {
+    color: #6c757d !important;
+    font-size: 15px;
+}
+
+.jstree-default .jstree-icon.fa-crown {
+    color: #ffc107 !important;
+    font-size: 16px;
+    text-shadow: 0 0 3px rgba(255, 193, 7, 0.3);
+}
+
+/* Improved connection lines */
+.jstree-default .jstree-children::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 0;
+    bottom: 12px;
+    width: 2px;
+    background: linear-gradient(to bottom, #dee2e6, rgba(222, 226, 230, 0.5));
+    z-index: 0;
+    border-radius: 1px;
+}
+
+.jstree-default .jstree-node::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 15px;
+    width: 12px;
+    height: 2px;
+    background-color: #dee2e6;
+    z-index: 0;
+    border-radius: 1px;
+}
+
+/* Enhanced hover effects */
+.jstree-default .jstree-hovered {
+    background-color: #e9f7fe !important;
+    box-shadow: inset 0 0 0 1px #e9f7fe, 0 3px 8px rgba(0, 123, 255, 0.1) !important;
+    color: #007bff !important;
+    transform: translateY(-2px);
+    z-index: 10;
+}
+
+/* Improved selected node style */
+.jstree-default .jstree-clicked {
+    background: linear-gradient(to right, #007bff, #4dabf7) !important;
+    color: white !important;
+    box-shadow: 0 3px 10px rgba(0, 123, 255, 0.2) !important;
+    border-radius: 6px;
+    border: none !important;
+}
+
+/* Special Kuba styling - make it stand out more */
+.jstree-default .jstree-node.kuba-agent > .jstree-anchor {
+    background: linear-gradient(to right, #fff3cd, #ffeeba) !important;
+    color: #856404 !important;
+    font-weight: bold;
+    border: 1px solid #ffc107;
+    box-shadow: 0 3px 10px rgba(255, 193, 7, 0.15);
+    padding-left: 35px !important;
+    border-radius: 8px;
+}
+
+.jstree-default .jstree-node.kuba-agent > .jstree-anchor::before {
+    content: '👑';
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 30%, transparent 70%);
+    padding: 3px;
+    border-radius: 50%;
+}
+
+/* Empty state styling */
+.jstree-default .jstree-node[id="no-agents"] > .jstree-anchor {
+    color: #6c757d;
+    font-style: italic;
+    background-color: #f8f9fa;
+    border: 1px dashed #ced4da;
+    text-align: center;
+    padding: 10px 15px !important;
+}
+
+/* Add a subtle animation to the tree loading */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.jstree-animate-in .jstree-node {
+    animation: fadeIn 0.3s ease-in-out;
+    animation-fill-mode: both;
+}
+
+.jstree-animate-in .jstree-node:nth-child(1) { animation-delay: 0.05s; }
+.jstree-animate-in .jstree-node:nth-child(2) { animation-delay: 0.1s; }
+.jstree-animate-in .jstree-node:nth-child(3) { animation-delay: 0.15s; }
+.jstree-animate-in .jstree-node:nth-child(4) { animation-delay: 0.2s; }
+.jstree-animate-in .jstree-node:nth-child(5) { animation-delay: 0.25s; }
+
+/* Enhanced connection lines styling */
+.jstree-default .jstree-children .jstree-children {
+    margin-left: 5px;
+}
+
+/* Custom connector from parent to child */
+.jstree-default .jstree-children:after {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: -2px;
+    width: 5px;
+    height: 5px;
+    background-color: #fff;
+    border: 2px solid #dee2e6;
+    border-radius: 50%;
+    z-index: 1;
+}
+
+/* Add tooltips to nodes */
+.jstree-node-tooltip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}

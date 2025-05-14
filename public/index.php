@@ -76,6 +76,9 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     // Add new route for getting agent commission information
     $r->addRoute('GET', '/get-agent-commission', [AgentController::class, 'getAgentCommission']);
     
+    // Add new route for checking agent hierarchy
+    $r->addRoute('GET', '/api/agent-hierarchy', [AgentController::class, 'getAgentHierarchy']);
+    
     // Case edit routes
     $r->addRoute('GET',    '/case/edit/{id:\d+}', [TableController::class, 'edit']);
     $r->addRoute('POST',   '/case/edit/{id:\d+}', [TableController::class, 'update']);
