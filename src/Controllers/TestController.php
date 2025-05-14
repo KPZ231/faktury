@@ -97,11 +97,11 @@ class TestController {
                     oczekiwana_kwota = :kwota 
                     WHERE id_sprawy = :id_sprawy AND opis_raty = 'Rata końcowa'";
                 
-                $stmt = $this->pdo->prepare($updateQuery);
-                $stmt->execute([
+                    $stmt = $this->pdo->prepare($updateQuery);
+                    $stmt->execute([
                     ':kwota' => $rataKoncowa,
                     ':id_sprawy' => $id
-                ]);
+                    ]);
             }
         } catch (\PDOException $e) {
             error_log("Error in calculateCommissions: " . $e->getMessage());

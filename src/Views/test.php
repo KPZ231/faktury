@@ -1322,27 +1322,82 @@ syncPaymentStatuses($pdo);
                                     $daneRaty = $sprawa['oplaty'][$opisRaty] ?? ['kwota' => null, 'is_paid_display' => false, 'paying_invoice_number' => null];
                                     $kwotaRaty = $daneRaty['kwota'];
                                     $invoiceNumber = $daneRaty['paying_invoice_number'] ?? null;
-                                    $czyOplaconaPrzezAlgorytm = $daneRaty['is_paid_display'];
-                                    $czyKwotaJestZerowa = ($kwotaRaty !== null && abs($kwotaRaty) < $epsilon);
-                                    $czyFakturaOplaconaWBazie = false;
-                                    if (isset($daneRaty['faktura_id']) && $daneRaty['faktura_id']) {
-                                        $stmt = $pdo->prepare("SELECT Status FROM test WHERE numer = ?");
-                                        $stmt->execute([$daneRaty['faktura_id']]);
-                                        $fakturaStatus = $stmt->fetchColumn();
-                                        $czyFakturaOplaconaWBazie = ($fakturaStatus === 'Opłacona');
-                                    }
-                                    $finalnieWyswietlJakoOplacona = $czyOplaconaPrzezAlgorytm || $czyKwotaJestZerowa || $czyFakturaOplaconaWBazie;
-                                    $statusClass = $finalnieWyswietlJakoOplacona ? 'status-oplacona' : 'status-nieoplacona';
-                                    $statusSymbol = $finalnieWyswietlJakoOplacona ? '☑' : '☐';
-                                    $wyswietlanaKwota = format_currency($kwotaRaty);
-                                    $invoiceTextHtml = '';
-                                    if ($invoiceNumber !== null) {
-                                        $invoiceTextHtml = '<br><small class="invoice-details"> Faktura: ' . htmlspecialchars($invoiceNumber) . '</small>';
+                                    
+                                    // Sprawdź czy rata istnieje i ma niezerową kwotę
+                                    $czyRataIstnieje = ($kwotaRaty !== null && abs($kwotaRaty) >= $epsilon);
+                                    
+                                    if ($czyRataIstnieje) {
+                                        // Sprawdź warunki opłacenia w tabeli faktury
+                                        $czyOplaconaPrzezFakture = false;
+                                        $pasujacaFaktura = null;
+                                        
+                                        // Sprawdź czy istnieje już przypisana faktura dla tej raty
+                                        $stmt = $pdo->prepare("
+                                            SELECT f.numer, f.Status 
+                                            FROM faktury f
+                                            JOIN oplaty_spraw os ON f.numer = os.faktura_id
+                                            WHERE os.id_sprawy = ? 
+                                            AND os.opis_raty = ?
+                                            AND f.Nabywca = ?
+                                            AND f.`Kwota opłacona` = ?
+                                            AND f.Status = 'Opłacona'
+                                        ");
+                                        $stmt->execute([$sprawa['id_sprawy'], $opisRaty, $sprawa['identyfikator_sprawy'], $kwotaRaty]);
+                                        $faktura = $stmt->fetch(PDO::FETCH_ASSOC);
+                                        
+                                        if ($faktura) {
+                                            $czyOplaconaPrzezFakture = true;
+                                            $pasujacaFaktura = $faktura['numer'];
+                                        } else {
+                                            // Jeśli nie ma przypisanej faktury, sprawdź czy istnieje wolna opłacona faktura
+                                            $stmt = $pdo->prepare("
+                                                SELECT f.numer, f.Status 
+                                                FROM faktury f
+                                                LEFT JOIN oplaty_spraw os ON f.numer = os.faktura_id
+                                                WHERE f.Nabywca = ? 
+                                                AND f.`Kwota opłacona` = ?
+                                                AND f.Status = 'Opłacona'
+                                                AND os.faktura_id IS NULL
+                                            ");
+                                            $stmt->execute([$sprawa['identyfikator_sprawy'], $kwotaRaty]);
+                                            $faktura = $stmt->fetch(PDO::FETCH_ASSOC);
+                                            
+                                            if ($faktura) {
+                                                $pasujacaFaktura = $faktura['numer'];
+                                                // Przypisz opłaconą fakturę do tej raty
+                                                $stmt = $pdo->prepare("
+                                                    UPDATE oplaty_spraw 
+                                                    SET faktura_id = ?, czy_oplacona = 1 
+                                                    WHERE id_sprawy = ? AND opis_raty = ?
+                                                ");
+                                                $stmt->execute([$faktura['numer'], $sprawa['id_sprawy'], $opisRaty]);
+                                                $czyOplaconaPrzezFakture = true;
+                                            }
+                                        }
+                                        
+                                        $finalnieWyswietlJakoOplacona = $czyOplaconaPrzezFakture;
+                                        $statusClass = $finalnieWyswietlJakoOplacona ? 'status-oplacona' : 'status-nieoplacona';
+                                        $statusSymbol = $finalnieWyswietlJakoOplacona ? '☑' : '☐';
+                                        $wyswietlanaKwota = format_currency($kwotaRaty);
+                                        
+                                        // Przygotuj informację o fakturze
+                                        $invoiceTextHtml = '';
+                                        if ($pasujacaFaktura !== null) {
+                                            $invoiceTextHtml = '<br><small class="invoice-details"> Faktura: ' . htmlspecialchars($pasujacaFaktura) . '</small>';
+                                        }
+                                    } else {
+                                        // Rata nie istnieje lub jest zerowa
+                                        $statusClass = '';
+                                        $statusSymbol = '';
+                                        $wyswietlanaKwota = '<span style="color: #999; font-style: italic;">brak raty</span>';
+                                        $invoiceTextHtml = '';
                                     }
                                 ?>
                                 <td class="currency <?php echo $statusClass; ?>">
                                     <?php echo $wyswietlanaKwota; ?>
-                                    <span class="checkbox"><?php echo $statusSymbol; ?></span>
+                                    <?php if ($czyRataIstnieje): ?>
+                                        <span class="checkbox"><?php echo $statusSymbol; ?></span>
+                                    <?php endif; ?>
                                     <?php echo $invoiceTextHtml; ?>
                                 </td>
                             <?php endforeach; ?>
