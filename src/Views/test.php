@@ -938,7 +938,7 @@ a.strona:active {
                         </td>
                         <td class="currency"><?php echo format_currency($sprawa['wywalczona_kwota']); ?></td>
                         <td class="currency"><?php echo format_currency($sprawa['oplata_wstepna']); ?></td>
-                        <td class="percentage"><?php echo format_percent($sprawa['stawka_success_fee']); ?></td>
+                        <td class="percentage"><?php echo format_percent($sprawa['stawka_success_fee'] * 100); ?></td>
                         <td class="currency"><?php echo format_currency($sprawa['calosc_prowizji']); ?></td>
 
                         <!-- Prowizje % (bez zmian) -->
