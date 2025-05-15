@@ -8,6 +8,44 @@ use PDOException;
 class TestController {
     private $pdo;
 
+    /**
+     * Delete a case and all related records
+     */
+    public function delete(int $id): void {
+        require_once __DIR__ . '/../../config/database.php';
+        global $pdo;
+        $this->pdo = $pdo;
+
+        try {
+            $this->pdo->beginTransaction();
+
+            // Delete related records first
+            $tables = [
+                'agenci_wyplaty',
+                'prowizje_agentow_spraw',
+                'oplaty_spraw'
+            ];
+
+            foreach ($tables as $table) {
+                $stmt = $this->pdo->prepare("DELETE FROM $table WHERE id_sprawy = ?");
+                $stmt->execute([$id]);
+            }
+
+            // Finally delete the case itself
+            $stmt = $this->pdo->prepare("DELETE FROM sprawy WHERE id_sprawy = ?");
+            $stmt->execute([$id]);
+
+            $this->pdo->commit();
+            header('Location: /test?deleted=1');
+            exit;
+        } catch (PDOException $e) {
+            $this->pdo->rollBack();
+            error_log("Error deleting case: " . $e->getMessage());
+            http_response_code(500);
+            echo "Wystąpił błąd podczas usuwania sprawy.";
+        }
+    }
+
     public function __construct() {
         // Constructor initializes database connection in index()
     }
@@ -26,6 +64,12 @@ class TestController {
         
         // Sync payment status with commission_payments table
         $this->syncPaymentStatuses();
+        
+        // Pobierz ID agenta z parametru URL
+        $selectedAgentId = isset($_GET['agent_id']) ? $_GET['agent_id'] : null;
+        
+        // Przekaż ID agenta do widoku
+        $filterByAgentId = $selectedAgentId;
         
         // Render the view
         include __DIR__ . '/../Views/test.php';
