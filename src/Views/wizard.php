@@ -8,16 +8,100 @@
   <link rel="stylesheet" href="../../assets/css/style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* Style komunikatów błędów */
+    /* Style komunikatów błędów - ULEPSZONE */
     .error-message {
-      color: red;
+      color: #dc3545;
       font-size: 0.9em;
-      margin-top: 5px;
+      margin-top: 8px;
+      padding: 6px 10px;
+      background-color: rgba(220, 53, 69, 0.1);
+      border-radius: 4px;
+      position: relative;
+      border-left: 3px solid #dc3545;
+      transition: all 0.3s ease;
+      display: block;
+    }
+    
+    .error-message:empty {
+      display: none;
+    }
+    
+    .error-message::before {
+      content: "\f071";
+      font-family: "Font Awesome 6 Free";
+      font-weight: 900;
+      padding-right: 8px;
+      color: #dc3545;
+    }
+    
+    /* Styl dla zbiorczego kontenera błędów */
+    .error-container {
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 8px;
+      background-color: rgba(220, 53, 69, 0.08);
+      border: 1px solid rgba(220, 53, 69, 0.2);
+      max-width: 100%;
+    }
+    
+    .error-container h3 {
+      color: #dc3545;
+      margin-top: 0;
+      font-size: 1.1em;
+      display: flex;
+      align-items: center;
+    }
+    
+    .error-container h3::before {
+      content: "\f071";
+      font-family: "Font Awesome 6 Free";
+      font-weight: 900;
+      padding-right: 10px;
+      font-size: 1.2em;
+    }
+    
+    .error-container ul {
+      margin: 10px 0;
+      padding-left: 30px;
+    }
+    
+    .error-container ul li {
+      margin-bottom: 6px;
+      position: relative;
+    }
+    
+    .error-container ul li::marker {
+      color: #dc3545;
     }
 
-    /* Wyróżnienie pola z błędem */
+    /* Wyróżnienie pola z błędem - ULEPSZONE */
     .input-error {
-      border: 1px solid red;
+      border: 1px solid #dc3545 !important;
+      box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.15) !important;
+      background-color: #fff8f8 !important;
+    }
+
+    /* Dodatkowe styles dla pól z błędem w focus */
+    .input-error:focus {
+      border-color: #dc3545 !important;
+      box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+    }
+
+    /* Animacja dla błędów */
+    @keyframes highlightError {
+      0% { background-color: rgba(220, 53, 69, 0.15); }
+      100% { background-color: rgba(220, 53, 69, 0.05); }
+    }
+
+    .highlight-error {
+      animation: highlightError 2s ease-out;
+    }
+    
+    /* Styl dla błędów w sekcji agentów i rat */
+    #error_agents {
+      margin-top: 10px;
+      margin-bottom: 15px;
+      width: 100%;
     }
 
     /* Style for calculation results */
@@ -142,16 +226,29 @@
     .remaining-amount {
       display: block;
       margin-top: 8px;
-      padding: 5px 10px;
+      padding: 8px 12px;
       background-color: #f8f9fa;
-      border-left: 3px solid #28a745;
+      border-left: 4px solid #28a745;
       color: #495057;
       font-size: 0.9em;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
     }
     
+    /* Gdy jest ostrzeżenie - przekroczono wartość lub nie opłacono całości */
     .remaining-amount.warning {
       border-left-color: #dc3545;
       background-color: #fff8f8;
+      color: #dc3545;
+    }
+    
+    /* Dodatkowa klasa dla stanu, gdy opłacono dokładną kwotę */
+    .remaining-amount.success {
+      border-left-color: #28a745;
+      background-color: #f0fff0;
+      color: #28a745;
+      font-weight: 500;
     }
 
     /* Wersja dla pól procentowych */
@@ -241,11 +338,11 @@
     <h2>Dodaj rekord do bazy</h2>
     <?php endif; ?>
 
-    <!-- Globalne, ewentualne komunikaty (opcjonalne) -->
-    <div id="globalErrorContainer" style="color:red; font-weight:bold;">
+    <!-- Globalne, ewentualne komunikaty z ulepszoną stylistyką -->
+    <div id="globalErrorContainer">
       <?php if (isset($_SESSION['wizard_errors']) && !empty($_SESSION['wizard_errors'])): ?>
-        <div class="error-message">
-          <h3>Błędy walidacji:</h3>
+        <div class="error-container">
+          <h3>Błędy walidacji</h3>
           <ul>
             <?php foreach ($_SESSION['wizard_errors'] as $error): ?>
               <li><?php echo htmlspecialchars($error, ENT_QUOTES); ?></li>
@@ -267,7 +364,7 @@
           }
           
           // Skrypt JS do ustawienia odpowiedniego kroku po załadowaniu strony
-          echo '<script>window.onload = function() { goToStep(' . $currentStep . '); };</script>';
+          echo '<script>window.onload = function() { goToStep(' . $currentStep . '); setTimeout(highlightErrorFields, 300); };</script>';
           
           // Usuń błędy z sesji po wyświetleniu
           unset($_SESSION['wizard_errors']);
@@ -514,6 +611,22 @@
     // Lista agentów pobrana z PHP
     const agents = <?php echo json_encode($agents); ?>;
     
+    // Mapa zapisanych agentów (agent_id -> position)
+    let savedAgentMap = new Map();
+    
+    // Inicjalizuj mapę zapisanych agentów jeśli edytujemy rekord
+    function initSavedAgentMap() {
+      savedAgentMap.clear();
+      for (let i = 1; i <= 5; i++) {
+        const savedAgentEl = document.getElementById(`saved_agent${i}_id`);
+        if (savedAgentEl && savedAgentEl.value) {
+          // Zapisz indeks pozycji dla tego ID agenta
+          savedAgentMap.set(savedAgentEl.value, i);
+        }
+      }
+      console.log("Saved agent map initialized:", Array.from(savedAgentMap.entries()));
+    }
+    
     // Wizard steps variables
     const wizardSteps = document.querySelectorAll('.wizard-step');
     const stepContents = document.querySelectorAll('.wizard-step-content');
@@ -539,73 +652,88 @@
     // Function to navigate between steps
     function goToStep(stepNumber) {
       // Hide all steps
-      stepContents.forEach(step => {
+      stepContents.forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // Remove active class from step indicators
+      wizardSteps.forEach(step => {
         step.classList.remove('active');
       });
       
-      // Update step indicators
-      wizardSteps.forEach(step => {
-        const stepNum = parseInt(step.dataset.step);
-        step.classList.remove('active', 'completed');
-        
-        if (stepNum === stepNumber) {
-          step.classList.add('active');
-        } else if (stepNum < stepNumber) {
-          step.classList.add('completed');
-        }
-      });
+      // Show the current step
+      document.getElementById(`step${stepNumber}`).classList.add('active');
       
-      // Show current step
-      document.getElementById('step' + stepNumber).classList.add('active');
+      // Add active class to the current step indicator
+      document.querySelector(`.wizard-step[data-step="${stepNumber}"]`).classList.add('active');
+      
+      // Update current step
       currentStep = stepNumber;
-      
-      // If we're on step 2, make sure calculations are up to date
-      if (currentStep === 2) {
-        calculateAll();
-      }
     }
-    
-    // Dodaj obsługę zależności między polem wyboru i ręcznym wprowadzaniem nazwy sprawy
-    caseNameDropdown.addEventListener('change', function() {
-      if (this.value) {
-        manualCaseNameInput.disabled = true;
-        manualCaseNameInput.value = '';
-      } else {
-        manualCaseNameInput.disabled = false;
-      }
-      validateStep(1);
-    });
-    
-    manualCaseNameInput.addEventListener('input', function() {
-      if (this.value.trim()) {
-        caseNameDropdown.disabled = true;
-        caseNameDropdown.value = '';
-      } else {
-        caseNameDropdown.disabled = false;
-      }
-      validateStep(1);
-    });
-    
-    // Wywołanie funkcji przy załadowaniu strony, aby ustawić początkowy stan
+
+    // Initial rendering of agents and installment fields
     document.addEventListener('DOMContentLoaded', function() {
-      // Sprawdź początkowe wartości
-      if (caseNameDropdown.value) {
-        manualCaseNameInput.disabled = true;
-        manualCaseNameInput.value = ''; // Clear the manual input if dropdown is selected
-      } else if (manualCaseNameInput.value.trim()) {
-        caseNameDropdown.disabled = true;
-        caseNameDropdown.value = ''; // Clear the dropdown if manual input has value
+      // Inicjalizuj mapę zapisanych agentów
+      initSavedAgentMap();
+      
+      // Jeśli edytujemy istniejący rekord i mamy zapisanych agentów, ustaw 
+      // odpowiednią liczbę agentów na podstawie ilości zapisanych
+      if (savedAgentMap.size > 0 && agentsInput) {
+        agentsInput.value = savedAgentMap.size;
       }
       
-      // Inicjalizacja pól currency dla formularza
+      renderAgents();
+      renderInstallments();
+      calculateAll();
+      validateForm();
+      
+      // Add change event listeners
+      if (agentsInput) {
+        agentsInput.addEventListener('change', function() {
+          clampInput(this);
+          renderAgents();
+          validateForm();
+        });
+      }
+      
+      if (instInput) {
+        instInput.addEventListener('change', function() {
+          clampInput(this);
+          renderInstallments();
+          validateForm();
+        });
+      }
+      
+      // Set up CaseName and Manual CaseName interaction
+      if (caseNameDropdown && manualCaseNameInput) {
+        // When dropdown changes, clear manual input if a value is selected
+        caseNameDropdown.addEventListener('change', function() {
+          if (this.value !== '') {
+            manualCaseNameInput.value = '';
+          }
+        });
+        
+        // When manual input changes, clear dropdown if text is entered
+        manualCaseNameInput.addEventListener('input', function() {
+          if (this.value !== '') {
+            caseNameDropdown.value = '';
+          }
+        });
+      }
+      
+      // Attach listeners to inputs for live display updates
       document.querySelectorAll('.currency-input').forEach(input => {
+        input.addEventListener('input', function() {
+          updateInputDisplay(this);
+          calculateAll();
+          validateForm();
+        });
+        
+        // Initial display
         if (input.value) {
           updateInputDisplay(input);
         }
       });
-      
-      // Sprawdź, czy trzeba wykonać walidację formularza
-      validateStep(1);
     });
 
     // Update the validateStep function to include validation for the manual case name
@@ -614,11 +742,11 @@
       
       if (stepNumber === 1) {
         // Clear error messages
-        document.getElementById('error_case_name').innerText = "";
-        document.getElementById('error_manual_case_name').innerText = "";
-        document.getElementById('error_amount_won').innerText = "";
-        document.getElementById('error_upfront_fee').innerText = "";
-        document.getElementById('error_success_fee_percentage').innerText = "";
+        showError(document.getElementById('error_case_name'), "");
+        showError(document.getElementById('error_manual_case_name'), "");
+        showError(document.getElementById('error_amount_won'), "");
+        showError(document.getElementById('error_upfront_fee'), "");
+        showError(document.getElementById('error_success_fee_percentage'), "");
         
         // Case name validation - either dropdown or manual input must have a value
         const caseNameInput = document.querySelector('select[name="case_name"]');
@@ -627,8 +755,8 @@
         const manualCaseName = manualCaseNameInput.value.trim();
         
         if (!caseName && !manualCaseName) {
-          document.getElementById('error_case_name').innerText = "Wybierz nazwę sprawy z listy lub wprowadź ręcznie.";
-          document.getElementById('error_manual_case_name').innerText = "Wprowadź nazwę sprawy lub wybierz z listy.";
+          showError(document.getElementById('error_case_name'), "Wybierz nazwę sprawy z listy lub wprowadź ręcznie.");
+          showError(document.getElementById('error_manual_case_name'), "Wprowadź nazwę sprawy lub wybierz z listy.");
           caseNameInput.classList.add('input-error');
           manualCaseNameInput.classList.add('input-error');
           isValid = false;
@@ -645,14 +773,13 @@
           if (input.value !== "") {
             const num = parseFloat(input.value);
             if (isNaN(num) || num < 0) {
-              errorEl.innerText = `Pole "${fieldName}" musi być liczbą nieujemną.`;
+              showError(errorEl, `Pole "${fieldName}" musi być liczbą nieujemną.`);
               input.classList.add('input-error');
               isValid = false;
             } else {
               input.classList.remove('input-error');
             }
           } else {
-            errorEl.innerText = "";
             input.classList.remove('input-error');
           }
         });
@@ -739,21 +866,36 @@
         select.appendChild(emptyOption);
 
         // Opcje agentów
+        let savedAgentIdForThisPosition = '';
+        
+        // Szukaj zapisanej wartości dla tej pozycji (i) 
+        const savedAgentIdEl = document.getElementById(`saved_agent${i}_id`);
+        if (savedAgentIdEl && savedAgentIdEl.value) {
+          savedAgentIdForThisPosition = savedAgentIdEl.value.toString();
+        }
+        
         agents.forEach(agent => {
           const option = document.createElement('option');
           option.value = agent.id_agenta;
           option.textContent = agent.nazwa_agenta;
           
-          // Sprawdź czy to opcja zapisana wcześniej
-          const savedAgentId = document.getElementById(`saved_agent${i}_id`);
-          if (savedAgentId && savedAgentId.value === agent.id_agenta) {
+          // Sprawdź czy to opcja zapisana wcześniej - KONWERSJA NA STRING
+          if (savedAgentIdForThisPosition && savedAgentIdForThisPosition === agent.id_agenta.toString()) {
             option.selected = true;
+            console.log(`Setting agent ${agent.nazwa_agenta} (ID: ${agent.id_agenta}) as selected for position ${i}`);
           }
           
           select.appendChild(option);
         });
 
         selectContainer.appendChild(select);
+        
+        // Dodajemy indywidualny kontener błędów dla dropdowna agenta
+        const selectErrorSpan = document.createElement('span');
+        selectErrorSpan.className = 'error-message';
+        selectErrorSpan.id = `error_agent${i}_select`;
+        selectContainer.appendChild(selectErrorSpan);
+        
         container.appendChild(selectContainer);
 
         // Pole procentu dla agenta
@@ -781,6 +923,7 @@
         percentInput.addEventListener('input', function() {
           calculateAll();
           updateInputDisplay(this);
+          validateForm();
         });
         
         // Dodaj element wyświetlający wartość
@@ -798,6 +941,12 @@
         amountDisplay.id = `agent${i}_amount`;
         amountDisplay.textContent = '0.00 zł';
         percentContainer.appendChild(amountDisplay);
+        
+        // Dodajemy indywidualny kontener błędów dla pola procent
+        const percentErrorSpan = document.createElement('span');
+        percentErrorSpan.className = 'error-message';
+        percentErrorSpan.id = `error_agent${i}_percentage`;
+        percentContainer.appendChild(percentErrorSpan);
 
         container.appendChild(percentContainer);
         agentsContainer.appendChild(container);
@@ -834,6 +983,7 @@
         const select = document.getElementById(`agent${i}_id_agenta`);
         if (select && select.value) {
           selectedAgents.push(select.value);
+          console.log(`Agent at position ${i} has value: ${select.value} (${select.options[select.selectedIndex].text})`);
         }
       }
       
@@ -891,6 +1041,7 @@
         input.addEventListener('input', function() {
           calculateAll();
           updateInputDisplay(this);
+          validateForm();
         });
         
         // Dodaj element wyświetlający wartość
@@ -902,7 +1053,7 @@
         inputWrapper.appendChild(displaySpan);
         lbl.appendChild(inputWrapper);
 
-        // Dodajemy span dla komunikatu błędu dla raty
+        // Dodajemy span dla komunikatu błędu dla raty z lepszym stylem
         const errorSpan = document.createElement('span');
         errorSpan.className = 'error-message';
         errorSpan.id = `error_installment${i}`;
@@ -930,6 +1081,14 @@
         
         container.appendChild(splitContainer);
         instSection.appendChild(container);
+      }
+      
+      // Dodajemy zbiorczy komunikat błędu dla rat, jeśli jeszcze nie istnieje
+      if (!document.getElementById('error_installments')) {
+        const installmentsErrorContainer = document.createElement('div');
+        installmentsErrorContainer.id = 'error_installments';
+        installmentsErrorContainer.className = 'error-message';
+        instSection.appendChild(installmentsErrorContainer);
       }
       
       // Pokaż sekcję podsumowania rat jeśli są jakieś raty
@@ -960,20 +1119,19 @@
       let formValid = true;
 
       // Czyszczenie komunikatów dla statycznych pól
-      document.getElementById('error_case_name').innerText = "";
-      document.getElementById('error_amount_won').innerText = "";
-      document.getElementById('error_upfront_fee').innerText = "";
-      document.getElementById('error_success_fee_percentage').innerText = "";
-      document.getElementById('error_kuba_percentage').innerText = "";
-      // Czyszczenie zbiorczego kontenera błędów agentów
-      document.getElementById('error_agents').innerText = "";
+      showError(document.getElementById('error_case_name'), "");
+      showError(document.getElementById('error_amount_won'), "");
+      showError(document.getElementById('error_upfront_fee'), "");
+      showError(document.getElementById('error_success_fee_percentage'), "");
+      showError(document.getElementById('error_kuba_percentage'), "");
+      showError(document.getElementById('error_agents'), "");
       
       // Czyszczenie komunikatów o błędach dla rat
       const installmentInputs = document.querySelectorAll('input[name^="installment"][name$="_amount"]');
       installmentInputs.forEach((input, index) => {
         const errorSpan = document.getElementById(`error_installment${index + 1}`);
         if (errorSpan) {
-          errorSpan.innerText = "";
+          showError(errorSpan, "");
           input.classList.remove('input-error');
         }
       });
@@ -985,8 +1143,8 @@
       const manualCaseName = manualCaseNameInput.value.trim();
       
       if (!caseName && !manualCaseName) {
-        document.getElementById('error_case_name').innerText = "Wybierz nazwę sprawy z listy lub wprowadź ręcznie.";
-        document.getElementById('error_manual_case_name').innerText = "Wprowadź nazwę sprawy lub wybierz z listy.";
+        showError(document.getElementById('error_case_name'), "Wybierz nazwę sprawy z listy lub wprowadź ręcznie.");
+        showError(document.getElementById('error_manual_case_name'), "Wprowadź nazwę sprawy lub wybierz z listy.");
         caseNameInput.classList.add('input-error');
         manualCaseNameInput.classList.add('input-error');
         formValid = false;
@@ -1003,14 +1161,13 @@
         if (input.value !== "") {
           const num = parseFloat(input.value);
           if (isNaN(num) || num < 0) {
-            errorEl.innerText = `Pole "${fieldName}" musi być liczbą nieujemną.`;
+            showError(errorEl, `Pole "${fieldName}" musi być liczbą nieujemną.`);
             input.classList.add('input-error');
             formValid = false;
           } else {
             input.classList.remove('input-error');
           }
         } else {
-          errorEl.innerText = "";
           input.classList.remove('input-error');
         }
       });
@@ -1020,15 +1177,14 @@
       const errorKuba = document.getElementById('error_kuba_percentage');
       let kubaValue = parseFloat(kubaInput.value);
       if (isNaN(kubaValue)) {
-        errorKuba.innerText = "Prowizja Kuby musi być liczbą.";
+        showError(errorKuba, "Prowizja Kuby musi być liczbą.");
         kubaInput.classList.add('input-error');
         formValid = false;
       } else if (kubaValue < 0 || kubaValue > 100) {
-        errorKuba.innerText = "Prowizja Kuby musi być z przedziału 0 - 100%.";
+        showError(errorKuba, "Prowizja Kuby musi być z przedziału 0 - 100%.");
         kubaInput.classList.add('input-error');
         formValid = false;
       } else {
-        errorKuba.innerText = "";
         kubaInput.classList.remove('input-error');
       }
 
@@ -1084,11 +1240,10 @@
       if (!isNaN(kubaValue) && sumAgentPercents > kubaValue) {
         agentErrors.push(`Suma agentów (${sumAgentPercents}%) nie może przekraczać prowizji Kuby (${kubaValue}%).`);
       }
+      
       if (agentErrors.length > 0) {
-        document.getElementById('error_agents').innerText = agentErrors.join(" ");
+        showError(document.getElementById('error_agents'), agentErrors.join(" "));
         formValid = false;
-      } else {
-        document.getElementById('error_agents').innerText = "";
       }
 
       // 5. Walidacja rat – każda rata musi być liczbą nieujemną
@@ -1097,11 +1252,10 @@
         const errorSpan = document.getElementById(`error_installment${index + 1}`);
         if (!errorSpan) return;
         
-        errorSpan.innerText = "";
         if (input.value !== "") {
           const num = parseFloat(input.value);
           if (isNaN(num) || num < 0) {
-            errorSpan.innerText = "Rata musi być liczbą nieujemną.";
+            showError(errorSpan, "Rata musi być liczbą nieujemną.");
             input.classList.add('input-error');
             formValid = false;
           } else {
@@ -1122,8 +1276,8 @@
         
         installmentInputs.forEach((input, index) => {
           const errorSpan = document.getElementById(`error_installment${index + 1}`);
-          if (errorSpan && errorSpan.innerText === "" && !errorDisplayed) {
-            errorSpan.innerText = errorMessage;
+          if (errorSpan && errorSpan.textContent === "" && !errorDisplayed) {
+            showError(errorSpan, errorMessage);
             input.classList.add('input-error');
             errorDisplayed = true; // Pokaż błąd tylko raz
           }
@@ -1133,7 +1287,7 @@
         if (!errorDisplayed && installmentInputs.length > 0) {
           const firstErrorSpan = document.getElementById('error_installment1');
           if (firstErrorSpan) {
-            firstErrorSpan.innerText = errorMessage;
+            showError(firstErrorSpan, errorMessage);
             installmentInputs[0].classList.add('input-error');
           }
         }
@@ -1216,9 +1370,44 @@
         const remainingAfter = upfrontFee - cumulativeSum;
         
         if (remainingInfoElement) {
-          let statusClass = Math.abs(remainingAfter) < 0.01 ? '' : 'warning';
+          // Jeśli różnica jest mniejsza od 1 grosza, uznaj że wartości są równe (tolerancja na błędy zaokrąglenia)
+          const epsilon = 0.01;
+          let statusClass = '';
+          
+          // Określ, czy to jest ostatnia rata
+          const isLastInstallment = index === installmentInputs.length - 1;
+          
+          // Jeśli przekroczono opłatę wstępną, pokaż ostrzeżenie
+          if (cumulativeSum > upfrontFee + epsilon) {
+            statusClass = 'warning';
+          }
+          // Jeśli pozostało wciąż do opłacenia i to jest ostatnia rata, pokaż ostrzeżenie
+          else if (remainingAfter > epsilon && isLastInstallment) {
+            statusClass = 'warning';
+          }
+          // Jeśli opłata jest dokładnie równa oczekiwanej (z tolerancją epsilon), pokaż sukces
+          else if (Math.abs(remainingAfter) < epsilon) {
+            statusClass = 'success';
+          }
+          
+          // Aktualizacja klasy CSS
           remainingInfoElement.className = `remaining-amount ${statusClass}`;
-          remainingInfoElement.textContent = `Pozostało do opłacenia: ${formatCurrency(remainingAfter)} (przed ratą: ${formatCurrency(upfrontFee - previousTotal)})`;
+          
+          // Formatowanie tekstu z lepszą klarownością
+          let remainingText = `Opłacono: ${formatCurrency(cumulativeSum)} z ${formatCurrency(upfrontFee)}`;
+          
+          if (Math.abs(remainingAfter) < epsilon) {
+            // Jeśli wszystko opłacone dokładnie
+            remainingText = `<i class="fas fa-check-circle"></i> Opłacono: ${formatCurrency(cumulativeSum)} z ${formatCurrency(upfrontFee)} (opłata wstępna w pełni pokryta)`;
+          } else if (remainingAfter > 0) {
+            // Jeśli pozostaje do opłacenia
+            remainingText = `<i class="fas fa-info-circle"></i> Opłacono: ${formatCurrency(cumulativeSum)} z ${formatCurrency(upfrontFee)} (pozostało jeszcze ${formatCurrency(remainingAfter)})`;
+          } else {
+            // Jeśli przekroczono opłatę wstępną
+            remainingText = `<i class="fas fa-exclamation-triangle"></i> Opłacono: ${formatCurrency(cumulativeSum)} z ${formatCurrency(upfrontFee)} (przekroczono o ${formatCurrency(Math.abs(remainingAfter))})`;
+          }
+          
+          remainingInfoElement.innerHTML = remainingText;
         }
         
         // Kwota dla Kuby z tej raty
@@ -1392,6 +1581,47 @@
       }
     });
 
+    // Po inicjalizacji, dodaj specjalny komunikat, jeśli edytujemy istniejący rekord
+    <?php if (isset($_SESSION['wizard_form_data']['case_id'])): ?>
+    console.log("Editing existing case with ID: <?php echo $_SESSION['wizard_form_data']['case_id']; ?>");
+    
+    // Opóźnione sprawdzenie, czy agenci zostali poprawnie załadowani
+    setTimeout(() => {
+      // Sprawdź, czy wszystkie zapisane wartości agentów zostały poprawnie odwzorowane
+      let allAgentsLoadedCorrectly = true;
+      
+      for (let i = 1; i <= 5; i++) {
+        const savedAgentIdEl = document.getElementById(`saved_agent${i}_id`);
+        if (savedAgentIdEl && savedAgentIdEl.value) {
+          const savedAgentId = savedAgentIdEl.value;
+          const select = document.getElementById(`agent${i}_id_agenta`);
+          
+          if (select && select.value !== savedAgentId) {
+            console.warn(`Agent mismatch at position ${i}: saved=${savedAgentId}, selected=${select.value}`);
+            allAgentsLoadedCorrectly = false;
+            
+            // Próba naprawy poprzez ręczne ustawienie wyboru
+            for (let j = 0; j < select.options.length; j++) {
+              if (select.options[j].value.toString() === savedAgentId.toString()) {
+                select.selectedIndex = j;
+                console.log(`Fixed agent selection at position ${i}`);
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      if (allAgentsLoadedCorrectly) {
+        console.log("All saved agents were loaded correctly");
+      }
+      
+      // Odświeżenie dropdownów i obliczeń po ewentualnych naprawach
+      updateAgentDropdowns();
+      calculateAll();
+    }, 500);
+    <?php endif; ?>
+    
     // Po inicjalizacji, usuń dane formularza z sesji
     <?php if (isset($_SESSION['wizard_form_data'])): ?>
       <?php unset($_SESSION['wizard_form_data']); ?>
@@ -1416,6 +1646,126 @@
           successFeeWrapper.className = 'percentage-input-wrapper';
         }
       }
+    });
+
+    // ===== NOWE FUNKCJE DLA OBSŁUGI BŁĘDÓW =====
+    
+    // Funkcja podświetlająca pola z błędami po załadowaniu strony z błędami z serwera
+    function highlightErrorFields() {
+      // Znajdź wszystkie pola z klasą input-error
+      const errorFields = document.querySelectorAll('.input-error');
+      
+      // Dodaj klasę animacji do każdego pola
+      errorFields.forEach(field => {
+        field.classList.add('highlight-error');
+        
+        // Przewiń do pierwszego pola z błędem
+        if (field === errorFields[0]) {
+          field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+      
+      // Usuń klasę animacji po zakończeniu
+      setTimeout(() => {
+        errorFields.forEach(field => {
+          field.classList.remove('highlight-error');
+        });
+      }, 2000);
+    }
+    
+    // Funkcja do sprawdzania i pokazywania błędów w czasie rzeczywistym
+    function addRealTimeValidation() {
+      // Wszystkie pola, które powinny być walidowane w czasie rzeczywistym
+      const fieldsToValidate = [
+        { id: 'case_name', errorId: 'error_case_name' },
+        { id: 'manual_case_name', errorId: 'error_manual_case_name' },
+        { id: 'amount_won', errorId: 'error_amount_won' },
+        { id: 'upfront_fee', errorId: 'error_upfront_fee' },
+        { id: 'success_fee_percentage', errorId: 'error_success_fee_percentage' },
+        { id: 'kuba_percentage', errorId: 'error_kuba_percentage' }
+      ];
+      
+      // Dodaj nasłuchiwanie zdarzeń dla każdego pola
+      fieldsToValidate.forEach(field => {
+        const element = document.getElementById(field.id);
+        if (element) {
+          // Dla pól typu select nasłuchuj zmiany
+          if (element.tagName.toLowerCase() === 'select') {
+            element.addEventListener('change', function() {
+              if (currentStep === 1) {
+                validateStep(1);
+              } else {
+                validateForm();
+              }
+            });
+          } 
+          // Dla pól typu input nasłuchuj wprowadzania
+          else {
+            element.addEventListener('input', function() {
+              if (currentStep === 1) {
+                validateStep(1);
+              } else {
+                validateForm();
+              }
+            });
+            
+            // Dodatkowa walidacja przy opuszczeniu pola (blur)
+            element.addEventListener('blur', function() {
+              if (currentStep === 1) {
+                validateStep(1);
+              } else {
+                validateForm();
+              }
+            });
+          }
+        }
+      });
+    }
+    
+    // Funkcja poprawiająca wyświetlanie błędów w walidacji
+    function showError(errorElement, message) {
+      if (!errorElement) return;
+      
+      // Jeśli jest błąd, pokaż go z animacją
+      if (message) {
+        errorElement.textContent = message;
+        errorElement.style.opacity = '0';
+        setTimeout(() => {
+          errorElement.style.opacity = '1';
+        }, 10);
+      } else {
+        // Jeśli nie ma błędu, ukryj element
+        errorElement.textContent = '';
+      }
+    }
+    
+    // Zastąpienie prostych przypisań błędów funkcją showError w validateForm
+    const originalValidateForm = validateForm;
+    validateForm = function() {
+      // Wywołaj oryginalną funkcję
+      const result = originalValidateForm.apply(this, arguments);
+      
+      // Po walidacji, podświetl pola z błędami
+      setTimeout(highlightErrorFields, 100);
+      
+      return result;
+    };
+    
+    // Zastąpienie prostych przypisań błędów funkcją showError w validateStep
+    const originalValidateStep = validateStep;
+    validateStep = function(stepNumber) {
+      // Wywołaj oryginalną funkcję
+      const result = originalValidateStep.apply(this, [stepNumber]);
+      
+      // Po walidacji, podświetl pola z błędami
+      setTimeout(highlightErrorFields, 100);
+      
+      return result;
+    };
+    
+    // Inicjalizacja walidacji w czasie rzeczywistym przy załadowaniu strony
+    document.addEventListener('DOMContentLoaded', function() {
+      addRealTimeValidation();
     });
   </script>
 </body>
