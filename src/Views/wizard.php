@@ -828,6 +828,11 @@
       calculateAll();
     }
 
+    // Function to safely compare floating point numbers
+    function areFloatsEqual(a, b, epsilon = 0.01) {
+      return Math.abs(a - b) < epsilon;
+    }
+
     // Funkcja walidacyjna z dodatkowymi obliczeniami
     function validateForm() {
       let formValid = true;
@@ -847,6 +852,7 @@
         const errorSpan = document.getElementById(`error_installment${index + 1}`);
         if (errorSpan) {
           errorSpan.innerText = "";
+          input.classList.remove('input-error');
         }
       });
 
@@ -961,6 +967,8 @@
       let sumInstallments = 0;
       installmentInputs.forEach((input, index) => {
         const errorSpan = document.getElementById(`error_installment${index + 1}`);
+        if (!errorSpan) return;
+        
         errorSpan.innerText = "";
         if (input.value !== "") {
           const num = parseFloat(input.value);
@@ -976,16 +984,32 @@
       });
       
       // 6. Nowa walidacja: suma rat musi być równa opłacie wstępnej
+      // Użyj małej wartości epsilon dla porównania liczb zmiennoprzecinkowych
       const upfrontFee = parseFloat(document.getElementById('upfront_fee').value) || 0;
-      if (sumInstallments !== upfrontFee) {
+      const epsilon = 0.01; // Tolerancja dla błędów zaokrąglenia (1 grosz)
+      
+      if (Math.abs(sumInstallments - upfrontFee) > epsilon) {
         const errorMessage = `Suma rat (${sumInstallments.toFixed(2)} zł) musi być równa opłacie wstępnej (${upfrontFee.toFixed(2)} zł).`;
+        let errorDisplayed = false;
+        
         installmentInputs.forEach((input, index) => {
           const errorSpan = document.getElementById(`error_installment${index + 1}`);
-          if (errorSpan && errorSpan.innerText === "") {
+          if (errorSpan && errorSpan.innerText === "" && !errorDisplayed) {
             errorSpan.innerText = errorMessage;
             input.classList.add('input-error');
+            errorDisplayed = true; // Pokaż błąd tylko raz
           }
         });
+        
+        // Jeśli nie ma żadnych pól rat, pokaż błąd w pierwszym polu
+        if (!errorDisplayed && installmentInputs.length > 0) {
+          const firstErrorSpan = document.getElementById('error_installment1');
+          if (firstErrorSpan) {
+            firstErrorSpan.innerText = errorMessage;
+            installmentInputs[0].classList.add('input-error');
+          }
+        }
+        
         formValid = false;
       }
 
@@ -1058,10 +1082,14 @@
         
         // Kwota dla Kuby z tej raty
         const kubaInstallment = installmentAmount * (kubaPayoutPercentage / 100);
-        document.getElementById(`installment${installmentId}_kuba`).textContent = formatCurrency(kubaInstallment);
+        const kubaElement = document.getElementById(`installment${installmentId}_kuba`);
+        if (kubaElement) {
+          kubaElement.textContent = formatCurrency(kubaInstallment);
+        }
         
         // Kwoty dla agentów z tej raty
         const agentsSplitContainer = document.getElementById(`installment${installmentId}_agents_split`);
+        if (agentsSplitContainer) {
         agentsSplitContainer.innerHTML = '';
         
         agentInputs.forEach((agentInput, agentIndex) => {
@@ -1080,6 +1108,7 @@
             agentsSplitContainer.appendChild(agentSplitItem);
           }
         });
+        }
       });
       
       // 6. Aktualizacja podziału ostatniej raty
@@ -1116,10 +1145,15 @@
         
         // Wyczyść i dodaj zaktualizowany podział
         const installmentSummary = document.getElementById('installmentSummary');
-        installmentSummary.innerHTML = '';
-        finalInstallmentSplit.appendChild(agentsFinalSplit);
-        installmentSummary.appendChild(finalInstallmentSplit);
+        if (installmentSummary) {
+          installmentSummary.innerHTML = '';
+          finalInstallmentSplit.appendChild(agentsFinalSplit);
+          installmentSummary.appendChild(finalInstallmentSplit);
+        }
       }
+      
+      // Po obliczeniach, wykonaj walidację formularza
+      validateForm();
     }
 
     // Funkcje pomocnicze do formatowania wartości
@@ -1131,18 +1165,33 @@
       return value.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, " ") + '%';
     }
 
+    // Add events for installment fields - register for real-time validation
+    function addInstallmentEvents() {
+      document.querySelectorAll('.installment-amount').forEach(input => {
+        // Remove existing event listeners first to avoid duplicates
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        
+        // Add new event listener
+        newInput.addEventListener('input', function() {
+          updateInputDisplay(this);
+          calculateAll();
+        });
+      });
+    }
+
     // Inicjalizacja dynamicznych pól oraz eventy
     agentsInput.addEventListener('input', () => {
       clampInput(agentsInput);
       renderAgents();
       calculateAll();
-      validateForm();
     });
     
     instInput.addEventListener('input', () => {
       clampInput(instInput);
       renderInstallments();
-      validateForm();
+      setTimeout(addInstallmentEvents, 50); // Add events after the DOM is updated
+      calculateAll();
     });
 
     // Dodanie eventów do pól podstawowych dla obliczeń na żywo
@@ -1173,19 +1222,13 @@
     // Renderuj pola przy starcie
     renderAgents();
     renderInstallments();
+    addInstallmentEvents(); // Dodaj eventy po renderowaniu rat
     calculateAll();
     
     // Inicjalizacja wyświetlania wartości dla istniejących pól
     document.querySelectorAll('.currency-input').forEach(input => {
       if (input.value) {
         updateInputDisplay(input);
-      }
-    });
-
-    // Zapobieganie przesłaniu formularza, jeśli nie jest poprawny
-    document.getElementById('wizardForm').addEventListener('submit', function(e) {
-      if (!validateForm()) {
-        e.preventDefault();
       }
     });
 
