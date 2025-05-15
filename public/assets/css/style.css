@@ -2406,3 +2406,134 @@ option.has-supervisor {
     transform: translateX(-50%);
     white-space: nowrap;
 }
+
+/* Wizard Steps Styling */
+.wizard-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  position: relative;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.wizard-steps::before {
+  content: "";
+  position: absolute;
+  height: 2px;
+  background-color: var(--border-color);
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.wizard-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  cursor: default;
+}
+
+.step-number {
+  width: 40px;
+  height: 40px;
+  background-color: var(--background);
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+}
+
+.step-title {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.wizard-step.active .step-number {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+  box-shadow: 0 0 0 4px rgba(100, 181, 246, 0.2);
+}
+
+.wizard-step.active .step-title {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.wizard-step.completed .step-number {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+.wizard-step.completed .step-title {
+  color: var(--accent-color);
+}
+
+.wizard-step-content {
+  display: none;
+}
+
+.wizard-step-content.active {
+  display: block;
+}
+
+.wizard-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+}
+
+.wizard-actions button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.wizard-actions .btn-next {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.wizard-actions .btn-prev {
+  background-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.wizard-actions .btn-next:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.wizard-actions .btn-prev:hover {
+  background-color: #dce6f1;
+  transform: translateY(-2px);
+}
+
+.wizard-actions .btn-submit {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.wizard-actions .btn-submit:hover {
+  background-color: #66bb6a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}

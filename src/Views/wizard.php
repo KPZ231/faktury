@@ -207,124 +207,241 @@
     <h2>Dodaj rekord do bazy</h2>
 
     <!-- Globalne, ewentualne komunikaty (opcjonalne) -->
-    <div id="globalErrorContainer" style="color:red; font-weight:bold;"></div>
-
-    <fieldset>
-      <legend>Podstawowe dane</legend>
-      <div class="field-group">
-        <label>
-          <span class="field-label">Nazwa sprawy:</span>
-          <input type="text" name="case_name" required>
-          <span class="error-message" id="error_case_name"></span>
-        </label>
-      </div>
-      
-      <div class="field-group">
-        <label>
-          <span class="field-label">Zakończona:</span>
-          <input type="checkbox" name="is_completed">
-        </label>
-      </div>
-      
-      <div class="field-group">
-        <label>
-          <span class="field-label">Wywalczona kwota:</span>
-          <div class="currency-input-wrapper">
-            <input type="number" step="0.01" name="amount_won" id="amount_won" class="currency-input">
-            <span class="currency-display" id="amount_won_display"></span>
-          </div>
-          <span class="error-message" id="error_amount_won"></span>
-        </label>
-      </div>
-      
-      <div class="field-group">
-        <label>
-          <span class="field-label">Opłata wstępna:</span>
-          <div class="currency-input-wrapper">
-            <input type="number" step="0.01" name="upfront_fee" id="upfront_fee" class="currency-input">
-            <span class="currency-display" id="upfront_fee_display"></span>
-          </div>
-          <span class="error-message" id="error_upfront_fee"></span>
-        </label>
-      </div>
-      
-      <div class="field-group">
-        <label>
-          <span class="field-label">Procent success fee:</span>
-          <div class="currency-input-wrapper">
-            <input type="number" step="0.01" name="success_fee_percentage" id="success_fee_percentage" class="currency-input">
-            <span class="currency-display" id="success_fee_percentage_display"></span>
-          </div>
-          <span class="error-message" id="error_success_fee_percentage"></span>
-        </label>
-      </div>
-      
-      <div class="field-group">
-        <label>
-          <span class="field-label">Prowizja Kuby:</span>
-          <div class="currency-input-wrapper">
-            <input type="number" step="0.01" name="kuba_percentage" id="kuba_percentage" class="currency-input">
-            <span class="currency-display" id="kuba_percentage_display"></span>
-          </div>
-          <span class="error-message" id="error_kuba_percentage"></span>
-        </label>
-      </div>
-
-      <!-- Sekcja wyświetlająca wyniki obliczeń -->
-      <div class="calculation-section">
-        <div class="calculation-title">Wyniki obliczeń:</div>
-        <div class="split-item">
-          <span>Całość prowizji:</span>
-          <span id="total_commission">0.00 zł</span>
+    <div id="globalErrorContainer" style="color:red; font-weight:bold;">
+      <?php if (isset($_SESSION['wizard_errors']) && !empty($_SESSION['wizard_errors'])): ?>
+        <div class="error-message">
+          <h3>Błędy walidacji:</h3>
+          <ul>
+            <?php foreach ($_SESSION['wizard_errors'] as $error): ?>
+              <li><?php echo htmlspecialchars($error, ENT_QUOTES); ?></li>
+            <?php endforeach; ?>
+          </ul>
         </div>
-        <div class="split-item">
-          <span>Do wypłaty Kuba:</span>
-          <span id="kuba_payout_percentage">0.00%</span>
-        </div>
-        <div class="split-item">
-          <span>Kwota do wypłaty Kuba:</span>
-          <span id="kuba_payout_amount">0.00 zł</span>
-        </div>
+        <?php 
+          // Ustaw obecny krok na podstawie błędów
+          $currentStep = 1; // Domyślnie krok 1
+          
+          // Jeśli są błędy związane z prowizją Kuby lub agentami/ratami, ustaw krok 2
+          foreach ($_SESSION['wizard_errors'] as $error) {
+            if (strpos($error, 'Kuba') !== false || 
+                strpos($error, 'agent') !== false || 
+                strpos($error, 'rat') !== false) {
+              $currentStep = 2;
+              break;
+            }
+          }
+          
+          // Skrypt JS do ustawienia odpowiedniego kroku po załadowaniu strony
+          echo '<script>window.onload = function() { goToStep(' . $currentStep . '); };</script>';
+          
+          // Usuń błędy z sesji po wyświetleniu
+          unset($_SESSION['wizard_errors']);
+        ?>
+      <?php endif; ?>
+    </div>
+
+    <!-- Wizard Steps Indicators -->
+    <div class="wizard-steps">
+      <div class="wizard-step active" data-step="1">
+        <div class="step-number">1</div>
+        <div class="step-title">Dane podstawowe</div>
       </div>
-    </fieldset>
-
-    <fieldset class="controls">
-      <legend>Konfiguracja</legend>
-      <label>
-        Liczba agentów (0-5):
-        <input id="agentsCount" type="number" min="0" max="5" value="0">
-      </label>
-      <br>
-      <label>
-        Liczba rat (0-6):
-        <input id="installmentsCount" type="number" min="0" max="6" value="0">
-      </label>
-    </fieldset>
-
-    <fieldset id="agentsSection">
-      <legend>Agenci</legend>
-      <!-- Dynamicznie generowane pola agentów -->
-    </fieldset>
-
-    <!-- Tu umieszczamy wspólny kontener na błędy agentów -->
-    <div id="error_agents" class="error-message"></div>
-
-    <fieldset id="installmentsSection">
-      <legend>Raty</legend>
-      <!-- Dynamicznie generowane pola rat -->
-    </fieldset>
-    
-    <!-- Sekcja podsumowania rat -->
-    <fieldset id="installmentSummarySection" style="display: none;">
-      <legend>Podsumowanie rat</legend>
-      <div id="installmentSummary"></div>
-      <div class="split-item">
-        <span>Ostatnia rata:</span>
-        <span id="final_installment">0.00 zł</span>
+      <div class="wizard-step" data-step="2">
+        <div class="step-number">2</div>
+        <div class="step-title">Prowizje i płatności</div>
       </div>
-    </fieldset>
+    </div>
 
-    <button type="submit" class="btn" id="submitButton">Zapisz rekord</button>
+    <!-- Step 1 Content: Basic Case Information -->
+    <div class="wizard-step-content active" id="step1">
+      <fieldset>
+        <legend>Podstawowe dane</legend>
+        <div class="field-group">
+          <label>
+            <span class="field-label">Nazwa sprawy:</span>
+            <select name="case_name" id="case_name" required>
+              <option value="">-- Wybierz nabywcę --</option>
+              <?php if (isset($buyers) && !empty($buyers)): ?>
+                <?php foreach ($buyers as $buyer): ?>
+                  <option value="<?php echo htmlspecialchars($buyer); ?>" <?php echo (isset($_SESSION['wizard_form_data']['case_name']) && $_SESSION['wizard_form_data']['case_name'] === $buyer) ? 'selected' : ''; ?>><?php echo htmlspecialchars($buyer); ?></option>
+                <?php endforeach; ?>
+              <?php else: ?>
+                <option value="" disabled>Brak dostępnych nabywców</option>
+              <?php endif; ?>
+            </select>
+            <span class="error-message" id="error_case_name"></span>
+          </label>
+        </div>
+        
+        <div class="field-group">
+          <label>
+            <span class="field-label">Zakończona:</span>
+            <input type="checkbox" name="is_completed" <?php echo (isset($_SESSION['wizard_form_data']['is_completed']) && $_SESSION['wizard_form_data']['is_completed']) ? 'checked' : ''; ?>>
+          </label>
+        </div>
+        
+        <div class="field-group">
+          <label>
+            <span class="field-label">Wywalczona kwota:</span>
+            <div class="currency-input-wrapper">
+              <input type="number" step="0.01" name="amount_won" id="amount_won" class="currency-input" value="<?php echo isset($_SESSION['wizard_form_data']['amount_won']) ? htmlspecialchars($_SESSION['wizard_form_data']['amount_won']) : ''; ?>">
+              <span class="currency-display" id="amount_won_display"></span>
+            </div>
+            <span class="error-message" id="error_amount_won"></span>
+          </label>
+        </div>
+        
+        <div class="field-group">
+          <label>
+            <span class="field-label">Opłata wstępna:</span>
+            <div class="currency-input-wrapper">
+              <input type="number" step="0.01" name="upfront_fee" id="upfront_fee" class="currency-input" value="<?php echo isset($_SESSION['wizard_form_data']['upfront_fee']) ? htmlspecialchars($_SESSION['wizard_form_data']['upfront_fee']) : ''; ?>">
+              <span class="currency-display" id="upfront_fee_display"></span>
+            </div>
+            <span class="error-message" id="error_upfront_fee"></span>
+          </label>
+        </div>
+        
+        <div class="field-group">
+          <label>
+            <span class="field-label">Procent success fee:</span>
+            <div class="currency-input-wrapper">
+              <input type="number" step="0.01" name="success_fee_percentage" id="success_fee_percentage" class="currency-input" value="<?php echo isset($_SESSION['wizard_form_data']['success_fee_percentage']) ? htmlspecialchars($_SESSION['wizard_form_data']['success_fee_percentage']) : ''; ?>">
+              <span class="currency-display" id="success_fee_percentage_display"></span>
+            </div>
+            <span class="error-message" id="error_success_fee_percentage"></span>
+          </label>
+        </div>
+
+        <!-- Sekcja wyświetlająca wyniki obliczeń -->
+        <div class="calculation-section">
+          <div class="calculation-title">Wyniki obliczeń:</div>
+          <div class="split-item">
+            <span>Całość prowizji:</span>
+            <span id="total_commission">0.00 zł</span>
+          </div>
+        </div>
+      </fieldset>
+      
+      <div class="wizard-actions">
+        <div></div> <!-- Empty div for flex spacing -->
+        <button type="button" class="btn-next">Przejdź dalej <i class="fas fa-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- Step 2 Content: Agents and Installments -->
+    <div class="wizard-step-content" id="step2">
+      <fieldset>
+        <legend>Prowizja Kuby</legend>
+        <div class="field-group">
+          <label>
+            <span class="field-label">Prowizja Kuby:</span>
+            <div class="currency-input-wrapper">
+              <input type="number" step="0.01" name="kuba_percentage" id="kuba_percentage" class="currency-input" value="<?php echo isset($_SESSION['wizard_form_data']['kuba_percentage']) ? htmlspecialchars($_SESSION['wizard_form_data']['kuba_percentage']) : ''; ?>">
+              <span class="currency-display" id="kuba_percentage_display"></span>
+            </div>
+            <span class="error-message" id="error_kuba_percentage"></span>
+          </label>
+        </div>
+
+        <!-- Sekcja wyników obliczeń dla Kuby -->
+        <div class="calculation-section">
+          <div class="calculation-title">Wyniki obliczeń dla Kuby:</div>
+          <div class="split-item">
+            <span>Do wypłaty Kuba:</span>
+            <span id="kuba_payout_percentage">0.00%</span>
+          </div>
+          <div class="split-item">
+            <span>Kwota do wypłaty Kuba:</span>
+            <span id="kuba_payout_amount">0.00 zł</span>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="controls">
+        <legend>Konfiguracja</legend>
+        <label>
+          Liczba agentów (0-5):
+          <input id="agentsCount" type="number" min="0" max="5" value="<?php 
+            // Oblicz liczbę agentów na podstawie zapisanych danych
+            if (isset($_SESSION['wizard_form_data'])) {
+              $agentCount = 0;
+              for ($i = 1; $i <= 5; $i++) {
+                if (isset($_SESSION['wizard_form_data']["agent{$i}_id_agenta"]) && !empty($_SESSION['wizard_form_data']["agent{$i}_id_agenta"])) {
+                  $agentCount++;
+                }
+              }
+              echo $agentCount;
+            } else {
+              echo "0";
+            }
+          ?>">
+        </label>
+        <br>
+        <label>
+          Liczba rat (0-6):
+          <input id="installmentsCount" type="number" min="0" max="6" value="<?php 
+            // Oblicz liczbę rat na podstawie zapisanych danych
+            if (isset($_SESSION['wizard_form_data'])) {
+              $installmentCount = 0;
+              for ($i = 1; $i <= 6; $i++) {
+                if (isset($_SESSION['wizard_form_data']["installment{$i}_amount"]) && $_SESSION['wizard_form_data']["installment{$i}_amount"] !== '') {
+                  $installmentCount++;
+                }
+              }
+              echo $installmentCount;
+            } else {
+              echo "0";
+            }
+          ?>">
+        </label>
+      </fieldset>
+
+      <!-- Ukryte pola przechowujące poprzednie wartości agentów i rat -->
+      <?php if (isset($_SESSION['wizard_form_data'])): ?>
+        <?php for ($i = 1; $i <= 5; $i++): ?>
+          <?php if (isset($_SESSION['wizard_form_data']["agent{$i}_id_agenta"]) && isset($_SESSION['wizard_form_data']["agent{$i}_percentage"])): ?>
+            <input type="hidden" id="saved_agent<?php echo $i; ?>_id" value="<?php echo htmlspecialchars($_SESSION['wizard_form_data']["agent{$i}_id_agenta"]); ?>">
+            <input type="hidden" id="saved_agent<?php echo $i; ?>_percentage" value="<?php echo htmlspecialchars($_SESSION['wizard_form_data']["agent{$i}_percentage"]); ?>">
+          <?php endif; ?>
+        <?php endfor; ?>
+        
+        <?php for ($i = 1; $i <= 6; $i++): ?>
+          <?php if (isset($_SESSION['wizard_form_data']["installment{$i}_amount"])): ?>
+            <input type="hidden" id="saved_installment<?php echo $i; ?>_amount" value="<?php echo htmlspecialchars($_SESSION['wizard_form_data']["installment{$i}_amount"]); ?>">
+          <?php endif; ?>
+        <?php endfor; ?>
+      <?php endif; ?>
+
+      <fieldset id="agentsSection">
+        <legend>Agenci</legend>
+        <!-- Dynamicznie generowane pola agentów -->
+      </fieldset>
+
+      <!-- Tu umieszczamy wspólny kontener na błędy agentów -->
+      <div id="error_agents" class="error-message"></div>
+
+      <fieldset id="installmentsSection">
+        <legend>Raty</legend>
+        <!-- Dynamicznie generowane pola rat -->
+      </fieldset>
+      
+      <!-- Sekcja podsumowania rat -->
+      <fieldset id="installmentSummarySection" style="display: none;">
+        <legend>Podsumowanie rat</legend>
+        <div id="installmentSummary"></div>
+        <div class="split-item">
+          <span>Ostatnia rata:</span>
+          <span id="final_installment">0.00 zł</span>
+        </div>
+      </fieldset>
+
+      <div class="wizard-actions">
+        <button type="button" class="btn-prev"><i class="fas fa-arrow-left"></i> Wróć</button>
+        <button type="submit" class="btn btn-submit" id="submitButton">Zapisz rekord</button>
+      </div>
+    </div>
+
   </form>
 
   <script>
@@ -336,6 +453,103 @@
 
     // Lista agentów pobrana z PHP
     const agents = <?php echo json_encode($agents); ?>;
+    
+    // Wizard steps variables
+    const wizardSteps = document.querySelectorAll('.wizard-step');
+    const stepContents = document.querySelectorAll('.wizard-step-content');
+    const nextButton = document.querySelector('.btn-next');
+    const prevButton = document.querySelector('.btn-prev');
+    let currentStep = 1;
+    
+    // Add event listeners for step navigation
+    if (nextButton) {
+      nextButton.addEventListener('click', function() {
+        if (validateStep(currentStep)) {
+          goToStep(currentStep + 1);
+        }
+      });
+    }
+    
+    if (prevButton) {
+      prevButton.addEventListener('click', function() {
+        goToStep(currentStep - 1);
+      });
+    }
+    
+    // Function to navigate between steps
+    function goToStep(stepNumber) {
+      // Hide all steps
+      stepContents.forEach(step => {
+        step.classList.remove('active');
+      });
+      
+      // Update step indicators
+      wizardSteps.forEach(step => {
+        const stepNum = parseInt(step.dataset.step);
+        step.classList.remove('active', 'completed');
+        
+        if (stepNum === stepNumber) {
+          step.classList.add('active');
+        } else if (stepNum < stepNumber) {
+          step.classList.add('completed');
+        }
+      });
+      
+      // Show current step
+      document.getElementById('step' + stepNumber).classList.add('active');
+      currentStep = stepNumber;
+      
+      // If we're on step 2, make sure calculations are up to date
+      if (currentStep === 2) {
+        calculateAll();
+      }
+    }
+    
+    // Function to validate a specific step
+    function validateStep(stepNumber) {
+      let isValid = true;
+      
+      if (stepNumber === 1) {
+        // Clear error messages
+        document.getElementById('error_case_name').innerText = "";
+        document.getElementById('error_amount_won').innerText = "";
+        document.getElementById('error_upfront_fee').innerText = "";
+        document.getElementById('error_success_fee_percentage').innerText = "";
+        
+        // Case name validation
+        const caseNameInput = document.querySelector('select[name="case_name"]');
+        const caseName = caseNameInput.value.trim();
+        if (!caseName) {
+          document.getElementById('error_case_name').innerText = "Nazwa sprawy jest wymagana.";
+          caseNameInput.classList.add('input-error');
+          isValid = false;
+        } else {
+          caseNameInput.classList.remove('input-error');
+        }
+        
+        // Numeric fields validation
+        const numericFields = ["amount_won", "upfront_fee", "success_fee_percentage"];
+        numericFields.forEach(fieldName => {
+          const input = document.querySelector(`input[name="${fieldName}"]`);
+          const errorEl = document.getElementById(`error_${fieldName}`);
+          if (input.value !== "") {
+            const num = parseFloat(input.value);
+            if (isNaN(num) || num < 0) {
+              errorEl.innerText = `Pole "${fieldName}" musi być liczbą nieujemną.`;
+              input.classList.add('input-error');
+              isValid = false;
+            } else {
+              input.classList.remove('input-error');
+            }
+          } else {
+            errorEl.innerText = "";
+            input.classList.remove('input-error');
+          }
+        });
+      }
+      
+      return isValid;
+    }
     
     // Funkcja do aktualizacji wyświetlania wartości w polach walutowych
     function updateInputDisplay(input) {
@@ -377,7 +591,7 @@
       }
     }
 
-    // Funkcja renderująca pola agentów
+    // Funkcja renderująca pola agentów z uwzględnieniem zapisanych wartości
     function renderAgents() {
       // Czyścimy zawartość sekcji
       agentsSection.innerHTML = '<legend>Agenci</legend>';
@@ -415,6 +629,13 @@
           const option = document.createElement('option');
           option.value = agent.id_agenta;
           option.textContent = agent.nazwa_agenta;
+          
+          // Sprawdź czy to opcja zapisana wcześniej
+          const savedAgentId = document.getElementById(`saved_agent${i}_id`);
+          if (savedAgentId && savedAgentId.value === agent.id_agenta) {
+            option.selected = true;
+          }
+          
           select.appendChild(option);
         });
 
@@ -435,6 +656,13 @@
         percentInput.name = `agent${i}_percentage`;
         percentInput.id = `agent${i}_percentage`;
         percentInput.className = 'agent-percentage currency-input';
+        
+        // Sprawdź czy jest zapisana wartość procentowa
+        const savedAgentPercentage = document.getElementById(`saved_agent${i}_percentage`);
+        if (savedAgentPercentage) {
+          percentInput.value = savedAgentPercentage.value;
+        }
+        
         percentInput.addEventListener('input', function() {
           calculateAll();
           updateInputDisplay(this);
@@ -471,6 +699,13 @@
       
       // Aktualizujemy dropdowny, aby wyłączyć już wybrane opcje
       updateAgentDropdowns();
+      
+      // Aktualizuj wyświetlane wartości
+      document.querySelectorAll('.agent-percentage').forEach(input => {
+        if (input.value) {
+          updateInputDisplay(input);
+        }
+      });
     }
     
     // Funkcja aktualizująca dostępność opcji w dropdownach agentów
@@ -508,7 +743,7 @@
       }
     }
 
-    // Funkcja renderująca pola rat
+    // Funkcja renderująca pola rat z uwzględnieniem zapisanych wartości
     function renderInstallments() {
       instSection.innerHTML = '<legend>Raty</legend>';
       const count = Number(instInput.value);
@@ -530,6 +765,13 @@
         input.name = `installment${i}_amount`;
         input.id = `installment${i}_amount`;
         input.className = 'installment-amount currency-input';
+        
+        // Sprawdź czy jest zapisana wartość raty
+        const savedInstallmentAmount = document.getElementById(`saved_installment${i}_amount`);
+        if (savedInstallmentAmount) {
+          input.value = savedInstallmentAmount.value;
+        }
+        
         input.addEventListener('input', function() {
           calculateAll();
           updateInputDisplay(this);
@@ -575,6 +817,13 @@
         installmentSummarySection.style.display = 'none';
       }
       
+      // Aktualizuj wyświetlane wartości
+      document.querySelectorAll('.installment-amount').forEach(input => {
+        if (input.value) {
+          updateInputDisplay(input);
+        }
+      });
+      
       // Wywołaj obliczenia, aby zaktualizować wartości
       calculateAll();
     }
@@ -602,7 +851,7 @@
       });
 
       // 1. Walidacja pola nazwy sprawy
-      const caseNameInput = document.querySelector('input[name="case_name"]');
+      const caseNameInput = document.querySelector('select[name="case_name"]');
       const caseName = caseNameInput.value.trim();
       if (!caseName) {
         document.getElementById('error_case_name').innerText = "Nazwa sprawy jest wymagana.";
@@ -914,8 +1163,12 @@
       updateInputDisplay(this);
     });
 
-    // Walidacja formularza na każdej zmianie
-    document.getElementById('wizardForm').addEventListener('input', validateForm);
+    // Walidacja formularza przed wysłaniem
+    document.getElementById('wizardForm').addEventListener('submit', function(e) {
+      if (!validateForm()) {
+        e.preventDefault();
+      }
+    });
 
     // Renderuj pola przy starcie
     renderAgents();
@@ -935,6 +1188,11 @@
         e.preventDefault();
       }
     });
+
+    // Po inicjalizacji, usuń dane formularza z sesji
+    <?php if (isset($_SESSION['wizard_form_data'])): ?>
+      <?php unset($_SESSION['wizard_form_data']); ?>
+    <?php endif; ?>
   </script>
 </body>
 

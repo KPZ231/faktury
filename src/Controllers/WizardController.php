@@ -20,6 +20,18 @@ class WizardController
     public function show(): void
     {
         error_log("WizardController::show - Start");
+        
+        // Fetch buyers (nabywcy) from faktury table to populate case name dropdown
+        try {
+            $stmt = $this->db->prepare("SELECT DISTINCT nabywca_nazwa_historyczna FROM faktury WHERE nabywca_nazwa_historyczna IS NOT NULL ORDER BY nabywca_nazwa_historyczna");
+            $stmt->execute();
+            $buyers = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            error_log("WizardController::show - Fetched " . count($buyers) . " buyers from faktury table");
+        } catch (\PDOException $e) {
+            error_log("WizardController::show - Error fetching buyers: " . $e->getMessage());
+            $buyers = [];
+        }
+        
         include __DIR__ . '../../views/wizard.php';
         error_log("WizardController::show - Widok wizarda wyrenderowany");
     }
@@ -113,14 +125,15 @@ class WizardController
             }
         }
 
-        // Jeśli wykryto błąd walidacji, wypisz je i zatrzymaj działanie
+        // Jeśli wykryto błąd walidacji, przekieruj z powrotem do formularza z błędami
         if (count($errors) > 0) {
             error_log("WizardController::store - Znaleziono " . count($errors) . " błędów walidacji");
-            echo "<div style='color:red;'><h3>Błędy walidacji:</h3><ul>";
-            foreach ($errors as $error) {
-                echo "<li>" . htmlspecialchars($error, ENT_QUOTES) . "</li>";
-            }
-            echo "</ul></div>";
+            
+            // Przygotuj komunikat błędu i przekieruj do formularza
+            $_SESSION['wizard_errors'] = $errors;
+            $_SESSION['wizard_form_data'] = $data; // Zachowanie danych formularza
+
+            header('Location: /wizard', true, 302);
             exit;
         }
 
@@ -313,6 +326,8 @@ class WizardController
         }
 
         error_log("WizardController::store - Zakończono dodawanie sprawy, przekierowanie do /wizard");
+        
+        // Ustaw komunikat powodzenia i przekieruj
         header('Location: /wizard?success=1', true, 302);
         exit;
     }
