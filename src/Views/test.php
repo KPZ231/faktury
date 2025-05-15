@@ -375,7 +375,7 @@ syncPaymentStatuses($pdo);
         }
         
         /* Enhanced styling for paid invoices */
-        .agent-payout.zaplecono-faktura {
+        .agent-payout.zaplacono-faktura {
             background-color: #d4edda;
             border-left: 3px solid #28a745;
             padding: 8px 10px;
@@ -384,7 +384,7 @@ syncPaymentStatuses($pdo);
             box-shadow: 0 2px 5px rgba(40, 167, 69, 0.1);
         }
         
-        .agent-payout.zaplecono-faktura:hover {
+        .agent-payout.zaplacono-faktura:hover {
             background-color: #c3e6cb;
             box-shadow: 0 4px 8px rgba(40, 167, 69, 0.15);
         }
@@ -446,26 +446,15 @@ syncPaymentStatuses($pdo);
             color: #2c3e50;
         }
         
-        .agent-payout.kuba-payout {
-            background-color: #fff3cd;
-            border-left: 3px solid #ffc107;
-            padding: 8px 10px;
-            border-radius: 4px;
-        }
+        /* Removed special styling for Kuba's entries */
         
-        /* When both Kuba and paid, make the green style take precedence */
-        .agent-payout.kuba-payout.zaplecono-faktura {
-            background-color: #d4edda;
-            border-left: 3px solid #28a745;
-        }
-        
-        .agent-payout:not(.kuba-payout) {
+        .agent-payout {
             background-color: #f8f9fa;
-            border-left: 3px solid #6c757d;
+            border-left: 3px solid #007bff;
             padding: 8px 10px;
             border-radius: 4px;
+            margin-bottom: 5px;
         }
-        
         .agent-payout {
             position: relative;
             margin-bottom: 10px;
@@ -1479,7 +1468,7 @@ syncPaymentStatuses($pdo);
                                                             
                                                             <?php if ($czyOplacone && $numerFaktury): ?>
                                                                 <div class="status-zapłacono">Zapłacono (Faktura: <?php echo htmlspecialchars($numerFaktury); ?>)</div>
-                                                            <?php elseif ($czyRataOplacona): ?>
+                                                            <?php elseif ($czyRataOplacona && !$czyOplacone): ?>
                                                                 <a href="#" class="uzupelnij-link" onclick="openPaymentModal('payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_<?php echo $agent_id; ?>')">Uzupełnij</a>
                                                             <?php endif; ?>
                                                         </div>
@@ -1503,9 +1492,9 @@ syncPaymentStatuses($pdo);
                                                 $numerFaktury = $platnosc ? $platnosc['numer_faktury'] : null;
                                                 
                                                 // Ustaw klasy CSS na podstawie statusu
-                                                $kubaPayoutClass = 'kuba-payout';
+                                                $kubaPayoutClass = 'agent-payout';
                                                 if ($czyOplacone) {
-                                                    $kubaPayoutClass .= ' zaplecono-faktura';
+                                                    $kubaPayoutClass .= ' zaplacono-faktura';
                                                 }
                                 ?>
                                                 <div class="agent-payout <?php echo $kubaPayoutClass; ?>" data-payment-id="payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_kuba">
@@ -1514,7 +1503,7 @@ syncPaymentStatuses($pdo);
                                                     
                                                     <?php if ($czyOplacone && $numerFaktury): ?>
                                                         <div class="status-zapłacono">Zapłacono (Faktura: <?php echo htmlspecialchars($numerFaktury); ?>)</div>
-                                                    <?php elseif ($czyRataOplacona): ?>
+                                                    <?php elseif ($czyRataOplacona && !$czyOplacone): ?>
                                                         <a href="#" class="uzupelnij-link" onclick="openPaymentModal('payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_kuba')">Uzupełnij</a>
                                                     <?php endif; ?>
                                                 </div>
@@ -1977,6 +1966,51 @@ syncPaymentStatuses($pdo);
             console.error('Error accessing localStorage:', localStorageError);
         }
 
+        // Function to update payment status
+        async function updatePaymentStatus(caseId, installmentDesc, agentId) {
+            try {
+                const response = await fetch(`/get-payment-status?case_id=${caseId}&installment_desc=${encodeURIComponent(installmentDesc)}&agent_id=${agentId}`);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const data = await response.json();
+                
+                // Update UI based on payment status
+                const statusElement = document.querySelector(`[data-payment-status="${caseId}-${installmentDesc}-${agentId}"]`);
+                const linkElement = document.querySelector(`[data-payment-link="${caseId}-${installmentDesc}-${agentId}"]`);
+                
+                if (statusElement) {
+                    if (data.status) {
+                        statusElement.textContent = 'Zapłacono';
+                        statusElement.classList.add('status-zapłacono');
+                        if (linkElement) linkElement.style.display = 'none';
+                    } else {
+                        statusElement.textContent = '';
+                        statusElement.classList.remove('status-zapłacono');
+                        if (linkElement) linkElement.style.display = 'inline-block';
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching payment status:', error);
+            }
+        }
+
+        // Function to refresh all payment statuses on the page
+        function refreshAllPaymentStatuses() {
+            const paymentElements = document.querySelectorAll('[data-payment-status]');
+            paymentElements.forEach(element => {
+                const [caseId, installmentDesc, agentId] = element.getAttribute('data-payment-status').split('-');
+                updatePaymentStatus(caseId, installmentDesc, agentId);
+            });
+        }
+
+        // Refresh payment statuses when page loads
+        refreshAllPaymentStatuses();
+
+        // Add event listener for payment updates
+        document.addEventListener('paymentUpdated', function(e) {
+            const { caseId, installmentDesc, agentId } = e.detail;
+            updatePaymentStatus(caseId, installmentDesc, agentId);
+        });
+
         // Funkcja do obsługi wyszukiwania
         const searchInput = document.getElementById('searchInput');
         const rows = document.querySelectorAll('tr[data-sprawa-id]');
@@ -2140,6 +2174,9 @@ syncPaymentStatuses($pdo);
                 document.body.classList.add('nav-expanded');
             }
         }
+        
+        // Set up interval to refresh payment statuses periodically
+        setInterval(refreshAllPaymentStatuses, 60000); // Refresh every minute
     });
 
     // Modal logic
