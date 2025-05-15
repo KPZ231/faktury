@@ -1558,7 +1558,7 @@ syncPaymentStatuses($pdo);
                                 </td>
                             <?php endforeach; ?>
                             <td class="action-cell">
-                                <a href="/sprawy/<?php echo $sprawa['id_sprawy']; ?>/edit" class="action-btn edit" title="Edytuj">
+                                <a href="/wizard?id=<?php echo $sprawa['id_sprawy']; ?>" class="action-btn edit" title="Edytuj">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </a>
                                 <button type="button" class="action-btn delete" 

@@ -234,7 +234,12 @@
   ?>
 
   <form id="wizardForm" method="post" action="/wizard">
+    <?php if (isset($_SESSION['wizard_form_data']['case_id']) && !empty($_SESSION['wizard_form_data']['case_id'])): ?>
+    <h2>Edytuj sprawę ID: <?php echo htmlspecialchars($_SESSION['wizard_form_data']['case_id']); ?></h2>
+    <input type="hidden" name="case_id" value="<?php echo htmlspecialchars($_SESSION['wizard_form_data']['case_id']); ?>">
+    <?php else: ?>
     <h2>Dodaj rekord do bazy</h2>
+    <?php endif; ?>
 
     <!-- Globalne, ewentualne komunikaty (opcjonalne) -->
     <div id="globalErrorContainer" style="color:red; font-weight:bold;">
@@ -489,7 +494,9 @@
 
       <div class="wizard-actions">
         <button type="button" class="btn-prev"><i class="fas fa-arrow-left"></i> Wróć</button>
-        <button type="submit" class="btn btn-submit" id="submitButton">Zapisz rekord</button>
+        <button type="submit" class="btn btn-submit" id="submitButton">
+          <?php echo isset($_SESSION['wizard_form_data']['case_id']) ? 'Zapisz zmiany' : 'Zapisz rekord'; ?>
+        </button>
       </div>
     </div>
 

@@ -21,6 +21,31 @@ class WizardController
     {
         error_log("WizardController::show - Start");
         
+        // Initialize variables for case data
+        $caseData = null;
+        $agents = [];
+        
+        // Check if we're editing an existing case (id passed in URL)
+        $caseId = isset($_GET['id']) ? (int)$_GET['id'] : null;
+        
+        // If we have a case ID, fetch the data for editing
+        if ($caseId) {
+            error_log("WizardController::show - Editing existing case with ID: {$caseId}");
+            $caseData = $this->getCaseData($caseId);
+            
+            if ($caseData) {
+                // Store case data in the session for form population
+                $_SESSION['wizard_form_data'] = $caseData;
+                error_log("WizardController::show - Successfully loaded case data for editing");
+            } else {
+                error_log("WizardController::show - Failed to load case data for ID: {$caseId}");
+                // Redirect to wizard with error message
+                $_SESSION['wizard_errors'] = ["Nie znaleziono sprawy o ID: {$caseId}"];
+                header('Location: /wizard', true, 302);
+                exit;
+            }
+        }
+        
         // Fetch buyers (nabywcy) from faktury table to populate case name dropdown
         try {
             $stmt = $this->db->prepare("SELECT DISTINCT Nabywca FROM faktury WHERE Nabywca IS NOT NULL ORDER BY Nabywca");
@@ -30,6 +55,16 @@ class WizardController
         } catch (\PDOException $e) {
             error_log("WizardController::show - Error fetching buyers: " . $e->getMessage());
             $buyers = [];
+        }
+        
+        // Fetch all agents for dropdown selection
+        try {
+            $stmt = $this->db->prepare("SELECT id_agenta, nazwa_agenta FROM agenci ORDER BY nazwa_agenta");
+            $stmt->execute();
+            $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("WizardController::show - Fetched " . count($agents) . " agents from agenci table");
+        } catch (\PDOException $e) {
+            error_log("WizardController::show - Error fetching agents: " . $e->getMessage());
         }
         
         include __DIR__ . '../../views/wizard.php';
@@ -43,6 +78,16 @@ class WizardController
         $data = $_POST;
         error_log("WizardController::store - Otrzymane dane: " . print_r($data, true));
         $errors = [];
+
+        // Check if we're updating an existing case
+        $isUpdate = isset($data['case_id']) && !empty($data['case_id']);
+        $caseId = $isUpdate ? (int)$data['case_id'] : null;
+        
+        if ($isUpdate) {
+            error_log("WizardController::store - Updating existing case with ID: {$caseId}");
+        } else {
+            error_log("WizardController::store - Creating new case");
+        }
 
         // Sprawdź, czy mamy nazwę sprawy (albo z selecta albo z ręcznego wprowadzania)
         $hasValidCaseName = false;
@@ -152,7 +197,9 @@ class WizardController
             $_SESSION['wizard_errors'] = $errors;
             $_SESSION['wizard_form_data'] = $data; // Zachowanie danych formularza
 
-            header('Location: /wizard', true, 302);
+            // If updating, include the case ID in the redirect
+            $redirectUrl = $isUpdate ? "/wizard?id={$caseId}" : "/wizard";
+            header('Location: ' . $redirectUrl, true, 302);
             exit;
         }
 
@@ -226,13 +273,37 @@ class WizardController
             }
         }
 
-        $sql = "INSERT INTO `sprawy` (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $values) . ")";
-        error_log("WizardController::store - SQL insert: " . $sql);
-        $this->db->exec($sql);
-        
-        // Pobierz ID ostatnio wstawionego rekordu
-        $newCaseId = $this->db->lastInsertId();
-        error_log("WizardController::store - Dodano nową sprawę, ID: {$newCaseId}");
+        // If we're updating an existing case
+        if ($isUpdate) {
+            // Prepare SET statements for UPDATE
+            $setStatements = [];
+            for ($i = 0; $i < count($columns); $i++) {
+                $setStatements[] = "`{$columns[$i]}` = {$values[$i]}";
+            }
+            
+            $sql = "UPDATE `sprawy` SET " . implode(', ', $setStatements) . " WHERE id_sprawy = " . $this->db->quote($caseId);
+            error_log("WizardController::store - SQL update: " . $sql);
+            $this->db->exec($sql);
+            
+            // Delete existing agent associations to recreate them
+            $this->db->exec("DELETE FROM prowizje_agentow_spraw WHERE id_sprawy = " . $this->db->quote($caseId));
+            error_log("WizardController::store - Deleted existing agent associations for case ID: {$caseId}");
+            
+            // Delete existing installments to recreate them
+            $this->db->exec("DELETE FROM oplaty_spraw WHERE id_sprawy = " . $this->db->quote($caseId));
+            error_log("WizardController::store - Deleted existing installments for case ID: {$caseId}");
+            
+            $newCaseId = $caseId;
+        } else {
+            // Insert new case
+            $sql = "INSERT INTO `sprawy` (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $values) . ")";
+            error_log("WizardController::store - SQL insert: " . $sql);
+            $this->db->exec($sql);
+            
+            // Pobierz ID ostatnio wstawionego rekordu
+            $newCaseId = $this->db->lastInsertId();
+            error_log("WizardController::store - Dodano nową sprawę, ID: {$newCaseId}");
+        }
         
         // Dodajemy powiązania agentów z nową sprawą
         error_log("WizardController::store - Rozpoczęcie dodawania powiązań agentów");
@@ -344,10 +415,126 @@ class WizardController
             error_log("WizardController::store - Dodano ostatnią ratę do tabeli oplaty_spraw");
         }
 
-        error_log("WizardController::store - Zakończono dodawanie sprawy, przekierowanie do /wizard");
+        error_log("WizardController::store - Zakończono " . ($isUpdate ? "aktualizację" : "dodawanie") . " sprawy, przekierowanie do /wizard");
         
         // Ustaw komunikat powodzenia i przekieruj
         header('Location: /wizard?success=1', true, 302);
         exit;
+    }
+
+    /**
+     * Get case data for editing
+     * 
+     * @param int $caseId The ID of the case to retrieve
+     * @return array|null Case data or null if not found
+     */
+    private function getCaseData(int $caseId): ?array
+    {
+        error_log("WizardController::getCaseData - Loading case with ID: {$caseId}");
+        
+        try {
+            // Fetch basic case data
+            $stmt = $this->db->prepare("
+                SELECT 
+                    id_sprawy,
+                    identyfikator_sprawy,
+                    czy_zakonczona,
+                    wywalczona_kwota,
+                    oplata_wstepna,
+                    stawka_success_fee,
+                    uwagi
+                FROM sprawy
+                WHERE id_sprawy = ?
+            ");
+            $stmt->execute([$caseId]);
+            $caseData = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$caseData) {
+                error_log("WizardController::getCaseData - Case not found with ID: {$caseId}");
+                return null;
+            }
+            
+            // Map database fields to form fields
+            $formData = [
+                'case_id' => $caseData['id_sprawy'],
+                'case_name' => $caseData['identyfikator_sprawy'],
+                'manual_case_name' => $caseData['identyfikator_sprawy'],
+                'is_completed' => $caseData['czy_zakonczona'] ? 1 : 0,
+                'amount_won' => $caseData['wywalczona_kwota'],
+                'upfront_fee' => $caseData['oplata_wstepna'],
+                'success_fee_percentage' => $caseData['stawka_success_fee'] * 100, // Convert from decimal to percentage
+                'uwagi' => $caseData['uwagi'] ?? '',
+            ];
+            
+            // Get Kuba's commission percentage
+            $stmt = $this->db->prepare("
+                SELECT pas.udzial_prowizji_proc
+                FROM prowizje_agentow_spraw pas
+                JOIN agenci a ON pas.id_agenta = a.id_agenta
+                WHERE pas.id_sprawy = ?
+                AND LOWER(a.nazwa_agenta) IN ('jakub', 'kuba')
+                LIMIT 1
+            ");
+            $stmt->execute([$caseId]);
+            $kubaData = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($kubaData) {
+                $formData['kuba_percentage'] = $kubaData['udzial_prowizji_proc'] * 100; // Convert from decimal to percentage
+            }
+            
+            // Get agents associated with this case
+            $stmt = $this->db->prepare("
+                SELECT pas.id_agenta, pas.udzial_prowizji_proc
+                FROM prowizje_agentow_spraw pas
+                JOIN agenci a ON pas.id_agenta = a.id_agenta
+                WHERE pas.id_sprawy = ?
+                AND LOWER(a.nazwa_agenta) NOT IN ('jakub', 'kuba')
+            ");
+            $stmt->execute([$caseId]);
+            $agents = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Add agent data to form data
+            $agentIndex = 1;
+            foreach ($agents as $agent) {
+                if ($agentIndex <= 5) { // Maximum 5 agents
+                    $formData["agent{$agentIndex}_id_agenta"] = $agent['id_agenta'];
+                    $formData["agent{$agentIndex}_percentage"] = $agent['udzial_prowizji_proc'] * 100; // Convert from decimal to percentage
+                    $agentIndex++;
+                }
+            }
+            
+            // Get installments
+            $stmt = $this->db->prepare("
+                SELECT opis_raty, oczekiwana_kwota
+                FROM oplaty_spraw
+                WHERE id_sprawy = ?
+                AND opis_raty != 'Rata końcowa'
+                ORDER BY opis_raty
+            ");
+            $stmt->execute([$caseId]);
+            $installments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Add installment data to form data
+            $installmentIndex = 1;
+            foreach ($installments as $installment) {
+                if ($installmentIndex <= 6) { // Maximum 6 installments
+                    // Extract installment number from "Rata X"
+                    if (preg_match('/Rata (\d+)/', $installment['opis_raty'], $matches)) {
+                        $index = (int)$matches[1];
+                        if ($index >= 1 && $index <= 6) {
+                            $formData["installment{$index}_amount"] = $installment['oczekiwana_kwota'];
+                        }
+                    }
+                    $installmentIndex++;
+                }
+            }
+            
+            error_log("WizardController::getCaseData - Successfully loaded case data with " . count($agents) . " agents and " . count($installments) . " installments");
+            return $formData;
+            
+        } catch (\PDOException $e) {
+            error_log("WizardController::getCaseData - Error loading case data: " . $e->getMessage());
+            return null;
+        }
     }
 }
