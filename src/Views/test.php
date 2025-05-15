@@ -64,27 +64,45 @@ while ($sprawa = $sprawyStmt->fetch(PDO::FETCH_ASSOC)) {
     // Map the installment fields from oplaty_spraw
     $sprawa['oplaty'] = [];
     foreach ($ratyOpis as $opisRaty) {
-        $stmt = $pdo->prepare("SELECT oczekiwana_kwota, czy_oplacona FROM oplaty_spraw WHERE id_sprawy = ? AND opis_raty = ?");
+        $stmt = $pdo->prepare("SELECT oczekiwana_kwota, czy_oplacona, faktura_id FROM oplaty_spraw WHERE id_sprawy = ? AND opis_raty = ?");
         $stmt->execute([$id_sprawy, $opisRaty]);
         $rata = $stmt->fetch(PDO::FETCH_ASSOC);
         $sprawa['oplaty'][$opisRaty] = [
             'kwota' => $rata['oczekiwana_kwota'] ?? null,
             'is_paid_display' => (bool)($rata['czy_oplacona'] ?? false),
-            'faktura_id' => null,
+            'faktura_id' => $rata['faktura_id'] ?? null,
             'paying_invoice_number' => null
         ];
     }
 
     // Get commission payment info from agenci_wyplaty (new schema)
+    // This is the key change - properly retrieve all agent payment data
     $sprawa['prowizje_raty'] = [];
-    $stmt = $pdo->prepare("SELECT id_agenta, opis_raty, kwota, czy_oplacone, numer_faktury FROM agenci_wyplaty WHERE id_sprawy = ?");
-    $stmt->execute([$id_sprawy]);
-    while ($prow = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $sprawa['prowizje_raty'][$prow['opis_raty']][$prow['id_agenta']] = [
-            'kwota' => $prow['kwota'],
-            'czy_oplacone' => (bool)$prow['czy_oplacone'],
-            'numer_faktury' => $prow['numer_faktury']
+    foreach ($ratyOpis as $opisRaty) {
+        // Fix: Use proper format matching what's stored in the database
+        // Create all possible variations of the payment description to account for case differences
+        $paymentDescOptions = [
+            'Prowizja ' . $opisRaty,
+            'Prowizja Rata ' . str_replace('Rata ', '', $opisRaty),
+            'Prowizja rata ' . str_replace('Rata ', '', $opisRaty)
         ];
+        
+        $placeholders = implode(',', array_fill(0, count($paymentDescOptions), '?'));
+        $params = array_merge([$id_sprawy], $paymentDescOptions);
+        
+        $stmt = $pdo->prepare("SELECT id_agenta, kwota, czy_oplacone, numer_faktury, opis_raty FROM agenci_wyplaty 
+                              WHERE id_sprawy = ? 
+                              AND opis_raty IN ($placeholders)");
+        $stmt->execute($params);
+        
+        while ($prow = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $sprawa['prowizje_raty'][$opisRaty][$prow['id_agenta']] = [
+                'kwota' => $prow['kwota'],
+                'czy_oplacone' => (bool)$prow['czy_oplacone'],
+                'numer_faktury' => $prow['numer_faktury'],
+                'opis_raty' => $prow['opis_raty'] // Add this to track which format was found
+            ];
+        }
     }
 
     $sprawyData[$id_sprawy] = $sprawa;
@@ -95,7 +113,7 @@ function syncPaymentStatuses($pdo) {
     // Update payment statuses based on agenci_wyplaty table
     $updateQuery = "UPDATE oplaty_spraw os
                    JOIN agenci_wyplaty aw ON os.id_sprawy = aw.id_sprawy 
-                   AND os.opis_raty COLLATE utf8mb4_polish_ci = aw.opis_raty
+                   AND os.opis_raty COLLATE utf8mb4_polish_ci = REPLACE(aw.opis_raty, 'Prowizja ', '')
                    SET os.czy_oplacona = aw.czy_oplacone
                    WHERE aw.czy_oplacone = 1";
     $pdo->exec($updateQuery);
@@ -1450,14 +1468,14 @@ syncPaymentStatuses($pdo);
                                                     if ($kwotaProwizji > $epsilon):
                                                         $uniqueId = "payment_{$sprawa['id_sprawy']}_{$opisRaty}_{$agent_id}";
                                                         
-                                                        // Pobierz dane o płatności dla tego agenta
-                                                        $stmtCheck = $pdo->prepare("SELECT czy_oplacone, numer_faktury FROM agenci_wyplaty 
-                                                            WHERE id_sprawy = ? AND id_agenta = ? AND opis_raty = ?");
-                                                        $stmtCheck->execute([$sprawa['id_sprawy'], $agent_id, $opisRaty]);
-                                                        $platnosc = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-                                                        
-                                                        $czyOplacone = $platnosc ? (bool)$platnosc['czy_oplacone'] : false;
-                                                        $numerFaktury = $platnosc ? $platnosc['numer_faktury'] : null;
+                                                        // Pobierz dane o płatności dla tego agenta z prowizje_raty
+                                                        $czyOplacone = false;
+                                                        $numerFaktury = null;
+                                                        if (isset($sprawa['prowizje_raty'][$opisRaty][$agent_id])) {
+                                                            $platnosc = $sprawa['prowizje_raty'][$opisRaty][$agent_id];
+                                                            $czyOplacone = $platnosc['czy_oplacone'] ?? false;
+                                                            $numerFaktury = $platnosc['numer_faktury'] ?? null;
+                                                        }
                                                         
                                                         // Ustaw klasy CSS na podstawie statusu
                                                         $payoutClass = $czyOplacone ? 'zaplecono-faktura' : '';
@@ -1480,31 +1498,31 @@ syncPaymentStatuses($pdo);
                                             // Teraz wyświetl prowizję dla Kuby używając obliczonego procentu
                                             $kubaKwotaProwizji = $kwotaRaty * $sprawa['do_wyplaty_kuba_proc'];
                                             if ($kubaKwotaProwizji > $epsilon):
-                                                $kubaUniqueId = "payment_{$sprawa['id_sprawy']}_{$opisRaty}_kuba";
+                                                $kubaUniqueId = "payment_{$sprawa['id_sprawy']}_{$opisRaty}_{$kuba_id}";
                                                 
-                                                // Pobierz dane o płatności dla Kuby
-                                                $stmtCheck = $pdo->prepare("SELECT czy_oplacone, numer_faktury FROM agenci_wyplaty 
-                                                    WHERE id_sprawy = ? AND id_agenta = ? AND opis_raty = ?");
-                                                $stmtCheck->execute([$sprawa['id_sprawy'], $kuba_id, $opisRaty]);
-                                                $platnosc = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-                                                
-                                                $czyOplacone = $platnosc ? (bool)$platnosc['czy_oplacone'] : false;
-                                                $numerFaktury = $platnosc ? $platnosc['numer_faktury'] : null;
+                                                // Pobierz dane o płatności dla Kuby z prowizje_raty
+                                                $czyOplacone = false;
+                                                $numerFaktury = null;
+                                                if (isset($sprawa['prowizje_raty'][$opisRaty][$kuba_id])) {
+                                                    $platnosc = $sprawa['prowizje_raty'][$opisRaty][$kuba_id];
+                                                    $czyOplacone = $platnosc['czy_oplacone'] ?? false;
+                                                    $numerFaktury = $platnosc['numer_faktury'] ?? null;
+                                                }
                                                 
                                                 // Ustaw klasy CSS na podstawie statusu
-                                                $kubaPayoutClass = 'agent-payout';
+                                                $kubaPayoutClass = 'kuba-payout';
                                                 if ($czyOplacone) {
                                                     $kubaPayoutClass .= ' zaplacono-faktura';
                                                 }
                                 ?>
-                                                <div class="agent-payout <?php echo $kubaPayoutClass; ?>" data-payment-id="payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_kuba">
+                                                <div class="agent-payout <?php echo $kubaPayoutClass; ?>" data-payment-id="payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_<?php echo $kuba_id; ?>">
                                                     <span class="agent-name">Kuba:</span>
                                                         <span class="agent-amount"><?php echo format_currency($kubaKwotaProwizji); ?></span>
                                                     
                                                     <?php if ($czyOplacone && $numerFaktury): ?>
                                                         <div class="status-zapłacono">Zapłacono (Faktura: <?php echo htmlspecialchars($numerFaktury); ?>)</div>
                                                     <?php elseif ($czyRataOplacona && !$czyOplacone): ?>
-                                                        <a href="#" class="uzupelnij-link" onclick="openPaymentModal('payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_kuba')">Uzupełnij</a>
+                                                        <a href="#" class="uzupelnij-link" onclick="openPaymentModal('payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_<?php echo $kuba_id; ?>')">Uzupełnij</a>
                                                     <?php endif; ?>
                                                 </div>
                                 <?php 
@@ -1639,14 +1657,20 @@ syncPaymentStatuses($pdo);
         document.getElementById('paymentAmount').textContent = amount;
         document.getElementById('paymentInstallment').textContent = opis_raty;
         
-        // Konwersja opisu raty na numer instalacji
-        const ratyOpisy = ['Rata 1', 'Rata 2', 'Rata 3', 'Rata 4'];
-        const installmentNumber = ratyOpisy.indexOf(opis_raty) + 1;
-        
         // Wyczyść poprzednie statusy i ustaw domyślne wartości
         document.getElementById('modalPaidCheckbox').checked = false;
         document.getElementById('modalInvoiceInput').value = '';
         document.getElementById('modalPaymentStatus').innerHTML = '';
+        
+        // Extract installment number or text from opis_raty
+        let installmentNumber;
+        if (opis_raty.includes('Końcowa')) {
+            installmentNumber = 'Końcowa';
+        } else {
+            // Extract digit from "Rata X"
+            const match = opis_raty.match(/\d+/);
+            installmentNumber = match ? match[0] : opis_raty.replace('Rata ', '');
+        }
         
         // Zapisz dane dla zapisywania
         currentPaymentData = {
@@ -1673,8 +1697,8 @@ syncPaymentStatuses($pdo);
         document.getElementById('modalPaymentStatus').innerHTML = '<div class="saving-indicator">Pobieranie danych...</div>';
         
         // Pobierz aktualny status płatności
-        const agent_id_param = id_agenta === 'kuba' ? '1' : id_agenta;
-        const url = `/get-payment-status?case_id=${id_sprawy}&installment_number=${installmentNumber}&agent_id=${agent_id_param}`;
+        const agent_id_param = id_agenta;
+        const url = `/get-payment-status?case_id=${id_sprawy}&installment_number=${currentPaymentData.installmentNumber}&agent_id=${agent_id_param}`;
         
         console.log('Fetching payment status from:', url);
         
@@ -1697,6 +1721,11 @@ syncPaymentStatuses($pdo);
                     // Aktualizuj formularz na podstawie danych
                     document.getElementById('modalPaidCheckbox').checked = data.status ? true : false;
                     document.getElementById('modalInvoiceInput').value = data.invoice_number || '';
+                    
+                    // Log the payment_desc to help with debugging format issues
+                    if (data.payment_desc) {
+                        console.log('Found payment description format:', data.payment_desc);
+                    }
                 }
             })
             .catch(error => {
@@ -1804,6 +1833,11 @@ syncPaymentStatuses($pdo);
         .then(data => {
             console.log('Update payment result data:', data);
             if (data.success) {
+                // Log the payment_desc to help with debugging format issues
+                if (data.payment_desc) {
+                    console.log('Saved with payment description:', data.payment_desc);
+                }
+                
                 // Apply the green background directly to the element without waiting for page reload
                 try {
                     const paymentElement = document.querySelector(`.agent-payout[data-payment-id="${currentPaymentId}"]`);
@@ -1833,7 +1867,23 @@ syncPaymentStatuses($pdo);
                             const row = paymentElement.closest('tr');
                             if (row) {
                                 try {
-                                    const installmentCell = row.querySelector(`td:nth-child(${8 + currentPaymentData.installmentNumber})`);
+                                    // Find the right installment cell
+                                    let installmentCell;
+                                    if (currentPaymentData.installmentNumber === 'Końcowa') {
+                                        // For final installment, find the cell with "Rata Końcowa"
+                                        const allCells = row.querySelectorAll('td');
+                                        for (let i = 0; i < allCells.length; i++) {
+                                            if (allCells[i].textContent.includes('Końcowa')) {
+                                                installmentCell = allCells[i];
+                                                break;
+                                            }
+                                        }
+                                    } else {
+                                        // For numeric installments
+                                        const installmentNum = parseInt(currentPaymentData.installmentNumber);
+                                        installmentCell = row.querySelector(`td:nth-child(${8 + installmentNum})`);
+                                    }
+                                    
                                     if (installmentCell) {
                                         installmentCell.classList.add('status-oplacona');
                                         const checkboxSpan = installmentCell.querySelector('.checkbox');
@@ -1848,6 +1898,8 @@ syncPaymentStatuses($pdo);
                                             invoiceDetailsSpan.innerHTML = `<br>Faktura: ${invoiceNumber}`;
                                             installmentCell.appendChild(invoiceDetailsSpan);
                                         }
+                                    } else {
+                                        console.warn('Could not find installment cell for', currentPaymentData.installmentNumber);
                                     }
                                 } catch (cellError) {
                                     console.error('Error updating cell:', cellError);
@@ -1876,6 +1928,8 @@ syncPaymentStatuses($pdo);
                                 paymentElement.appendChild(uzupelnijLink);
                             }
                         }
+                    } else {
+                        console.error('Could not find payment element:', currentPaymentId);
                     }
                 } catch (e) {
                     console.error('Error updating UI:', e);
@@ -1892,6 +1946,7 @@ syncPaymentStatuses($pdo);
                         invoiceNumber: invoiceNumber,
                         timestamp: new Date().getTime()
                     }));
+                    console.log('Saved payment status to localStorage with key:', paymentKey);
                 } catch (storageError) {
                     console.error('Error storing payment status in localStorage:', storageError);
                 }

@@ -116,19 +116,26 @@ class TestController {
             // First, ensure the agenci_wyplaty table is properly configured
             $this->ensureAgenciWyplatyTable();
             
-            // Update payment statuses based on agenci_wyplaty table
-            // First, mark any installments as paid if there's a paid agent commission
+            // Update payment statuses based on agenci_wyplaty table - handle all formats
             $updateQuery = "UPDATE oplaty_spraw os
                            JOIN agenci_wyplaty aw ON os.id_sprawy = aw.id_sprawy
-                           AND os.opis_raty = CONVERT(REPLACE(aw.opis_raty, 'Prowizja ', '') USING utf8)
+                           AND (
+                               REPLACE(aw.opis_raty, 'Prowizja ', '') = os.opis_raty COLLATE utf8mb4_polish_ci
+                               OR REPLACE(aw.opis_raty, 'Prowizja Rata ', '') = REPLACE(os.opis_raty, 'Rata ', '') COLLATE utf8mb4_polish_ci
+                               OR REPLACE(aw.opis_raty, 'Prowizja rata ', '') = REPLACE(os.opis_raty, 'Rata ', '') COLLATE utf8mb4_polish_ci
+                           )
                            SET os.czy_oplacona = 1
                            WHERE aw.czy_oplacone = 1";
             $this->pdo->exec($updateQuery);
             
-            // Update any paid invoice references
+            // Update any paid invoice references - handle all formats
             $updateInvoicesQuery = "UPDATE oplaty_spraw os
                                    JOIN agenci_wyplaty aw ON os.id_sprawy = aw.id_sprawy
-                                   AND os.opis_raty = CONVERT(REPLACE(aw.opis_raty, 'Prowizja ', '') USING utf8)
+                                   AND (
+                                       REPLACE(aw.opis_raty, 'Prowizja ', '') = os.opis_raty COLLATE utf8mb4_polish_ci
+                                       OR REPLACE(aw.opis_raty, 'Prowizja Rata ', '') = REPLACE(os.opis_raty, 'Rata ', '') COLLATE utf8mb4_polish_ci
+                                       OR REPLACE(aw.opis_raty, 'Prowizja rata ', '') = REPLACE(os.opis_raty, 'Rata ', '') COLLATE utf8mb4_polish_ci
+                                   )
                                    SET os.faktura_id = aw.numer_faktury
                                    WHERE aw.czy_oplacone = 1 
                                    AND aw.numer_faktury IS NOT NULL 
@@ -138,6 +145,37 @@ class TestController {
             
             // Check for missing prowizje_agentow_spraw entries
             $this->checkAgentCommissions();
+            
+            // Standardize payment description formats
+            $standardizeDescriptions = [
+                // Fix "Prowizja rata X" -> "Prowizja Rata X"
+                "UPDATE agenci_wyplaty 
+                 SET opis_raty = CONCAT('Prowizja Rata ', SUBSTRING(opis_raty, LENGTH('Prowizja rata ') + 1))
+                 WHERE opis_raty LIKE 'Prowizja rata %'",
+                
+                // Fix "Prowizja RataX" -> "Prowizja Rata X"
+                "UPDATE agenci_wyplaty 
+                 SET opis_raty = CONCAT('Prowizja Rata ', SUBSTRING(opis_raty, LENGTH('Prowizja Rata')))
+                 WHERE opis_raty LIKE 'Prowizja Rata_' AND opis_raty NOT LIKE 'Prowizja Rata %'",
+                
+                // Fix "Prowizja rataX" -> "Prowizja Rata X"
+                "UPDATE agenci_wyplaty 
+                 SET opis_raty = CONCAT('Prowizja Rata ', SUBSTRING(opis_raty, LENGTH('Prowizja rata')))
+                 WHERE opis_raty LIKE 'Prowizja rata_' AND opis_raty NOT LIKE 'Prowizja rata %'"
+            ];
+            
+            foreach ($standardizeDescriptions as $query) {
+                $affectedRows = $this->pdo->exec($query);
+                if ($affectedRows > 0) {
+                    error_log("Standardized {$affectedRows} payment descriptions with: {$query}");
+                }
+            }
+            
+            // Update all agent payments in database to load at page refresh
+            $refreshAgentPayments = "UPDATE agenci_wyplaty
+                                    SET data_modyfikacji = NOW()
+                                    WHERE czy_oplacone = 1";
+            $this->pdo->exec($refreshAgentPayments);
             
             // Log sync completion
             error_log("Payment statuses synchronized successfully");

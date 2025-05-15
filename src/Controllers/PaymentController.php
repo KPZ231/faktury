@@ -25,34 +25,59 @@ class PaymentController {
         try {
             // Validate input parameters
             $caseId = isset($_GET['case_id']) ? (int)$_GET['case_id'] : 0;
-            $installmentNumber = isset($_GET['installment_number']) ? (int)$_GET['installment_number'] : 0;
+            $installmentNumber = isset($_GET['installment_number']) ? $_GET['installment_number'] : '';
             // Don't cast agent_id to int since it's VARCHAR in the database
             $agentId = isset($_GET['agent_id']) ? $_GET['agent_id'] : '';
             
             error_log("getPaymentStatus request: case_id=$caseId, installment_number=$installmentNumber, agent_id=$agentId");
             
-            if (!$caseId || !$installmentNumber || $agentId === '') {
+            if (!$caseId || empty($installmentNumber) || $agentId === '') {
                 http_response_code(400);
                 echo json_encode(['error' => 'Missing required parameters']);
                 return;
             }
             
-            // Query the agenci_wyplaty table for payment status
-            $desc = 'Prowizja rata ' . $installmentNumber;
+            // Normalize installment number
+            $installmentNumber = is_numeric($installmentNumber) ? (int)$installmentNumber : $installmentNumber;
             
+            // Create all possible variations of payment description
+            $descOptions = [];
+            if (is_numeric($installmentNumber)) {
+                $descOptions = [
+                    'Prowizja Rata ' . $installmentNumber,
+                    'Prowizja rata ' . $installmentNumber,
+                    'Prowizja Rata' . $installmentNumber,
+                    'Prowizja rata' . $installmentNumber,
+                    'Prowizja ' . 'Rata ' . $installmentNumber
+                ];
+            } else {
+                // Handle "Końcowa" or other special cases
+                $descOptions = [
+                    'Prowizja Rata ' . $installmentNumber,
+                    'Prowizja rata ' . $installmentNumber,
+                    'Prowizja ' . 'Rata ' . $installmentNumber
+                ];
+            }
+            
+            // Create placeholders for SQL query
+            $placeholders = implode(',', array_fill(0, count($descOptions), '?'));
+            $params = array_merge([$caseId, $agentId], $descOptions);
+            
+            // Query the agenci_wyplaty table for payment status
             $query = "SELECT 
                         CASE WHEN czy_oplacone = 1 THEN 1 ELSE 0 END as status, 
                         numer_faktury as invoice_number, 
                         data_utworzenia as created_at,
-                        kwota as amount
+                        kwota as amount,
+                        opis_raty as payment_desc
                       FROM agenci_wyplaty 
                       WHERE id_sprawy = ? 
                       AND id_agenta = ?
-                      AND opis_raty = ?
+                      AND opis_raty IN ($placeholders)
                       LIMIT 1";
             
             $stmt = $this->pdo->prepare($query);
-            $stmt->execute([$caseId, $agentId, $desc]);
+            $stmt->execute($params);
             $payment = $stmt->fetch(PDO::FETCH_ASSOC);
             
             // Return JSON response
@@ -109,26 +134,41 @@ class PaymentController {
             if ($isPaid && empty($invoiceNumber)) {
                 error_log("Warning: Setting paid status but no invoice number provided");
             }
+
+            // Create payment description using the new consistent format
+            $desc = 'Prowizja Rata ' . $data['installment_number'];
             
-            // Check if a payment record already exists in agenci_wyplaty
-            $desc = 'Prowizja rata ' . $data['installment_number'];
+            // Check if a payment record already exists in agenci_wyplaty with any format variant
+            $descOptions = [
+                'Prowizja Rata ' . $data['installment_number'],
+                'Prowizja rata ' . $data['installment_number'],
+                'Prowizja ' . 'Rata ' . $data['installment_number']
+            ];
             
-            $checkQuery = "SELECT id_wyplaty, czy_oplacone FROM agenci_wyplaty 
+            $placeholders = implode(',', array_fill(0, count($descOptions), '?'));
+            $checkParams = array_merge([$data['case_id'], $data['agent_id']], $descOptions);
+            
+            $checkQuery = "SELECT id_wyplaty, czy_oplacone, opis_raty FROM agenci_wyplaty 
                          WHERE id_sprawy = ? 
                          AND id_agenta = ?
-                         AND opis_raty = ?
+                         AND opis_raty IN ($placeholders)
                          LIMIT 1";
             
             $checkStmt = $this->pdo->prepare($checkQuery);
-            $checkStmt->execute([$data['case_id'], $data['agent_id'], $desc]);
+            $checkStmt->execute($checkParams);
             $existingPayment = $checkStmt->fetch(PDO::FETCH_ASSOC);
             
-            error_log("Existing payment check: " . ($existingPayment ? "Found record ID: {$existingPayment['id_wyplaty']}" : "No existing record"));
+            error_log("Existing payment check: " . ($existingPayment ? "Found record ID: {$existingPayment['id_wyplaty']}, Description: {$existingPayment['opis_raty']}" : "No existing record"));
             
             // Start transaction
             $this->pdo->beginTransaction();
             
             try {
+                // Use the existing description format if found, otherwise use new format
+                if ($existingPayment) {
+                    $desc = $existingPayment['opis_raty'];
+                }
+
                 // Calculate the amount if not provided
                 $amount = $data['amount'] ?? null;
                 if ($amount === null || $amount == 0) {
@@ -260,7 +300,8 @@ class PaymentController {
                     'is_paid' => $isPaid,
                     'invoice_number' => $invoiceNumber,
                     'payment_id' => $paymentId,
-                    'amount' => $amount
+                    'amount' => $amount,
+                    'payment_desc' => $desc // Include the description that was used
                 ]);
             } catch (PDOException $e) {
                 // Rollback on error
