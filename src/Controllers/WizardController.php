@@ -23,7 +23,7 @@ class WizardController
         
         // Fetch buyers (nabywcy) from faktury table to populate case name dropdown
         try {
-            $stmt = $this->db->prepare("SELECT DISTINCT nabywca_nazwa_historyczna FROM faktury WHERE nabywca_nazwa_historyczna IS NOT NULL ORDER BY nabywca_nazwa_historyczna");
+            $stmt = $this->db->prepare("SELECT DISTINCT Nabywca FROM faktury WHERE Nabywca IS NOT NULL ORDER BY Nabywca");
             $stmt->execute();
             $buyers = $stmt->fetchAll(PDO::FETCH_COLUMN);
             error_log("WizardController::show - Fetched " . count($buyers) . " buyers from faktury table");

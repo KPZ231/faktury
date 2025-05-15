@@ -24,8 +24,15 @@ class InvoicesController {
      * @return string Bezpieczna nazwa kolumny
      */
     private function safeColumnName(string $columnName): string {
-        // Usuń wszystkie znaki oprócz liter, cyfr i podkreślników
-        $columnName = preg_replace('/[^a-zA-Z0-9_]/', '', $columnName);
+        // Zamiast usuwać wszystkie znaki specjalne, zachowamy polskie znaki
+        // i inne poprawne znaki w UTF-8, tylko usuniemy znaki niebezpieczne dla SQL
+        
+        // Najpierw usuwamy ewentualne znaki sterujące
+        $columnName = preg_replace('/[\x00-\x1F\x7F]/', '', $columnName);
+        
+        // Usuwamy znaki specjalne SQL, ale zachowujemy polskie litery i myślniki
+        // Zmiana: Usuwamy tylko niebezpieczne znaki SQL, zostawiamy myślniki (-)
+        $columnName = str_replace(['`', "'", '"', ';'], '', $columnName);
         
         // Ustaw jako safe string dla SQL (escape dla backticks)
         return str_replace('`', '``', $columnName);
@@ -129,6 +136,27 @@ class InvoicesController {
             }
             error_log("InvoicesController::importCsv - Database columns: " . implode(", ", $tableColumns));
 
+            // Definicja mapowania popularnych wariantów nazw kolumn na poprawne nazwy w bazie
+            $columnMapping = [
+                // Obsługa wariantów bez polskich znaków
+                'sprzedajcy' => 'Sprzedający',
+                'wartosc brutto' => 'Wartość brutto',
+                'wartosc netto' => 'Wartość netto',
+                'data wystawienia' => 'Data wystawienia',
+                'data sprzedazy' => 'Data sprzedaży',
+                'termin platnosci' => 'Termin płatności',
+                'data platnosci' => 'Data płatności',
+                'kwota oplacona' => 'Kwota opłacona',
+                // Mapowanie innych możliwych wariantów
+                'sprzedawca' => 'Sprzedający',
+                'nr faktury' => 'numer',
+                'numer faktury' => 'numer',
+                'kwota brutto' => 'Wartość brutto', 
+                'kwota netto' => 'Wartość netto',
+                'nabywca' => 'Nabywca',
+                'platnosc' => 'Płatność'
+            ];
+
             // Filtruj kolumny CSV, pozostawiając tylko te, które istnieją w bazie danych
             $validColumnIndexes = [];
             $validColumns = [];
@@ -140,10 +168,22 @@ class InvoicesController {
                     continue;
                 }
                 
-                if (in_array($column, $tableColumns)) {
+                $normalizedColumn = $column;
+                
+                // Sprawdź, czy kolumna wymaga mapowania
+                $lowerColumn = strtolower(trim($column));
+                if (isset($columnMapping[$lowerColumn])) {
+                    $normalizedColumn = $columnMapping[$lowerColumn];
+                    error_log("InvoicesController::importCsv - Mapped column '$column' to '$normalizedColumn'");
+                }
+                
+                if (in_array($normalizedColumn, $tableColumns)) {
                     $validColumnIndexes[] = $i;
-                    $validColumns[] = $column;
+                    $validColumns[] = $normalizedColumn;
                     $processedColumns[] = $column; // Mark this column as processed
+                    error_log("InvoicesController::importCsv - Added valid column: " . $normalizedColumn);
+                } else {
+                    error_log("InvoicesController::importCsv - Skipping invalid column: " . $column . " (normalized: " . $normalizedColumn . ")");
                 }
             }
             error_log("InvoicesController::importCsv - Valid columns: " . implode(", ", $validColumns));
@@ -275,10 +315,50 @@ class InvoicesController {
         } catch (\Exception $e) {
             error_log("InvoicesController::importCsv - ERROR: " . $e->getMessage());
             error_log("InvoicesController::importCsv - Stack trace: " . $e->getTraceAsString());
+            
+            // Log more detailed information for database errors
+            if ($e instanceof PDOException) {
+                error_log("InvoicesController::importCsv - SQL Error code: " . $e->getCode());
+                
+                // Log column mapping information for debugging
+                error_log("InvoicesController::importCsv - Column mapping debug information:");
+                if (isset($validColumns) && is_array($validColumns)) {
+                    error_log("InvoicesController::importCsv - Valid columns to be inserted: " . implode(", ", $validColumns));
+                }
+                
+                if (isset($safeValidColumns) && is_array($safeValidColumns)) {
+                    error_log("InvoicesController::importCsv - Safe column names: " . implode(", ", $safeValidColumns));
+                }
+                
+                if (isset($colList)) {
+                    error_log("InvoicesController::importCsv - Column list for SQL: " . $colList);
+                }
+            }
+            
             if (isset($pdo) && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            echo json_encode(['message' => 'Błąd podczas importu: ' . $e->getMessage()]);
+            
+            // Provide more user-friendly error message with debugging information
+            $errorMessage = 'Błąd podczas importu: ' . $e->getMessage();
+            
+            // Add more details for column not found errors
+            if ($e instanceof PDOException && strpos($e->getMessage(), 'Column not found') !== false) {
+                preg_match("/Unknown column '([^']+)'/", $e->getMessage(), $matches);
+                if (isset($matches[1])) {
+                    $problematicColumn = $matches[1];
+                    $errorMessage .= "\n\nProblem z kolumną: '$problematicColumn'\n";
+                    $errorMessage .= "Sprawdź, czy ta kolumna istnieje w bazie danych lub czy wymaga mapowania.";
+                    
+                    // Add suggestions for potential fixes
+                    $errorMessage .= "\n\nMożliwe rozwiązania:";
+                    $errorMessage .= "\n1. Sprawdź nazwy kolumn w pliku importu.";
+                    $errorMessage .= "\n2. Upewnij się, że plik CSV jest poprawnie sformatowany z odpowiednimi nagłówkami.";
+                    $errorMessage .= "\n3. Sprawdź czy w importowanym pliku nie brakuje polskich znaków.";
+                }
+            }
+            
+            echo json_encode(['message' => $errorMessage]);
         } finally {
             // Usuń tymczasowy plik CSV jeśli istnieje
             if ($csvTempFile && file_exists($csvTempFile)) {

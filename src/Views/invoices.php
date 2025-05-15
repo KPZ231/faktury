@@ -122,13 +122,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
     </header>
 
     <div id="uploadFile">
-        <form id="uploadForm" method="POST" enctype="multipart/form-data">
+        <form id="uploadForm" method="POST" enctype="multipart/form-data" accept-charset="UTF-8">
             <label for="file">Wybierz plik (CSV, Excel, OpenDocument):</label>
             <input type="file" id="file" name="file" accept=".csv,.xlsx,.xls,.ods" required>
             <div class="file-tips">
                 <p><i class="fa-solid fa-lightbulb"></i> Preferowany format: <strong>CSV</strong> - najbardziej niezawodny</p>
                 <p><i class="fa-solid fa-info-circle"></i> Pliki Excel (.xlsx, .xls) wymagają rozszerzenia PHP ZIP na serwerze</p>
                 <p><i class="fa-solid fa-shield-alt"></i> Pliki są sprawdzane pod kątem bezpieczeństwa <span class="security-badge">CHRONIONE</span></p>
+                <p><i class="fa-solid fa-exclamation-triangle"></i> <strong>Ważne:</strong> Upewnij się, że nazwy kolumn zawierają polskie znaki (ą, ć, ę, itp.)</p>
             </div>
             <button type="submit">
                 <i class="fa-solid fa-upload"></i> 
@@ -212,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             $params = [];
             
             if (!empty($year)) {
-                $whereClause .= "YEAR(data_wystawienia) = ?";
+                $whereClause .= "YEAR(`Data wystawienia`) = ?";
                 $params[] = $year;
             }
             
@@ -220,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 if (!empty($whereClause)) {
                     $whereClause .= " AND ";
                 }
-                $whereClause .= "MONTH(data_wystawienia) = ?";
+                $whereClause .= "MONTH(`Data wystawienia`) = ?";
                 $params[] = $month;
             }
             
@@ -228,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 $whereClause = "WHERE " . $whereClause;
             }
             
-            $sql = "SELECT $colsEsc FROM `faktury` $whereClause ORDER BY data_wystawienia DESC LIMIT 1000";
+            $sql = "SELECT $colsEsc FROM `faktury` $whereClause ORDER BY `Data wystawienia` DESC LIMIT 1000";
             
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
@@ -257,14 +258,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                                 <td class="column-<?php echo htmlspecialchars($column); ?>">
                                     <?php 
                                     // Formatowanie specjalne dla dat i kwot
-                                    if (strpos($column, 'data_') === 0 && !empty($invoice[$column])) {
+                                    if (strpos(strtolower($column), 'data') === 0 && !empty($invoice[$column])) {
                                         echo date('Y-m-d', strtotime($invoice[$column]));
                                     } 
-                                    else if (strpos($column, 'kwota') === 0 || strpos($column, 'wartosc') === 0) {
+                                    else if (strpos(strtolower($column), 'kwota') === 0 || 
+                                            strpos(strtolower($column), 'wartosc') === 0 || 
+                                            strpos(strtolower($column), 'wartość') === 0) {
                                         echo number_format((float)$invoice[$column], 2, ',', ' ') . ' zł';
                                     }
-                                    else if ($column === 'status') {
-                                        $statusClass = ($invoice[$column] == 'Opłacona') ? 'status-yes' : 'status-no';
+                                    else if (strtolower($column) === 'status') {
+                                        $statusClass = strtolower($invoice[$column]) == 'opłacona' ? 'status-yes' : 'status-no';
                                         echo '<span class="' . $statusClass . '">' . htmlspecialchars($invoice[$column]) . '</span>';
                                     }
                                     else {
@@ -298,11 +301,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             const deselectAllColumnsBtn = document.getElementById('deselectAllColumns');
             const columnList = document.getElementById('columnList');
             
+            // Create counter for visible columns
+            const columnCounter = document.createElement('span');
+            columnCounter.className = 'column-counter';
+            columnCounter.style.marginLeft = '8px';
+            columnCounter.style.fontSize = '0.85rem';
+            columnCounter.style.color = 'var(--text-secondary)';
+            toggleColumnSelectorBtn.appendChild(columnCounter);
+            
             // Get all column headers
             const columns = Array.from(document.querySelectorAll('th[data-column]'));
             
             // Essential columns that should not be hidden
-            const essentialColumns = ['id_faktury', 'numer_faktury', 'status', 'data_wystawienia', 'wartosc_brutto'];
+            const essentialColumns = ['LP', 'numer', 'Typ', 'Sprzedający', 'Data wystawienia', 'Wartość brutto'];
+            
+            // Load saved column visibility preferences
+            let columnVisibility = {};
+            try {
+                const savedVisibility = localStorage.getItem('invoiceColumnVisibility');
+                if (savedVisibility) {
+                    columnVisibility = JSON.parse(savedVisibility);
+                }
+            } catch (e) {
+                console.error('Error loading saved column visibility:', e);
+                columnVisibility = {};
+            }
             
             // Generate checkboxes for each column
             columns.forEach(column => {
@@ -316,16 +339,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 checkbox.type = 'checkbox';
                 checkbox.className = 'column-checkbox';
                 checkbox.value = columnName;
-                checkbox.checked = true; // Default checked
                 
-                // If column is essential, disable checkbox
+                // Set initial checkbox state based on saved preferences or defaults
+                let isChecked = true; // Default visible
+                
                 if (isEssential) {
+                    isChecked = true; // Essential columns always visible
                     checkbox.disabled = true;
                     label.className += ' essential';
+                } else if (columnVisibility.hasOwnProperty(columnName)) {
+                    isChecked = columnVisibility[columnName];
+                }
+                
+                checkbox.checked = isChecked;
+                
+                // Apply initial visibility
+                if (!isChecked) {
+                    // Apply hidden class immediately
+                    document.querySelectorAll(`.column-${columnName}`).forEach(cell => {
+                        cell.classList.add('hidden-column');
+                    });
                 }
                 
                 checkbox.addEventListener('change', function() {
                     toggleColumnVisibility(columnName, this.checked);
+                    saveColumnVisibility();
+                    updateColumnCounter();
                 });
                 
                 label.appendChild(checkbox);
@@ -336,15 +375,119 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             
             // Toggle column visibility function
             function toggleColumnVisibility(columnName, isVisible) {
+                // Select both header and data cells with this column class
                 const columnCells = document.querySelectorAll(`.column-${columnName}`);
+                
+                if (columnCells.length === 0) {
+                    console.warn(`No elements found with class .column-${columnName}`);
+                    return;
+                }
+                
                 columnCells.forEach(cell => {
-                    cell.style.display = isVisible ? '' : 'none';
+                    if (isVisible) {
+                        cell.classList.remove('hidden-column');
+                    } else {
+                        cell.classList.add('hidden-column');
+                    }
                 });
             }
             
-            // Toggle column selector
+            // Save column visibility preferences to localStorage
+            function saveColumnVisibility() {
+                const prefs = {};
+                document.querySelectorAll('.column-checkbox:not(:disabled)').forEach(checkbox => {
+                    prefs[checkbox.value] = checkbox.checked;
+                });
+                try {
+                    localStorage.setItem('invoiceColumnVisibility', JSON.stringify(prefs));
+                } catch (e) {
+                    console.error('Failed to save column visibility:', e);
+                }
+            }
+            
+            // Update column counter
+            function updateColumnCounter() {
+                const totalColumns = columns.length;
+                // Count visible columns by using the checkbox state instead of DOM elements
+                const visibleColumns = Array.from(document.querySelectorAll('.column-checkbox'))
+                    .filter(checkbox => checkbox.checked).length;
+                columnCounter.textContent = `(${visibleColumns}/${totalColumns})`;
+            }
+            
+            // Do an initial count after setup
+            setTimeout(updateColumnCounter, 100);
+            
+            // Add a debug function to check for issues
+            function debugColumnVisibility() {
+                console.group('Column Visibility Debug');
+                const allColumns = Array.from(document.querySelectorAll('.column-checkbox'));
+                console.log(`Total columns: ${allColumns.length}`);
+                
+                // Check which columns are checked but might have hidden elements
+                const checkedButHidden = allColumns
+                    .filter(checkbox => checkbox.checked)
+                    .map(checkbox => {
+                        const name = checkbox.value;
+                        const cells = document.querySelectorAll(`.column-${name}.hidden-column`);
+                        return { name, hiddenCount: cells.length };
+                    })
+                    .filter(info => info.hiddenCount > 0);
+                
+                if (checkedButHidden.length > 0) {
+                    console.warn('Columns checked but with hidden elements:', checkedButHidden);
+                }
+                
+                // Check which columns are unchecked but might have visible elements
+                const uncheckedButVisible = allColumns
+                    .filter(checkbox => !checkbox.checked && !checkbox.disabled)
+                    .map(checkbox => {
+                        const name = checkbox.value;
+                        const cells = document.querySelectorAll(`.column-${name}:not(.hidden-column)`);
+                        return { name, visibleCount: cells.length };
+                    })
+                    .filter(info => info.visibleCount > 0);
+                
+                if (uncheckedButVisible.length > 0) {
+                    console.warn('Columns unchecked but with visible elements:', uncheckedButVisible);
+                }
+                
+                console.groupEnd();
+            }
+            
+            // Reset all column visibility first to ensure clean state
+            function resetColumnVisibility() {
+                // First show all columns
+                document.querySelectorAll('th, td').forEach(cell => {
+                    cell.classList.remove('hidden-column');
+                });
+                
+                // Then hide columns based on checkboxes
+                document.querySelectorAll('.column-checkbox:not(:checked)').forEach(checkbox => {
+                    const columnName = checkbox.value;
+                    document.querySelectorAll(`.column-${columnName}`).forEach(cell => {
+                        cell.classList.add('hidden-column');
+                    });
+                });
+                
+                updateColumnCounter();
+            }
+            
+            // Call reset after initialization to ensure consistent state
+            setTimeout(resetColumnVisibility, 200);
+            
+            // Add special case for column selector toggle to reset state
             toggleColumnSelectorBtn.addEventListener('click', function() {
-                columnSelector.style.display = columnSelector.style.display === 'block' ? 'none' : 'block';
+                if (columnSelector.style.display === 'block') {
+                    columnSelector.style.display = 'none';
+                } else {
+                    // Reset column visibility when opening the selector
+                    resetColumnVisibility();
+                    columnSelector.style.display = 'block';
+                    // Position the popup based on viewport size
+                    if (window.innerWidth < 768) {
+                        columnSelector.style.right = '0';
+                    }
+                }
             });
             
             // Close column selector
@@ -352,20 +495,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 columnSelector.style.display = 'none';
             });
             
+            // Close popup when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!columnSelector.contains(event.target) && 
+                    event.target !== toggleColumnSelectorBtn && 
+                    !toggleColumnSelectorBtn.contains(event.target) &&
+                    columnSelector.style.display === 'block') {
+                    columnSelector.style.display = 'none';
+                }
+            });
+            
             // Select all columns
             selectAllColumnsBtn.addEventListener('click', function() {
                 document.querySelectorAll('.column-checkbox:not(:disabled)').forEach(checkbox => {
                         checkbox.checked = true;
-                    toggleColumnVisibility(checkbox.value, true);
                 });
+                saveColumnVisibility();
+                resetColumnVisibility();
             });
             
             // Deselect all non-essential columns
             deselectAllColumnsBtn.addEventListener('click', function() {
                 document.querySelectorAll('.column-checkbox:not(:disabled)').forEach(checkbox => {
                         checkbox.checked = false;
-                    toggleColumnVisibility(checkbox.value, false);
                 });
+                saveColumnVisibility();
+                resetColumnVisibility();
             });
             
             // Date filtering
@@ -409,12 +564,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             
             // File upload form handling
             const uploadForm = document.getElementById('uploadForm');
+            const resultContainer = document.createElement('div');
+            resultContainer.className = 'import-result';
+            resultContainer.style.display = 'none';
+            uploadForm.parentNode.appendChild(resultContainer);
             
             uploadForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
                 const formData = new FormData(this);
                 const submitButton = this.querySelector('button[type="submit"]');
+                
+                // Clear previous results
+                resultContainer.innerHTML = '';
+                resultContainer.style.display = 'none';
                 
                 // Disable button and change text
                 submitButton.disabled = true;
@@ -426,22 +589,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 })
                 .then(response => response.json())
                 .then(data => {
-                    alert(data.message);
                     // Re-enable button and restore text
                     submitButton.disabled = false;
                     submitButton.innerHTML = '<i class="fa-solid fa-upload"></i> Importuj do bazy';
                     
-                    // Refresh page to show new data
-                    if (!data.message.includes('Błąd')) {
+                    // Display result with proper formatting
+                    if (data.message && data.message.includes('Błąd')) {
+                        const errorMessages = data.message.split('\n').map(line => 
+                            line ? `<p>${line}</p>` : '<br>'
+                        ).join('');
+                        
+                        resultContainer.innerHTML = `
+                            <div class="import-error">
+                                <i class="fa-solid fa-exclamation-triangle"></i>
+                                <div>${errorMessages}</div>
+                            </div>
+                        `;
+                    } else {
+                        resultContainer.innerHTML = `
+                            <div class="import-success">
+                                <i class="fa-solid fa-check-circle"></i>
+                                <p>${data.message}</p>
+                            </div>
+                        `;
+                        
+                        // Refresh page to show new data after successful import
+                        setTimeout(() => {
                         window.location.reload();
+                        }, 2000);
                     }
+                    
+                    resultContainer.style.display = 'block';
+                    // Scroll to results
+                    resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Wystąpił błąd podczas przetwarzania pliku.');
                     // Re-enable button and restore text
                     submitButton.disabled = false;
                     submitButton.innerHTML = '<i class="fa-solid fa-upload"></i> Importuj do bazy';
+                    
+                    resultContainer.innerHTML = `
+                        <div class="import-error">
+                            <i class="fa-solid fa-exclamation-triangle"></i>
+                            <p>Wystąpił błąd podczas przetwarzania pliku: ${error.message}</p>
+                        </div>
+                    `;
+                    resultContainer.style.display = 'block';
+                    resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 });
             });
         });

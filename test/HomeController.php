@@ -2,22 +2,25 @@
 
 namespace Lenovo\Faktury\Controllers;
 
-use Lenovo\Faktury\Models\User;
-
 class HomeController {
+    /**
+     * Wyświetla stronę główną systemu
+     */
     public function index(): void {
-        // Pobranie listy użytkowników
-        $users = User::all();
-
         // Załadowanie widoku
         include __DIR__ . '/../Views/home.php';
     }
-    public function import(): void {
-        $users = User::all();
 
+    /**
+     * Wyświetla stronę importu faktur
+     */
+    public function import(): void {
         include __DIR__ . '/../Views/import.php';
     }
 
+    /**
+     * Obsługuje zarządzanie agentami
+     */
     public function agents(): void {
         // Inicjalizacja zmiennych
         $messages = [];
@@ -76,10 +79,103 @@ class HomeController {
         include __DIR__ . '/../Views/agents.php';
     }
     
+    /**
+     * Obsługuje import faktur
+     */
     public function handleImportPost(): void {
+        header('Content-Type: application/json; charset=UTF-8');
+        
+        if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['error' => 'Proszę przesłać poprawny plik.']);
+            return;
+        }
+        
+        $file = $_FILES['file'];
+        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        
+        try {
+            if ($extension !== 'csv') {
+                throw new \Exception('Tylko pliki CSV są obsługiwane.');
+            }
+            
+            $rows = file($file['tmp_name'], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if (!$rows) {
+                throw new \Exception('Plik jest pusty lub błędny.');
+            }
+            
+            // Pomijamy nagłówek
+            $header = array_shift($rows);
+            $headerColumns = str_getcsv($header);
+            $headerColumns = array_map('trim', $headerColumns);
+            
+            // Połączenie z bazą danych
+            $pdo = new \PDO(
+                "mysql:host=localhost;dbname=projektimport;charset=utf8mb4",
+                "root",
+                "",
+                [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
+            );
+            
+            // Pobierz nazwy kolumn z tabeli faktury
+            $stmtColumns = $pdo->query("DESCRIBE faktury");
+            $tableColumns = [];
+            while ($column = $stmtColumns->fetch(\PDO::FETCH_ASSOC)) {
+                $tableColumns[] = $column['Field'];
+            }
+            
+            // Mapuj kolumny CSV do kolumn bazy danych
+            $columnMapping = [];
+            foreach ($headerColumns as $index => $columnName) {
+                if (in_array($columnName, $tableColumns)) {
+                    $columnMapping[$index] = $columnName;
+                }
+            }
+            
+            if (empty($columnMapping)) {
+                throw new \Exception('Brak pasujących kolumn w pliku CSV i tabeli faktury.');
+            }
+            
+            // Przygotuj zapytanie SQL
+            $columns = implode(', ', array_map(function($col) {
+                return "`" . str_replace('`', '``', $col) . "`";
+            }, array_values($columnMapping)));
+            
+            $placeholders = implode(', ', array_fill(0, count($columnMapping), '?'));
+            
+            $stmt = $pdo->prepare("INSERT INTO faktury ($columns) VALUES ($placeholders)");
+            
+            // Rozpocznij transakcję
+            $pdo->beginTransaction();
+            $imported = 0;
+            
+            foreach ($rows as $row) {
+                $data = str_getcsv($row);
+                $values = [];
+                
+                foreach ($columnMapping as $csvIndex => $dbColumn) {
+                    $values[] = isset($data[$csvIndex]) ? $data[$csvIndex] : null;
+                }
+                
+                $stmt->execute($values);
+                $imported++;
+            }
+            
+            $pdo->commit();
+            echo json_encode(['success' => true, 'message' => "Zaimportowano $imported rekordów."]);
+            
+        } catch (\Exception $e) {
+            if (isset($pdo) && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+        
         include __DIR__ . '/../Views/import.php';
     }
 
+    /**
+     * Aktualizuje informacje o płatności agenta
+     */
     public function updatePayment(): void {
         header('Content-Type: application/json');
         
@@ -155,6 +251,9 @@ class HomeController {
         }
     }
 
+    /**
+     * Pobiera status płatności
+     */
     public function getPaymentStatus(): void {
         header('Content-Type: application/json');
         
