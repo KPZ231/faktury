@@ -44,6 +44,25 @@ class WizardController
         error_log("WizardController::store - Otrzymane dane: " . print_r($data, true));
         $errors = [];
 
+        // Sprawdź, czy mamy nazwę sprawy (albo z selecta albo z ręcznego wprowadzania)
+        $hasValidCaseName = false;
+        
+        // Priorytet dla ręcznie wprowadzonej nazwy
+        if (isset($data['manual_case_name']) && trim($data['manual_case_name']) !== '') {
+            error_log("WizardController::store - Używam ręcznie wprowadzonej nazwy sprawy: " . $data['manual_case_name']);
+            $data['case_name'] = trim($data['manual_case_name']);
+            $hasValidCaseName = true;
+        } 
+        // Jeśli nie ma ręcznej nazwy, sprawdź czy wybrano z listy
+        elseif (isset($data['case_name']) && trim($data['case_name']) !== '') {
+            error_log("WizardController::store - Używam nazwy sprawy wybranej z listy: " . $data['case_name']);
+            $hasValidCaseName = true;
+        } 
+        else {
+            error_log("WizardController::store - BŁĄD: Brak nazwy sprawy");
+            $errors[] = "Nazwa sprawy jest wymagana. Wybierz z listy lub wprowadź ręcznie.";
+        }
+
         // Walidacja procentowych pól prowizji
         error_log("WizardController::store - Rozpoczęcie walidacji danych");
 
