@@ -21,56 +21,19 @@ class TableController
         require_once __DIR__ . '/../../config/database.php';
         global $pdo;
         $this->pdo = $pdo;
-        error_log("TableController::index - Połączenie z bazą danych zainicjalizowane");
         
-        // Ensure commission invoice columns exist
-        $this->ensureCommissionColumnsExist();
-        
-        // Check if payment statuses should be synchronized automatically
-        // Do this only once per hour to avoid excessive database operations
-        $lastSync = isset($_SESSION['last_payment_sync']) ? $_SESSION['last_payment_sync'] : 0;
-        $currentTime = time();
-        $oneHourInSeconds = 3600;
-        
-        if ($currentTime - $lastSync > $oneHourInSeconds) {
-            error_log("TableController::index - Auto-syncing payment statuses (last sync was " . 
-                     ($lastSync > 0 ? date('Y-m-d H:i:s', $lastSync) : 'never') . ")");
-            $this->syncPaymentStatusesInternal();
-        } else {
-            error_log("TableController::index - Skipping auto-sync, last sync was less than an hour ago");
-        }
-
-        // Pobierz listę agentów
-        error_log("TableController::index - Pobieranie listy agentów");
-        $agents = $this->getAgents();
-        error_log("TableController::index - Znaleziono " . count($agents) . " agentów");
-
-        // Jeśli wybrano agenta, wyświetl sprawy tego agenta
+        // Pobierz ID agenta z parametru URL
         $selectedAgentId = isset($_GET['agent_id']) ? $_GET['agent_id'] : null;
-        $selectedAgent = null;
-        error_log("TableController::index - Wybrany agent ID: " . ($selectedAgentId ?: 'brak'));
-
-        // Handle the special Jakub case
-        if ($selectedAgentId === 'jakub' || $selectedAgentId === 'Jakub') {
-            $selectedAgent = [
-                'imie' => 'Jakub',
-                'nazwisko' => 'Kowalski',
-                'agent_id' => 'jakub'
-            ];
-            error_log("TableController::index - Wybrano specjalnego agenta Jakub");
-        } elseif ($selectedAgentId) {
-            foreach ($agents as $agent) {
-                if ($agent['agent_id'] == $selectedAgentId) {
-                    $selectedAgent = $agent;
-                    error_log("TableController::index - Znaleziono wybranego agenta: " . $agent['imie'] . " " . $agent['nazwisko']);
-                    break;
-                }
-            }
+        
+        if ($selectedAgentId) {
+            // Przekieruj do TestController z parametrem agenta
+            header('Location: /test?agent_id=' . urlencode($selectedAgentId));
+            exit;
+        } else {
+            // Jeśli nie wybrano agenta, pokaż listę agentów
+            $agents = $this->getAgents();
+            include __DIR__ . '/../Views/table.php';
         }
-
-        error_log("TableController::index - Renderowanie widoku tabeli");
-        include __DIR__ . '/../Views/table.php';
-        error_log("TableController::index - Zakończono");
     }
 
     /**

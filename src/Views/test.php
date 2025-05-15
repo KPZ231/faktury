@@ -23,7 +23,7 @@ $ratyOpis = ['Rata 1', 'Rata 2', 'Rata 3', 'Rata 4', 'Rata 5', 'Rata 6', 'Rata K
 $liczbaRat = count($ratyOpis);
 
 // Get all cases/sprawy (new schema)
-$sprawyQuery = "SELECT 
+$sprawyQuery = "SELECT DISTINCT
     s.id_sprawy,
     s.identyfikator_sprawy,
     s.czy_zakonczona,
@@ -31,9 +31,22 @@ $sprawyQuery = "SELECT
     s.oplata_wstepna,
     s.stawka_success_fee,
     s.identyfikator_sprawy as imie_nazwisko_klienta
-    FROM sprawy s
-    ORDER BY s.id_sprawy DESC";
-$sprawyStmt = $pdo->query($sprawyQuery);
+    FROM sprawy s";
+
+// Dodaj warunek filtrowania po agencie, jeśli został wybrany
+if (isset($filterByAgentId) && $filterByAgentId) {
+    $sprawyQuery .= " INNER JOIN prowizje_agentow_spraw pas ON s.id_sprawy = pas.id_sprawy
+                      WHERE pas.id_agenta = :agent_id";
+}
+
+$sprawyQuery .= " ORDER BY s.id_sprawy DESC";
+
+// Przygotuj i wykonaj zapytanie
+$sprawyStmt = $pdo->prepare($sprawyQuery);
+if (isset($filterByAgentId) && $filterByAgentId) {
+    $sprawyStmt->bindParam(':agent_id', $filterByAgentId);
+}
+$sprawyStmt->execute();
 $sprawyData = [];
 
 while ($sprawa = $sprawyStmt->fetch(PDO::FETCH_ASSOC)) {
@@ -132,6 +145,13 @@ syncPaymentStatuses($pdo);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Add any missing styles from table.php */
+        .agent-highlight {
+            background-color: #e3f2fd;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #90caf9;
+        }
         .table-container {
             width: 100%;
             overflow-x: auto;
@@ -1381,7 +1401,7 @@ syncPaymentStatuses($pdo);
                             <td class="currency"><?php echo format_currency($sprawa['calosc_prowizji']); ?></td>
 
                             <!-- Prowizje % (bez zmian) -->
-                            <td><div class="details-section"><?php if (!empty($sprawa['prowizje_proc'])): foreach ($sprawa['prowizje_proc'] as $agent_id => $proc): ?><span><?php echo htmlspecialchars($agenci[$agent_id] ?? "Agent {$agent_id}"); ?>: <?php echo format_percent($proc); ?></span><br><?php endforeach; else: ?> - <?php endif; ?></div></td>
+                            <td><div class="details-section"><?php if (!empty($sprawa['prowizje_proc'])): foreach ($sprawa['prowizje_proc'] as $agent_id => $proc): ?><span <?php if (isset($filterByAgentId) && $filterByAgentId == $agent_id): ?>class="agent-highlight"<?php endif; ?>><?php echo htmlspecialchars($agenci[$agent_id] ?? "Agent {$agent_id}"); ?>: <?php echo format_percent($proc); ?></span><br><?php endforeach; else: ?> - <?php endif; ?></div></td>
                             <td class="percentage"><?php echo format_percent($sprawa['do_wyplaty_kuba_proc'] ?? 0.0); ?></td>
 
                             <!-- Opłaty Ogólne - Logika statusu uwzględnia 0zł ORAZ wynik algorytmu -->

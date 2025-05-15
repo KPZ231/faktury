@@ -65,6 +65,12 @@ class TestController {
         // Sync payment status with commission_payments table
         $this->syncPaymentStatuses();
         
+        // Pobierz ID agenta z parametru URL
+        $selectedAgentId = isset($_GET['agent_id']) ? $_GET['agent_id'] : null;
+        
+        // Przekaż ID agenta do widoku
+        $filterByAgentId = $selectedAgentId;
+        
         // Render the view
         include __DIR__ . '/../Views/test.php';
     }
