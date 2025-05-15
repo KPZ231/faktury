@@ -98,6 +98,7 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     $r->addRoute('GET',    '/logout',      [LoginController::class, 'logout']);
 
     $r->addRoute('GET',    '/test',       [TestController::class, 'index']);
+    $r->addRoute('POST',   '/sprawy/{id:\d+}/delete', [TestController::class, 'delete']);
     
     // Payment API endpoints
     $r->addRoute('POST',   '/update-payment',       [PaymentController::class, 'updatePayment']);
