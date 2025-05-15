@@ -137,6 +137,33 @@
     .currency-input:focus + .currency-display {
       display: block;
     }
+
+    /* Styl dla informacji o pozostałej kwocie */
+    .remaining-amount {
+      display: block;
+      margin-top: 8px;
+      padding: 5px 10px;
+      background-color: #f8f9fa;
+      border-left: 3px solid #28a745;
+      color: #495057;
+      font-size: 0.9em;
+    }
+    
+    .remaining-amount.warning {
+      border-left-color: #dc3545;
+      background-color: #fff8f8;
+    }
+
+    /* Wersja dla pól procentowych */
+    .percentage-input-wrapper::after {
+      content: "%";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #6c757d;
+      pointer-events: none;
+    }
   </style>
 </head>
 
@@ -197,9 +224,12 @@
   <?php endif; ?>
 
   <?php
-    // Pobieranie agentów z bazy danych
+    // Pobieranie agentów z bazy danych (bez Kuby)
     global $pdo;
-    $agentsQuery = $pdo->query("SELECT id_agenta, nazwa_agenta FROM agenci ORDER BY nazwa_agenta");
+    $agentsQuery = $pdo->query("SELECT id_agenta, nazwa_agenta FROM agenci 
+                               WHERE LOWER(nazwa_agenta) NOT LIKE 'kuba%' 
+                               AND LOWER(nazwa_agenta) NOT LIKE 'jakub%' 
+                               ORDER BY nazwa_agenta");
     $agents = $agentsQuery->fetchAll(PDO::FETCH_ASSOC);
   ?>
 
@@ -336,12 +366,15 @@
         <div class="field-group">
           <label>
             <span class="field-label">Prowizja Kuby:</span>
-            <div class="currency-input-wrapper">
+            <div class="percentage-input-wrapper">
               <input type="number" step="0.01" name="kuba_percentage" id="kuba_percentage" class="currency-input" value="<?php echo isset($_SESSION['wizard_form_data']['kuba_percentage']) ? htmlspecialchars($_SESSION['wizard_form_data']['kuba_percentage']) : ''; ?>">
               <span class="currency-display" id="kuba_percentage_display"></span>
             </div>
             <span class="error-message" id="error_kuba_percentage"></span>
           </label>
+          <div style="margin-top: 10px; font-size: 0.9em; color: #666; background-color: #f8f9fa; padding: 8px; border-radius: 4px; border-left: 3px solid #1976D2;">
+            <i class="fas fa-info-circle"></i> Kuba jest automatycznie przypisywany do sprawy z podaną prowizją. Agenci wybrani poniżej dzielą się częścią prowizji Kuby.
+          </div>
         </div>
 
         <!-- Sekcja wyników obliczeń dla Kuby -->
@@ -599,11 +632,15 @@
       // Kontener dla listy agentów
       const agentsContainer = document.createElement('div');
       agentsContainer.id = 'agentsContainer';
+      
+      // Uwaga: 'Kuba' nie jest wyświetlany na liście agentów, jego prowizja jest ustawiana osobno
+      // w sekcji "Prowizja Kuby" i automatycznie dodawana do sprawy
+      
       for (let i = 1; i <= count; i++) {
         const container = document.createElement('div');
         container.className = 'agent-container field-group';
 
-        // Dropdown do wyboru agenta
+        // Dropdown do wyboru agenta (bez Kuby - wyłączony w zapytaniu SQL)
         const selectContainer = document.createElement('label');
         selectContainer.innerHTML = `Agent ${i}: `;
         const select = document.createElement('select');
@@ -646,9 +683,9 @@
         const percentContainer = document.createElement('label');
         percentContainer.innerHTML = ` Procent: `;
         
-        // Wrapper dla inputu z walutą
+        // Wrapper dla inputu z PROCENTAMI
         const inputWrapper = document.createElement('div');
-        inputWrapper.className = 'currency-input-wrapper';
+        inputWrapper.className = 'percentage-input-wrapper';
         
         const percentInput = document.createElement('input');
         percentInput.type = 'number';
@@ -791,6 +828,12 @@
         errorSpan.className = 'error-message';
         errorSpan.id = `error_installment${i}`;
         lbl.appendChild(errorSpan);
+        
+        // Dodaj informację o pozostałej kwocie
+        const remainingInfoSpan = document.createElement('span');
+        remainingInfoSpan.className = 'remaining-amount';
+        remainingInfoSpan.id = `installment${i}_remaining`;
+        lbl.appendChild(remainingInfoSpan);
         
         container.appendChild(lbl);
         
@@ -1076,9 +1119,22 @@
       document.getElementById('final_installment').textContent = formatCurrency(finalInstallment);
       
       // 5. Aktualizacja podziału rat dla Kuby i agentów
+      let cumulativeSum = 0;
       installmentInputs.forEach((input, index) => {
         const installmentId = index + 1;
         const installmentAmount = parseFloat(input.value) || 0;
+        
+        // Aktualizacja informacji o pozostałej kwocie
+        const remainingInfoElement = document.getElementById(`installment${installmentId}_remaining`);
+        const previousTotal = cumulativeSum;
+        cumulativeSum += installmentAmount;
+        const remainingAfter = upfrontFee - cumulativeSum;
+        
+        if (remainingInfoElement) {
+          let statusClass = Math.abs(remainingAfter) < 0.01 ? '' : 'warning';
+          remainingInfoElement.className = `remaining-amount ${statusClass}`;
+          remainingInfoElement.textContent = `Pozostało do opłacenia: ${formatCurrency(remainingAfter)} (przed ratą: ${formatCurrency(upfrontFee - previousTotal)})`;
+        }
         
         // Kwota dla Kuby z tej raty
         const kubaInstallment = installmentAmount * (kubaPayoutPercentage / 100);
@@ -1236,6 +1292,27 @@
     <?php if (isset($_SESSION['wizard_form_data'])): ?>
       <?php unset($_SESSION['wizard_form_data']); ?>
     <?php endif; ?>
+    
+    // Przy pierwszym ładowaniu, zmień wrapery procentowe
+    document.addEventListener("DOMContentLoaded", function() {
+      // Prowizja Kuby
+      const kubaLabel = document.querySelector('label[for="kuba_percentage"]') || document.querySelector('input[name="kuba_percentage"]').parentNode;
+      if (kubaLabel) {
+        const kubaWrapper = kubaLabel.querySelector('.currency-input-wrapper');
+        if (kubaWrapper) {
+          kubaWrapper.className = 'percentage-input-wrapper';
+        }
+      }
+      
+      // Success fee percentage
+      const successFeeLabel = document.querySelector('label[for="success_fee_percentage"]') || document.querySelector('input[name="success_fee_percentage"]').parentNode;
+      if (successFeeLabel) {
+        const successFeeWrapper = successFeeLabel.querySelector('.currency-input-wrapper');
+        if (successFeeWrapper) {
+          successFeeWrapper.className = 'percentage-input-wrapper';
+        }
+      }
+    });
   </script>
 </body>
 
