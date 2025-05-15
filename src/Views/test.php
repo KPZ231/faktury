@@ -198,17 +198,42 @@ syncPaymentStatuses($pdo);
         }
         
         .agent-payout {
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             display: block;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background-color: #f8f9fa;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+
+        .agent-payout:hover {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+
+        @keyframes blink-red {
+            0% { background-color: #fff0f0; }
+            50% { background-color: #ffd5d5; }
+            100% { background-color: #fff0f0; }
+        }
+
+        .agent-payout:not(.zaplacono-faktura) {
+            animation: blink-red 1.2s infinite;
+            border: 1px solid #ffb8b8;
+            background-color: #fff0f0;
         }
         
         .amount-row {
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            margin-top: 4px;
         }
         
         .agent-name {
-            font-weight: bold;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.95em;
         }
         
         .agent-amount {
