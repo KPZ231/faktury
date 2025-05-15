@@ -1323,8 +1323,12 @@ syncPaymentStatuses($pdo);
                                     $kwotaRaty = $daneRaty['kwota'];
                                     $invoiceNumber = $daneRaty['paying_invoice_number'] ?? null;
                                     
-                                    // Sprawdź czy rata istnieje i ma niezerową kwotę
-                                    $czyRataIstnieje = ($kwotaRaty !== null && abs($kwotaRaty) >= $epsilon);
+                                    $czyRataIstnieje = $kwotaRaty > 0;
+                                    
+                                    // Log diagnostyczny
+                                    error_log("Rata: $opisRaty, Kwota: $kwotaRaty, CzyIstnieje: " . ($czyRataIstnieje ? 'tak' : 'nie') . 
+                                            ", CzyOplacona: " . ($daneRaty['is_paid_display'] ? 'tak' : 'nie') . 
+                                            ", Faktura: " . ($invoiceNumber ?? 'brak'));
                                     
                                     if ($czyRataIstnieje) {
                                         // Sprawdź warunki opłacenia w tabeli faktury
@@ -1409,6 +1413,9 @@ syncPaymentStatuses($pdo);
                                     <?php 
                                         $kwotaRaty = $sprawa['oplaty'][$opisRaty]['kwota'] ?? 0.0;
                                         $czyRataOplacona = $sprawa['oplaty'][$opisRaty]['is_paid_display'] ?? false;
+                                        
+                                        // Log diagnostyczny dla sekcji prowizji
+                                        error_log("Sekcja prowizji - Rata: $opisRaty, Kwota: $kwotaRaty, CzyOplacona: " . ($czyRataOplacona ? 'tak' : 'nie'));
                                         if ($kwotaRaty > 0 && !empty($sprawa['prowizje_proc'])): 
                                             // Najpierw wyświetl prowizje dla innych agentów
                                             foreach ($sprawa['prowizje_proc'] as $agent_id => $proc): 

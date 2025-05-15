@@ -1459,44 +1459,47 @@ class TableController
                 $test2RowCount = $stmt->rowCount();
                 error_log("TableController::updateCommissionStatusAjax - test2 rows affected: " . $test2RowCount);
                 
-                // 2. Handle the commission_payments table
-                // If status=0, delete any existing records
+                // 2. Handle the agenci_wyplaty table
+                $desc = 'Prowizja rata ' . $installmentNumber;
+                
+                // If status=0, mark as not paid in agenci_wyplaty
                 if ($status == 0) {
-                    $deleteQuery = "DELETE FROM commission_payments 
-                                  WHERE case_id = :case_id 
-                                  AND installment_number = :installment_number";
+                    $updateSql = "UPDATE agenci_wyplaty 
+                                 SET czy_oplacone = 0,
+                                     data_modyfikacji = NOW()
+                                 WHERE id_sprawy = :case_id 
+                                 AND opis_raty = :installment_desc";
                     
-                    $deleteStmt = $this->pdo->prepare($deleteQuery);
-                    $deleteParams = [
+                    $updateParams = [
                         ':case_id' => $caseId,
-                        ':installment_number' => $installmentNumber
+                        ':installment_desc' => $desc
                     ];
                     
-                    // If agent ID is provided, only delete for that agent
+                    // If agent ID is provided, only update for that agent
                     if ($agentId !== null) {
-                        $deleteQuery .= " AND agent_id = :agent_id";
-                        $deleteParams[':agent_id'] = $agentId;
+                        $updateSql .= " AND id_agenta = :agent_id";
+                        $updateParams[':agent_id'] = $agentId;
                     }
                     
-                    $deleteStmt = $this->pdo->prepare($deleteQuery);
-                    $deleteSuccess = $deleteStmt->execute($deleteParams);
+                    $updateStmt = $this->pdo->prepare($updateSql);
+                    $updateSuccess = $updateStmt->execute($updateParams);
                     
-                    error_log("TableController::updateCommissionStatusAjax - Deleted from commission_payments: " . 
-                             ($deleteSuccess ? "success" : "failed") . ", rows: " . $deleteStmt->rowCount());
+                    error_log("TableController::updateCommissionStatusAjax - Updated agenci_wyplaty (unpaid): " . 
+                             ($updateSuccess ? "success" : "failed") . ", rows: " . $updateStmt->rowCount());
                 }
-                // If status=1, insert or update record in commission_payments
+                // If status=1, insert or update record in agenci_wyplaty
                 else if ($status == 1 && $agentId !== null) {
                     // First check if a record already exists
-                    $checkQuery = "SELECT id FROM commission_payments 
-                                 WHERE case_id = :case_id 
-                                 AND installment_number = :installment_number
-                                 AND agent_id = :agent_id";
+                    $checkQuery = "SELECT id_wyplaty FROM agenci_wyplaty 
+                                 WHERE id_sprawy = :case_id 
+                                 AND id_agenta = :agent_id
+                                 AND opis_raty = :installment_desc";
                     
                     $checkStmt = $this->pdo->prepare($checkQuery);
                     $checkParams = [
                         ':case_id' => $caseId,
-                        ':installment_number' => $installmentNumber,
-                        ':agent_id' => $agentId
+                        ':agent_id' => $agentId,
+                        ':installment_desc' => $desc
                     ];
                     
                     $checkStmt->execute($checkParams);
@@ -1504,46 +1507,58 @@ class TableController
                     
                     if ($existingRecord) {
                         // Update existing record
-                        $updateQuery = "UPDATE commission_payments 
-                                      SET invoice_number = :invoice_number, 
-                                          status = :status, 
-                                          updated_at = NOW() 
-                                      WHERE id = :id";
+                        $updateQuery = "UPDATE agenci_wyplaty 
+                                      SET numer_faktury = :invoice_number, 
+                                          czy_oplacone = 1,
+                                          data_platnosci = CURDATE(),
+                                          data_modyfikacji = NOW() 
+                                      WHERE id_wyplaty = :id";
                         
                         $updateStmt = $this->pdo->prepare($updateQuery);
                         $updateParams = [
                             ':invoice_number' => $invoiceNumber,
-                            ':status' => $status,
-                            ':id' => $existingRecord['id']
+                            ':id' => $existingRecord['id_wyplaty']
                         ];
                         
                         $updateSuccess = $updateStmt->execute($updateParams);
                         
-                        error_log("TableController::updateCommissionStatusAjax - Updated commission_payments: " . 
+                        error_log("TableController::updateCommissionStatusAjax - Updated agenci_wyplaty: " . 
                                  ($updateSuccess ? "success" : "failed") . ", rows: " . $updateStmt->rowCount());
                     } else {
+                        // Get the net amount from test2 table to calculate commission (10% by default)
+                        $amount = 0;
+                        $amountSql = "SELECT kwota_netto FROM test2 WHERE id = :case_id";
+                        $amountStmt = $this->pdo->prepare($amountSql);
+                        $amountStmt->execute([':case_id' => $caseId]);
+                        $amountResult = $amountStmt->fetch(\PDO::FETCH_ASSOC);
+                        
+                        if ($amountResult && isset($amountResult['kwota_netto'])) {
+                            $amount = round($amountResult['kwota_netto'] * 0.1, 2);
+                        }
+                        
                         // Insert new record
-                        $insertQuery = "INSERT INTO commission_payments 
-                                      (case_id, installment_number, agent_id, invoice_number, status, created_at) 
-                                      VALUES (:case_id, :installment_number, :agent_id, :invoice_number, :status, NOW())";
+                        $insertQuery = "INSERT INTO agenci_wyplaty 
+                                      (id_sprawy, id_agenta, opis_raty, kwota, czy_oplacone, numer_faktury, data_platnosci, data_utworzenia) 
+                                      VALUES (:case_id, :agent_id, :installment_desc, :amount, 1, :invoice_number, CURDATE(), NOW())";
                         
                         $insertStmt = $this->pdo->prepare($insertQuery);
                         $insertParams = [
                             ':case_id' => $caseId,
-                            ':installment_number' => $installmentNumber,
                             ':agent_id' => $agentId,
-                            ':invoice_number' => $invoiceNumber,
-                            ':status' => $status
+                            ':installment_desc' => $desc,
+                            ':amount' => $amount,
+                            ':invoice_number' => $invoiceNumber
                         ];
                         
                         $insertSuccess = $insertStmt->execute($insertParams);
                         $lastInsertId = $this->pdo->lastInsertId();
                         
-                        error_log("TableController::updateCommissionStatusAjax - Inserted into commission_payments: " . 
-                                 ($insertSuccess ? "success, ID: " . $lastInsertId : "failed"));
+                        error_log("TableController::updateCommissionStatusAjax - Inserted into agenci_wyplaty: " . 
+                                 ($insertSuccess ? "success, ID: " . $lastInsertId : "failed") . 
+                                 ", amount: " . $amount);
                     }
                 } else {
-                    error_log("TableController::updateCommissionStatusAjax - Skipping commission_payments update: status=$status, agent_id=" . ($agentId ?? 'null'));
+                    error_log("TableController::updateCommissionStatusAjax - Skipping agenci_wyplaty update: status=$status, agent_id=" . ($agentId ?? 'null'));
                 }
                 
                 // Commit the transaction

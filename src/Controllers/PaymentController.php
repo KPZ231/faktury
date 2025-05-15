@@ -13,52 +13,8 @@ class PaymentController {
         require_once __DIR__ . '/../../config/database.php';
         global $pdo;
         $this->pdo = $pdo;
-
-        // Ensure the commission_payments table exists
-        $this->ensureTableExists();
-    }
-
-    /**
-     * Ensure necessary table exists
-     */
-    private function ensureTableExists(): void {
-        try {
-            // Check if commission_payments table exists
-            $tableCheck = $this->pdo->query("SHOW TABLES LIKE 'commission_payments'");
-            if ($tableCheck->rowCount() === 0) {
-                // Table doesn't exist, create it to match the expected structure
-                $createTable = "CREATE TABLE IF NOT EXISTS commission_payments (
-                    id INT(11) NOT NULL AUTO_INCREMENT,
-                    case_id INT(11) NOT NULL,
-                    agent_id VARCHAR(255) NOT NULL,
-                    installment_number INT(11) NOT NULL,
-                    amount DECIMAL(10,2) DEFAULT 0.00,
-                    status TINYINT(1) DEFAULT 0,
-                    invoice_number VARCHAR(255) DEFAULT NULL,
-                    created_at DATETIME DEFAULT NULL,
-                    updated_at DATETIME DEFAULT NULL,
-                    PRIMARY KEY (id),
-                    KEY idx_case_agent_installment (case_id, agent_id, installment_number)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
-                
-                $this->pdo->exec($createTable);
-                error_log("Created commission_payments table");
-            } else {
-                // Table exists, make sure it has the amount column
-                try {
-                    $columnCheck = $this->pdo->query("SHOW COLUMNS FROM commission_payments LIKE 'amount'");
-                    if ($columnCheck->rowCount() === 0) {
-                        // Add the amount column if it doesn't exist
-                        $this->pdo->exec("ALTER TABLE commission_payments ADD COLUMN amount DECIMAL(10,2) DEFAULT 0.00 AFTER installment_number");
-                        error_log("Added amount column to commission_payments table");
-                    }
-                } catch (PDOException $e) {
-                    error_log("Error checking/adding column: " . $e->getMessage());
-                }
-            }
-        } catch (PDOException $e) {
-            error_log("Error checking/creating table: " . $e->getMessage());
-        }
+        
+        // No need to ensure table exists as we're using agenci_wyplaty which should already exist
     }
 
     /**
@@ -81,21 +37,22 @@ class PaymentController {
                 return;
             }
             
-            // Query the database for payment status
-            $query = "SELECT status, invoice_number, created_at";
+            // Query the agenci_wyplaty table for payment status
+            $desc = 'Prowizja rata ' . $installmentNumber;
             
-            // Only include amount if the column exists
-            $columnCheck = $this->pdo->query("SHOW COLUMNS FROM commission_payments LIKE 'amount'");
-            if ($columnCheck->rowCount() > 0) {
-                $query .= ", amount";
-            }
-            
-            $query .= " FROM commission_payments 
-                      WHERE case_id = ? AND installment_number = ? AND agent_id = ?
+            $query = "SELECT 
+                        CASE WHEN czy_oplacone = 1 THEN 1 ELSE 0 END as status, 
+                        numer_faktury as invoice_number, 
+                        data_utworzenia as created_at,
+                        kwota as amount
+                      FROM agenci_wyplaty 
+                      WHERE id_sprawy = ? 
+                      AND id_agenta = ?
+                      AND opis_raty = ?
                       LIMIT 1";
             
             $stmt = $this->pdo->prepare($query);
-            $stmt->execute([$caseId, $installmentNumber, $agentId]);
+            $stmt->execute([$caseId, $agentId, $desc]);
             $payment = $stmt->fetch(PDO::FETCH_ASSOC);
             
             // Return JSON response
@@ -139,98 +96,64 @@ class PaymentController {
                 return;
             }
             
-            // Check if 'amount' column exists
-            $hasAmountColumn = false;
-            try {
-            $columnCheck = $this->pdo->query("SHOW COLUMNS FROM commission_payments LIKE 'amount'");
-            $hasAmountColumn = $columnCheck->rowCount() > 0;
-            } catch (PDOException $e) {
-                error_log("Error checking for amount column: " . $e->getMessage());
-                // Continue with hasAmountColumn = false
+            // Check if a payment record already exists in agenci_wyplaty
+            $desc = 'Prowizja rata ' . $data['installment_number'];
+            
+            $checkQuery = "SELECT id_wyplaty FROM agenci_wyplaty 
+                         WHERE id_sprawy = ? 
+                         AND id_agenta = ?
+                         AND opis_raty = ?
+                         LIMIT 1";
+            
+            $checkStmt = $this->pdo->prepare($checkQuery);
+            $checkStmt->execute([$data['case_id'], $data['agent_id'], $desc]);
+            $existingPayment = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Get the net amount from test2 table to calculate commission (10% by default)
+            $amount = $data['amount'] ?? null;
+            if ($amount === null) {
+                $amountSql = "SELECT kwota_netto FROM test2 WHERE id = ?";
+                $amountStmt = $this->pdo->prepare($amountSql);
+                $amountStmt->execute([$data['case_id']]);
+                $amountResult = $amountStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($amountResult && isset($amountResult['kwota_netto'])) {
+                    $amount = round($amountResult['kwota_netto'] * 0.1, 2);
+                } else {
+                    $amount = 0;
+                }
             }
             
-            // Check if the record already exists
-            $checkQuery = "SELECT id FROM commission_payments 
-                          WHERE case_id = ? AND agent_id = ? AND installment_number = ?
-                          LIMIT 1";
-            $checkStmt = $this->pdo->prepare($checkQuery);
-            $checkStmt->execute([
-                $data['case_id'],
-                $data['agent_id'],
-                $data['installment_number']
-            ]);
-            $existingRecord = $checkStmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($existingRecord) {
-                // Update existing record
-                $updateQuery = "UPDATE commission_payments SET 
-                               status = ?,
-                               invoice_number = ?";
-                
-                // Check if updated_at column exists
-                $hasUpdatedAtColumn = false;
-                try {
-                $columnCheck = $this->pdo->query("SHOW COLUMNS FROM commission_payments LIKE 'updated_at'");
-                    $hasUpdatedAtColumn = $columnCheck->rowCount() > 0;
-                    if ($hasUpdatedAtColumn) {
-                    $updateQuery .= ", updated_at = NOW()";
-                }
-                } catch (PDOException $e) {
-                    error_log("Error checking for updated_at column: " . $e->getMessage());
-                    // Continue without adding updated_at field
-                }
-                
-                // Initialize params array
-                $params = [
-                    $data['status'],
-                    $data['invoice_number'] ?? null
-                ];
-                
-                // Add amount field if it exists
-                if ($hasAmountColumn && isset($data['amount'])) {
-                    $updateQuery .= ", amount = ?";
-                    $params[] = $data['amount'];
-                }
-                
-                $updateQuery .= " WHERE id = ?";
-                $params[] = $existingRecord['id'];
+            if ($existingPayment) {
+                // Update existing payment record
+                $updateQuery = "UPDATE agenci_wyplaty 
+                              SET czy_oplacone = 1, 
+                                  numer_faktury = ?,
+                                  kwota = ?,
+                                  data_platnosci = CURDATE(),
+                                  data_modyfikacji = NOW()
+                              WHERE id_wyplaty = ?";
                 
                 $updateStmt = $this->pdo->prepare($updateQuery);
-                $updateResult = $updateStmt->execute($params);
-                
-                error_log("Updated record id: " . $existingRecord['id'] . ", result: " . ($updateResult ? 'success' : 'failed'));
-                
+                $success = $updateStmt->execute([$data['invoice_number'] ?? null, $amount, $existingPayment['id_wyplaty']]);
+                $action = 'updated';
             } else {
-                // Insert new record
-                $insertQuery = "INSERT INTO commission_payments 
-                               (case_id, agent_id, installment_number";
-                
-                $values = "(?, ?, ?";
-                $params = [
-                    $data['case_id'],
-                    $data['agent_id'],
-                    $data['installment_number']
-                ];
-                
-                // Add amount field if it exists
-                if ($hasAmountColumn) {
-                    $insertQuery .= ", amount";
-                    $values .= ", ?";
-                    $params[] = $data['amount'] ?? 0;
-                }
-                
-                // Add standard fields
-                $insertQuery .= ", status, invoice_number, created_at)";
-                $values .= ", ?, ?, NOW())";
-                $params[] = $data['status'];
-                $params[] = $data['invoice_number'] ?? null;
-                
-                $insertQuery .= " VALUES " . $values;
+                // Insert new payment record
+                $insertQuery = "INSERT INTO agenci_wyplaty 
+                              (id_sprawy, id_agenta, opis_raty, kwota, czy_oplacone, numer_faktury, data_platnosci, data_utworzenia) 
+                              VALUES (?, ?, ?, ?, 1, ?, CURDATE(), NOW())";
                 
                 $insertStmt = $this->pdo->prepare($insertQuery);
-                $insertResult = $insertStmt->execute($params);
+                $success = $insertStmt->execute([
+                    $data['case_id'],
+                    $data['agent_id'],
+                    $desc,
+                    $amount,
+                    $data['invoice_number'] ?? null
+                ]);
+                $action = 'created';
                 
-                error_log("Inserted new record, result: " . ($insertResult ? 'success' : 'failed') . ", last insert ID: " . $this->pdo->lastInsertId());
+                error_log("Inserted new record, result: " . ($success ? 'success' : 'failed') . ", last insert ID: " . $this->pdo->lastInsertId());
             }
             
             // Also update the corresponding commission_paid field in test2 table
