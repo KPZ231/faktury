@@ -52,15 +52,10 @@ class CommissionController
             // Ensure numeric installment number
             $installmentNumber = (int)$installmentNumber;
             
-
-            
-            // Ensure columns exist
-            $this->ensureCommissionColumnsExist();
-            
             // If we're setting status=1 but no agent_id was provided, try to get it from the case
             if ($status == 1 && empty($agentId)) {
                 error_log("No agent ID provided, trying to find one from the case");
-                $agentQuery = "SELECT agent_id FROM sprawa_agent WHERE sprawa_id = :case_id LIMIT 1";
+                $agentQuery = "SELECT id_agenta FROM prowizje_agentow_spraw WHERE id_sprawy = :case_id LIMIT 1";
                 $agentStmt = $this->pdo->prepare($agentQuery);
                 $agentStmt->execute([':case_id' => $caseId]);
                 $fetchedAgentId = $agentStmt->fetchColumn();
@@ -69,8 +64,8 @@ class CommissionController
                     $agentId = $fetchedAgentId;
                     error_log("Found agent ID: $agentId");
                 } else {
-                    // Default to 'Kuba' if no agent found
-                    $agentId = 'Kuba';
+                    // Default to '1' (Kuba) if no agent found
+                    $agentId = '1';
                     error_log("No agent found, defaulting to: $agentId");
                 }
             }
@@ -79,17 +74,21 @@ class CommissionController
                 // Start transaction to ensure data consistency
                 $this->pdo->beginTransaction();
                 
+                // Get the description for this installment
+                $desc = 'Prowizja rata ' . $installmentNumber;
+                
                 // Delete any existing commission records for this agent, case and installment
                 // if we're setting status=0
                 if ($status == 0) {
                     // Instead of deleting, we'll mark as not paid in agenci_wyplaty
                     $updateSql = "UPDATE agenci_wyplaty 
                                  SET czy_oplacone = 0,
+                                     numer_faktury = NULL,
+                                     data_platnosci = NULL,
                                      data_modyfikacji = NOW()
                                  WHERE id_sprawy = :case_id 
                                  AND opis_raty = :installment_desc";
                     
-                    $desc = 'Prowizja rata ' . $installmentNumber;
                     $updateStmt = $this->pdo->prepare($updateSql);
                     $updateResult = $updateStmt->execute([
                         ':case_id' => $caseId,
@@ -103,7 +102,6 @@ class CommissionController
                 
                 // Store commission payment in the agenci_wyplaty table if status=1
                 if ($status == 1) {
-                    $desc = 'Prowizja rata ' . $installmentNumber;
                     // First check if a record already exists for this case and installment description
                     $checkSql = "SELECT id_wyplaty FROM agenci_wyplaty 
                                 WHERE id_sprawy = :case_id 
@@ -142,16 +140,52 @@ class CommissionController
                                 ", for case $caseId, installment $installmentNumber, agent $agentId, invoice $invoiceNumber");
                     } else {
                         // Insert new record into agenci_wyplaty
-                        // First, we need to get the commission amount from the test2 table
+                        // First, calculate the commission amount from the sprawy table
                         $amount = 0;
-                        $amountSql = "SELECT kwota_netto FROM test2 WHERE id = :case_id";
+                        
+                        // Try to get amount from sprawy table first
+                        $amountSql = "SELECT wywalczona_kwota, stawka_success_fee FROM sprawy WHERE id_sprawy = :case_id";
                         $amountStmt = $this->pdo->prepare($amountSql);
                         $amountStmt->execute([':case_id' => $caseId]);
-                        $amountResult = $amountStmt->fetch(\PDO::FETCH_ASSOC);
+                        $sprawaResult = $amountStmt->fetch(\PDO::FETCH_ASSOC);
                         
-                        if ($amountResult && isset($amountResult['kwota_netto'])) {
-                            // Default to 10% commission if not specified
-                            $amount = round($amountResult['kwota_netto'] * 0.1, 2);
+                        if ($sprawaResult && isset($sprawaResult['wywalczona_kwota']) && isset($sprawaResult['stawka_success_fee'])) {
+                            // Calculate commission based on success fee percentage and agent percentage
+                            $agentProcSql = "SELECT udzial_prowizji_proc FROM prowizje_agentow_spraw 
+                                            WHERE id_sprawy = :case_id AND id_agenta = :agent_id";
+                            $agentProcStmt = $this->pdo->prepare($agentProcSql);
+                            $agentProcStmt->execute([':case_id' => $caseId, ':agent_id' => $agentId]);
+                            $procResult = $agentProcStmt->fetch(\PDO::FETCH_ASSOC);
+                            
+                            $agentProc = $procResult ? floatval($procResult['udzial_prowizji_proc']) : 0.1; // Default to 10%
+                            $amount = round($sprawaResult['wywalczona_kwota'] * $sprawaResult['stawka_success_fee'] * $agentProc, 2);
+                            error_log("Calculated amount from sprawy: $amount for agent $agentId with percentage $agentProc");
+                        }
+                        
+                        // If we couldn't calculate from sprawy, try oplaty_spraw
+                        if ($amount == 0) {
+                            $rataDesc = "Rata " . $installmentNumber;
+                            $amountSql = "SELECT oczekiwana_kwota FROM oplaty_spraw WHERE id_sprawy = :case_id AND opis_raty = :rata_desc";
+                            $amountStmt = $this->pdo->prepare($amountSql);
+                            $amountStmt->execute([':case_id' => $caseId, ':rata_desc' => $rataDesc]);
+                            $oplatyResult = $amountStmt->fetch(\PDO::FETCH_ASSOC);
+                            
+                            if ($oplatyResult && isset($oplatyResult['oczekiwana_kwota'])) {
+                                // Default to 10% commission if not specified
+                                $agentProcSql = "SELECT udzial_prowizji_proc FROM prowizje_agentow_spraw 
+                                                WHERE id_sprawy = :case_id AND id_agenta = :agent_id";
+                                $agentProcStmt = $this->pdo->prepare($agentProcSql);
+                                $agentProcStmt->execute([':case_id' => $caseId, ':agent_id' => $agentId]);
+                                $procResult = $agentProcStmt->fetch(\PDO::FETCH_ASSOC);
+                                
+                                $agentProc = $procResult ? floatval($procResult['udzial_prowizji_proc']) : 0.1; // Default to 10%
+                                $amount = round($oplatyResult['oczekiwana_kwota'] * $agentProc, 2);
+                                error_log("Calculated amount from oplaty_spraw: $amount for agent $agentId with percentage $agentProc");
+                            } else {
+                                // Default amount if all else fails
+                                $amount = 1000.00;
+                                error_log("Using default amount: $amount for agent $agentId");
+                            }
                         }
                         
                         $sql = "INSERT INTO agenci_wyplaty 
@@ -176,6 +210,27 @@ class CommissionController
                     }
                 }
                 
+                // Also update oplaty_spraw to mark the entire installment as paid if this is the main commission payment
+                if ($status == 1) {
+                    $rataDesc = "Rata " . $installmentNumber;
+                    $updateOplatySql = "UPDATE oplaty_spraw 
+                                       SET czy_oplacona = 1,
+                                           faktura_id = :invoice_number,
+                                           data_oplaty = CURDATE()
+                                       WHERE id_sprawy = :case_id 
+                                       AND opis_raty = :installment_desc";
+                    
+                    $updateOplatyStmt = $this->pdo->prepare($updateOplatySql);
+                    $updateOplatyResult = $updateOplatyStmt->execute([
+                        ':case_id' => $caseId,
+                        ':installment_desc' => $rataDesc,
+                        ':invoice_number' => $invoiceNumber
+                    ]);
+                    
+                    error_log("Updated oplaty_spraw: " . ($updateOplatyResult ? "success" : "failed") . 
+                             ", rows affected: " . $updateOplatyStmt->rowCount());
+                }
+                
                 // Commit the transaction
                 $this->pdo->commit();
                 
@@ -183,12 +238,13 @@ class CommissionController
                 $response = [
                     'success' => true,
                     'message' => 'Commission status updated successfully',
-                    'commission_id' => $status == 1 ? $this->pdo->lastInsertId() : null,
+                    'commission_id' => $status == 1 ? ($lastInsertId ?? null) : null,
                     'case_id' => $caseId,
                     'installment_number' => $installmentNumber,
                     'status' => $status,
                     'agent_id' => $agentId,
-                    'invoice_number' => $invoiceNumber
+                    'invoice_number' => $invoiceNumber,
+                    'is_paid' => $status == 1
                 ];
                 
                 error_log("updateCommissionStatus returning success response: " . json_encode($response));
@@ -234,95 +290,7 @@ class CommissionController
         // No need to create tables or columns anymore as we're using agenci_wyplaty
         return;
     }
-    
-    /**
-     * Migrate existing commission data from old format to agenci_wyplaty
-     * This is a one-time migration function
-     */
-    private function migrateExistingCommissionData()
-    {
-        try {
-            // Check if we need to migrate data (if there's data in test2 but not in agenci_wyplaty)
-            $stmt = $this->pdo->query("SELECT COUNT(*) FROM test2 WHERE installment1_commission_paid = 1 OR installment2_commission_paid = 1 OR installment3_commission_paid = 1 OR final_installment_commission_paid = 1");
-            $test2Count = $stmt->fetchColumn();
-            
-            if ($test2Count > 0) {
-                error_log("Migrating existing commission data to agenci_wyplaty table");
-                
-                // Get all cases with commission payments
-                $cases = $this->pdo->query("
-                    SELECT id, 
-                           installment1_commission_paid, installment1_commission_invoice,
-                           installment2_commission_paid, installment2_commission_invoice,
-                           installment3_commission_paid, installment3_commission_invoice,
-                           final_installment_commission_paid, final_installment_commission_invoice,
-                           kwota_netto
-                    FROM test2 
-                    WHERE installment1_commission_paid = 1 
-                       OR installment2_commission_paid = 1 
-                       OR installment3_commission_paid = 1 
-                       OR final_installment_commission_paid = 1
-                ")->fetchAll(PDO::FETCH_ASSOC);
-                
-                foreach ($cases as $case) {
-                    // For each case, add payments to agenci_wyplaty table
-                    for ($i = 1; $i <= 4; $i++) {
-                        $paidField = $i == 4 ? 'final_installment_commission_paid' : "installment{$i}_commission_paid";
-                        $invoiceField = $i == 4 ? 'final_installment_commission_invoice' : "installment{$i}_commission_invoice";
-                        
-                        if ($case[$paidField] == 1 && !empty($case[$invoiceField])) {
-                            // Get agent ID from case_agents table or default to 'Kuba'
-                            $stmt = $this->pdo->prepare("SELECT agent_id FROM sprawa_agent WHERE sprawa_id = ? LIMIT 1");
-                            $stmt->execute([$case['id']]);
-                            $agentId = $stmt->fetchColumn();
-                            
-                            if (!$agentId) {
-                                $agentId = 'Kuba'; // Default agent if none found
-                            }
-                            
-                            // Calculate commission amount (10% of net amount by default)
-                            $amount = 0;
-                            if (!empty($case['kwota_netto'])) {
-                                $amount = round($case['kwota_netto'] * 0.1, 2);
-                            }
-                            
-                            // Check if this payment already exists in agenci_wyplaty
-                            $desc = 'Prowizja rata ' . ($i == 4 ? 'końcowa' : $i);
-                            $checkStmt = $this->pdo->prepare("
-                                SELECT COUNT(*) FROM agenci_wyplaty 
-                                WHERE id_sprawy = ? 
-                                AND id_agenta = ?
-                                AND opis_raty = ?
-                                AND numer_faktury = ?
-                            ");
-                            $checkStmt->execute([$case['id'], $agentId, $desc, $case[$invoiceField]]);
-                            $exists = $checkStmt->fetchColumn() > 0;
-                            
-                            if (!$exists) {
-                                // Insert payment record into agenci_wyplaty
-                                $sql = "INSERT INTO agenci_wyplaty 
-                                        (id_sprawy, id_agenta, opis_raty, kwota, czy_oplacone, numer_faktury, data_platnosci, data_utworzenia) 
-                                        VALUES (?, ?, ?, ?, 1, ?, CURDATE(), NOW())";
-                                
-                                $this->pdo->prepare($sql)->execute([
-                                    $case['id'],
-                                    $agentId,
-                                    $desc,
-                                    $amount,
-                                    $case[$invoiceField]
-                                ]);
-                                
-                                error_log("Migrated payment to agenci_wyplaty for case {$case['id']}, installment $i, agent $agentId");
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (\Exception $e) {
-            error_log("Error migrating commission data to agenci_wyplaty: " . $e->getMessage());
-        }
-    }
-    
+
     /**
      * Get commission payments for a case and installment
      * 
@@ -346,8 +314,7 @@ class CommissionController
                            aw.czy_oplacone as status,
                            aw.data_platnosci as created_at,
                            aw.data_modyfikacji as updated_at,
-                           COALESCE(a.imie, '') as imie, 
-                           COALESCE(a.nazwisko, '') as nazwisko
+                           COALESCE(a.nazwa_agenta, '') as nazwa_agenta 
                     FROM agenci_wyplaty aw
                     LEFT JOIN agenci a ON (aw.id_agenta = a.id_agenta)
                     WHERE aw.id_sprawy = :case_id 
@@ -364,16 +331,6 @@ class CommissionController
             $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
             error_log("Found " . count($payments) . " commission payments in agenci_wyplaty for case $caseId, installment $installmentNumber");
             
-            // If no payments found, check if there's legacy data in the test2 table
-            if (count($payments) === 0) {
-                error_log("No payments found in agenci_wyplaty table, checking for legacy data");
-                $legacyPayments = $this->getLegacyCommissionPayments($caseId, $installmentNumber);
-                if (!empty($legacyPayments)) {
-                    error_log("Found " . count($legacyPayments) . " legacy payments");
-                    $payments = $legacyPayments;
-                }
-            }
-            
             return [
                 'success' => true,
                 'payments' => $payments
@@ -385,72 +342,6 @@ class CommissionController
                 'success' => false,
                 'message' => $e->getMessage()
             ];
-        }
-    }
-    
-    /**
-     * Get legacy commission payments from test2 table
-     * 
-     * @param int $caseId
-     * @param int $installmentNumber
-     * @return array
-     */
-    private function getLegacyCommissionPayments($caseId, $installmentNumber)
-    {
-        try {
-            // Map installment number to column name
-            $columnMap = [
-                1 => 'installment1_commission_invoice',
-                2 => 'installment2_commission_invoice',
-                3 => 'installment3_commission_invoice',
-                4 => 'final_installment_commission_invoice'
-            ];
-            
-            $statusColumnMap = [
-                1 => 'installment1_commission_paid',
-                2 => 'installment2_commission_paid',
-                3 => 'installment3_commission_paid',
-                4 => 'final_installment_commission_paid'
-            ];
-            
-            $column = $columnMap[$installmentNumber] ?? null;
-            $statusColumn = $statusColumnMap[$installmentNumber] ?? null;
-            
-            if (!$column || !$statusColumn) {
-                return [];
-            }
-            
-            // Query test2 table for legacy data
-            $sql = "SELECT id, $column as invoice_number, $statusColumn as status, 
-                           '' as agent_id, 'Legacy' as imie, 'Invoice' as nazwisko
-                    FROM test2 
-                    WHERE id = :case_id AND $statusColumn = 1 AND $column IS NOT NULL AND $column != ''";
-            
-            $stmt = $this->pdo->prepare($sql);
-            $stmt->execute([':case_id' => $caseId]);
-            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Format results to match the structure of commission_payments
-            $payments = [];
-            foreach ($result as $row) {
-                $payments[] = [
-                    'id' => null,
-                    'case_id' => $row['id'],
-                    'installment_number' => $installmentNumber,
-                    'agent_id' => 'legacy',
-                    'invoice_number' => $row['invoice_number'],
-                    'status' => $row['status'],
-                    'created_at' => null,
-                    'updated_at' => null,
-                    'imie' => $row['imie'],
-                    'nazwisko' => $row['nazwisko']
-                ];
-            }
-            
-            return $payments;
-        } catch (\Exception $e) {
-            error_log("Error getting legacy payments: " . $e->getMessage());
-            return [];
         }
     }
 
@@ -485,14 +376,8 @@ class CommissionController
             // Process each payment for display
             $formattedPayments = [];
             foreach ($payments as $payment) {
-                // Get agent name if available
-                $agentName = '';
-                if (!empty($payment['imie']) || !empty($payment['nazwisko'])) {
-                    $agentName = trim($payment['imie'] . ' ' . $payment['nazwisko']);
-                } else {
-                    // Try to get agent name from database
-                    $agentName = $this->getAgentName($payment['agent_id']);
-                }
+                // Get agent name from payment data
+                $agentName = $payment['nazwa_agenta'] ?? ('Agent ' . $payment['agent_id']);
                 
                 // Format payment for display
                 $formattedPayment = [
@@ -502,7 +387,7 @@ class CommissionController
                     'agent_id' => $payment['agent_id'],
                     'invoice_number' => $payment['invoice_number'] ?? '',
                     'status' => $payment['status'] ?? 0,
-                    'agent_name' => $agentName ?: ('Agent ' . $payment['agent_id']),
+                    'agent_name' => $agentName,
                     'type' => 'Faktura prowizji', // User-friendly label instead of technical field name
                     'formatted_date' => isset($payment['created_at']) ? 
                         date('d.m.Y H:i', strtotime($payment['created_at'])) : 
@@ -538,7 +423,7 @@ class CommissionController
                 'count' => count($formattedPayments),
                 'case_id' => $caseId,
                 'installment_number' => $installmentNumber,
-                'table_name' => 'commission_payments' // This is for technical reference, not displayed to user
+                'table_name' => 'agenci_wyplaty' // Updated to reflect actual table name
             ]);
             
         } catch (\Exception $e) {
@@ -548,31 +433,6 @@ class CommissionController
                 'success' => false,
                 'message' => $e->getMessage()
             ]);
-        }
-    }
-    
-    /**
-     * Get agent name by ID
-     * 
-     * @param int $agentId The agent ID
-     * @return string The agent name (imie + nazwisko)
-     */
-    private function getAgentName($agentId)
-    {
-        try {
-            $query = "SELECT imie, nazwisko FROM agenci WHERE agent_id = :agent_id";
-            $stmt = $this->pdo->prepare($query);
-            $stmt->execute([':agent_id' => $agentId]);
-            $agent = $stmt->fetch(\PDO::FETCH_ASSOC);
-            
-            if ($agent) {
-                return $agent['imie'] . ' ' . $agent['nazwisko'];
-            }
-            
-            return null;
-        } catch (\Exception $e) {
-            error_log("Error getting agent name: " . $e->getMessage());
-            return null;
         }
     }
 } 

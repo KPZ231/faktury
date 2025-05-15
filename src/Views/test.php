@@ -374,13 +374,22 @@ syncPaymentStatuses($pdo);
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
+        /* Enhanced styling for paid invoices */
         .agent-payout.zaplecono-faktura {
             background-color: #d4edda;
             border-left: 3px solid #28a745;
             padding: 8px 10px;
             border-radius: 4px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(40, 167, 69, 0.1);
         }
         
+        .agent-payout.zaplecono-faktura:hover {
+            background-color: #c3e6cb;
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.15);
+        }
+        
+        /* More noticeable paid status */
         .status-zapłacono {
             color: #28a745;
             font-size: 13px;
@@ -396,11 +405,32 @@ syncPaymentStatuses($pdo);
             font-weight: bold;
         }
         
+        /* Add a subtle glow effect to paid invoices */
+        @keyframes paid-glow {
+            0% { box-shadow: 0 0 5px rgba(40, 167, 69, 0.2); }
+            50% { box-shadow: 0 0 10px rgba(40, 167, 69, 0.4); }
+            100% { box-shadow: 0 0 5px rgba(40, 167, 69, 0.2); }
+        }
+        
+        .agent-payout.zaplecono-faktura {
+            animation: paid-glow 3s infinite ease-in-out;
+        }
+        
+        /* Invoice info with better styling */
         .faktura-info {
             font-size: 12px;
-            color: #666;
+            color: #28a745;
             font-style: italic;
             margin-top: 3px;
+            background-color: rgba(40, 167, 69, 0.05);
+            padding: 2px 5px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        
+        /* Paid row in table */
+        td.status-oplacona {
+            background-color: rgba(40, 167, 69, 0.1);
         }
         
         .agent-name {
@@ -421,6 +451,12 @@ syncPaymentStatuses($pdo);
             border-left: 3px solid #ffc107;
             padding: 8px 10px;
             border-radius: 4px;
+        }
+        
+        /* When both Kuba and paid, make the green style take precedence */
+        .agent-payout.kuba-payout.zaplecono-faktura {
+            background-color: #d4edda;
+            border-left: 3px solid #28a745;
         }
         
         .agent-payout:not(.kuba-payout) {
@@ -1716,6 +1752,12 @@ syncPaymentStatuses($pdo);
         const invoiceNumber = document.getElementById('modalInvoiceInput').value;
         const statusDiv = document.getElementById('modalPaymentStatus');
         
+        // Walidacja danych
+        if (isPaid && !invoiceNumber.trim()) {
+            statusDiv.innerHTML = '<div class="error-message">Podaj numer faktury przy zaznaczeniu jako opłacone</div>';
+            return;
+        }
+        
         // Pokaż ładowanie
         statusDiv.innerHTML = '<div class="saving-indicator">Zapisywanie...</div>';
         
@@ -1773,8 +1815,97 @@ syncPaymentStatuses($pdo);
         .then(data => {
             console.log('Update payment result data:', data);
             if (data.success) {
+                // Apply the green background directly to the element without waiting for page reload
+                try {
+                    const paymentElement = document.querySelector(`.agent-payout[data-payment-id="${currentPaymentId}"]`);
+                    if (paymentElement) {
+                        if (isPaid) {
+                            // Add the green background class
+                            paymentElement.classList.add('zaplecono-faktura');
+                            
+                            // Add paid status text
+                            let statusText = paymentElement.querySelector('.status-zapłacono');
+                            if (!statusText) {
+                                statusText = document.createElement('div');
+                                statusText.className = 'status-zapłacono';
+                                statusText.textContent = `Zapłacono (Faktura: ${invoiceNumber})`;
+                                paymentElement.appendChild(statusText);
+                            } else {
+                                statusText.textContent = `Zapłacono (Faktura: ${invoiceNumber})`;
+                            }
+                            
+                            // Remove the "Uzupełnij" link if it exists
+                            const uzupelnijLink = paymentElement.querySelector('.uzupelnij-link');
+                            if (uzupelnijLink) {
+                                uzupelnijLink.remove();
+                            }
+                            
+                            // Also update any related invoice cells in the row
+                            const row = paymentElement.closest('tr');
+                            if (row) {
+                                try {
+                                    const installmentCell = row.querySelector(`td:nth-child(${8 + currentPaymentData.installmentNumber})`);
+                                    if (installmentCell) {
+                                        installmentCell.classList.add('status-oplacona');
+                                        const checkboxSpan = installmentCell.querySelector('.checkbox');
+                                        if (checkboxSpan) {
+                                            checkboxSpan.innerHTML = '☑';
+                                        }
+                                        
+                                        // Add invoice info if not already present
+                                        if (!installmentCell.querySelector('.invoice-details')) {
+                                            const invoiceDetailsSpan = document.createElement('small');
+                                            invoiceDetailsSpan.className = 'invoice-details';
+                                            invoiceDetailsSpan.innerHTML = `<br>Faktura: ${invoiceNumber}`;
+                                            installmentCell.appendChild(invoiceDetailsSpan);
+                                        }
+                                    }
+                                } catch (cellError) {
+                                    console.error('Error updating cell:', cellError);
+                                }
+                            }
+                        } else {
+                            // Remove the green background if unpaid
+                            paymentElement.classList.remove('zaplecono-faktura');
+                            
+                            // Remove paid status text
+                            const statusText = paymentElement.querySelector('.status-zapłacono');
+                            if (statusText) {
+                                statusText.remove();
+                            }
+                            
+                            // Add the "Uzupełnij" link if not already present
+                            if (!paymentElement.querySelector('.uzupelnij-link')) {
+                                const uzupelnijLink = document.createElement('a');
+                                uzupelnijLink.className = 'uzupelnij-link';
+                                uzupelnijLink.href = '#';
+                                uzupelnijLink.textContent = 'Uzupełnij';
+                                uzupelnijLink.onclick = function(e) {
+                                    e.preventDefault();
+                                    openPaymentModal(currentPaymentId);
+                                };
+                                paymentElement.appendChild(uzupelnijLink);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error updating UI:', e);
+                }
+                
                 // Aktualizuj wyświetlanie z animacją sukcesu
                 statusDiv.innerHTML = '<div class="success-message">Zapisano pomyślnie!</div>';
+                
+                // Store the payment status in localStorage for persistence across page loads
+                try {
+                    const paymentKey = `payment_status_${currentPaymentData.id_sprawy}_${currentPaymentData.installmentNumber}_${currentPaymentData.id_agenta}`;
+                    localStorage.setItem(paymentKey, JSON.stringify({
+                        isPaid: isPaid,
+                        invoiceNumber: invoiceNumber,
+                        timestamp: new Date().getTime()
+                    }));
+                } catch (storageError) {
+                    console.error('Error storing payment status in localStorage:', storageError);
+                }
                 
                 // Odśwież stronę po zapisie
                 setTimeout(() => {
@@ -1793,12 +1924,57 @@ syncPaymentStatuses($pdo);
 
     // Funkcja do wczytywania zapisanych informacji przy ładowaniu strony
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded - initializing payment system');
+        
         // Inicjalizacja formularza płatności
         const modal = document.getElementById('paymentFormModal');
         if (modal) {
             // Make sure the modal is hidden initially
             modal.style.display = 'none';
             modal.classList.remove('active');
+        }
+
+        // Apply green background to all paid invoices after the page loads
+        const paidElements = document.querySelectorAll('.agent-payout');
+        let paidCount = 0;
+        
+        paidElements.forEach(element => {
+            const statusElement = element.querySelector('.status-zapłacono');
+            if (statusElement) {
+                element.classList.add('zaplecono-faktura');
+                paidCount++;
+            }
+        });
+        
+        console.log(`Found ${paidCount} paid invoices out of ${paidElements.length} total`);
+        
+        // Check localStorage for any saved payment statuses
+        try {
+            const paymentKeys = Object.keys(localStorage).filter(key => key.startsWith('payment_status_'));
+            console.log(`Found ${paymentKeys.length} saved payment statuses in localStorage`);
+            
+            paymentKeys.forEach(key => {
+                try {
+                    const savedStatus = JSON.parse(localStorage.getItem(key));
+                    const [_, id_sprawy, installmentNumber, id_agenta] = key.split('_').slice(-3);
+                    
+                    if (savedStatus.isPaid) {
+                        // Look for matching element
+                        const paymentId = `payment_${id_sprawy}_${installmentNumber}_${id_agenta}`;
+                        const element = document.querySelector(`.agent-payout[data-payment-id="${paymentId}"]`);
+                        
+                        if (element && !element.classList.contains('zaplecono-faktura')) {
+                            // Element exists but doesn't have the paid class - add it
+                            element.classList.add('zaplecono-faktura');
+                            console.log(`Applied saved paid status to element: ${paymentId}`);
+                        }
+                    }
+                } catch (parseError) {
+                    console.error('Error parsing saved payment status:', parseError);
+                }
+            });
+        } catch (localStorageError) {
+            console.error('Error accessing localStorage:', localStorageError);
         }
 
         // Funkcja do obsługi wyszukiwania
@@ -1878,54 +2054,58 @@ syncPaymentStatuses($pdo);
         }
 
         // Obsługa wpisywania tekstu
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.trim();
-            selectedIndex = -1;
-            
-            if (searchTerm.length > 0) {
-                const suggestions = getSuggestions(searchTerm);
-                showSuggestions(suggestions);
-                highlightAndScrollToMatch(searchTerm, false); // Nie scrolluj podczas wpisywania
-            } else {
-                suggestionsContainer.style.display = 'none';
-                rows.forEach(row => row.classList.remove('highlight'));
-            }
-        });
-
-        // Obsługa zdarzeń klawiatury
-        searchInput.addEventListener('keydown', function(e) {
-            const suggestions = document.querySelectorAll('.autocomplete-suggestion');
-            
-            switch(e.key) {
-                case 'ArrowDown':
-                    e.preventDefault();
-                    selectedIndex = Math.min(selectedIndex + 1, suggestions.length - 1);
-                    updateSelectedSuggestion();
-                    break;
-                case 'ArrowUp':
-                    e.preventDefault();
-                    selectedIndex = Math.max(selectedIndex - 1, -1);
-                    updateSelectedSuggestion();
-                    break;
-                case 'Enter':
-                    e.preventDefault();
-                    if (selectedIndex >= 0 && suggestions[selectedIndex]) {
-                        const selectedText = suggestions[selectedIndex].textContent;
-                        searchInput.value = selectedText;
-                        suggestionsContainer.style.display = 'none';
-                        highlightAndScrollToMatch(selectedText, true); // Scrolluj po Enter
-                    }
-                    break;
-                case 'Escape':
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.trim();
+                selectedIndex = -1;
+                
+                if (searchTerm.length > 0) {
+                    const suggestions = getSuggestions(searchTerm);
+                    showSuggestions(suggestions);
+                    highlightAndScrollToMatch(searchTerm, false); // Nie scrolluj podczas wpisywania
+                } else {
                     suggestionsContainer.style.display = 'none';
-                    selectedIndex = -1;
-                    break;
-            }
-        });
+                    rows.forEach(row => row.classList.remove('highlight'));
+                }
+            });
+
+            // Obsługa zdarzeń klawiatury
+            searchInput.addEventListener('keydown', function(e) {
+                const suggestions = document.querySelectorAll('.autocomplete-suggestion');
+                
+                switch(e.key) {
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        selectedIndex = Math.min(selectedIndex + 1, suggestions.length - 1);
+                        updateSelectedSuggestion();
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        selectedIndex = Math.max(selectedIndex - 1, -1);
+                        updateSelectedSuggestion();
+                        break;
+                    case 'Enter':
+                        e.preventDefault();
+                        if (selectedIndex >= 0 && suggestions[selectedIndex]) {
+                            const selectedText = suggestions[selectedIndex].textContent;
+                            searchInput.value = selectedText;
+                            suggestionsContainer.style.display = 'none';
+                            highlightAndScrollToMatch(selectedText, true); // Scrolluj po Enter
+                        }
+                        break;
+                    case 'Escape':
+                        suggestionsContainer.style.display = 'none';
+                        selectedIndex = -1;
+                        break;
+                }
+            });
+        }
 
         // Zamknij podpowiedzi po kliknięciu poza nimi
         document.addEventListener('click', function(e) {
-            if (!searchInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+            if (searchInput && suggestionsContainer && 
+                !searchInput.contains(e.target) && 
+                !suggestionsContainer.contains(e.target)) {
                 suggestionsContainer.style.display = 'none';
             }
         });
@@ -1934,29 +2114,31 @@ syncPaymentStatuses($pdo);
         const navToggle = document.getElementById('navToggle');
         const cleannav = document.querySelector('.cleannav');
         
-        // Check if there's a saved state in localStorage
-        const navExpanded = localStorage.getItem('testNavExpanded') === 'true';
-        
-        // Apply initial state
-        if (navExpanded) {
-            cleannav.classList.add('expanded');
-            navToggle.classList.add('expanded');
-        }
-        
-        // Add toggle functionality
-        navToggle.addEventListener('click', function() {
-            cleannav.classList.toggle('expanded');
-            this.classList.toggle('expanded');
-            document.body.classList.toggle('nav-expanded');
+        if (navToggle && cleannav) {
+            // Check if there's a saved state in localStorage
+            const navExpanded = localStorage.getItem('testNavExpanded') === 'true';
             
-            // Save state to localStorage
-            const isExpanded = cleannav.classList.contains('expanded');
-            localStorage.setItem('testNavExpanded', isExpanded);
-        });
-        
-        // Also apply class to body if nav is initially expanded
-        if (navExpanded) {
-            document.body.classList.add('nav-expanded');
+            // Apply initial state
+            if (navExpanded) {
+                cleannav.classList.add('expanded');
+                navToggle.classList.add('expanded');
+            }
+            
+            // Add toggle functionality
+            navToggle.addEventListener('click', function() {
+                cleannav.classList.toggle('expanded');
+                this.classList.toggle('expanded');
+                document.body.classList.toggle('nav-expanded');
+                
+                // Save state to localStorage
+                const isExpanded = cleannav.classList.contains('expanded');
+                localStorage.setItem('testNavExpanded', isExpanded);
+            });
+            
+            // Also apply class to body if nav is initially expanded
+            if (navExpanded) {
+                document.body.classList.add('nav-expanded');
+            }
         }
     });
 

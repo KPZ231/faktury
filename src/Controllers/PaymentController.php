@@ -96,10 +96,24 @@ class PaymentController {
                 return;
             }
             
+            // Store whether we're setting paid status
+            $isPaid = isset($data['status']) && $data['status'] == 1;
+            $invoiceNumber = $data['invoice_number'] ?? null;
+            
+            // Log detailed information about the update request
+            error_log("Processing payment update: case={$data['case_id']}, installment={$data['installment_number']}, " .
+                     "agent={$data['agent_id']}, isPaid=" . ($isPaid ? 'true' : 'false') . 
+                     ", invoice=" . ($invoiceNumber ?? 'none'));
+            
+            // Ensure we have an invoice number if setting to paid
+            if ($isPaid && empty($invoiceNumber)) {
+                error_log("Warning: Setting paid status but no invoice number provided");
+            }
+            
             // Check if a payment record already exists in agenci_wyplaty
             $desc = 'Prowizja rata ' . $data['installment_number'];
             
-            $checkQuery = "SELECT id_wyplaty FROM agenci_wyplaty 
+            $checkQuery = "SELECT id_wyplaty, czy_oplacone FROM agenci_wyplaty 
                          WHERE id_sprawy = ? 
                          AND id_agenta = ?
                          AND opis_raty = ?
@@ -109,59 +123,153 @@ class PaymentController {
             $checkStmt->execute([$data['case_id'], $data['agent_id'], $desc]);
             $existingPayment = $checkStmt->fetch(PDO::FETCH_ASSOC);
             
-            // Get the net amount from test2 table to calculate commission (10% by default)
-            $amount = $data['amount'] ?? null;
-            if ($amount === null) {
-                $amountSql = "SELECT kwota_netto FROM test2 WHERE id = ?";
-                $amountStmt = $this->pdo->prepare($amountSql);
-                $amountStmt->execute([$data['case_id']]);
-                $amountResult = $amountStmt->fetch(PDO::FETCH_ASSOC);
-                
-                if ($amountResult && isset($amountResult['kwota_netto'])) {
-                    $amount = round($amountResult['kwota_netto'] * 0.1, 2);
-                } else {
-                    $amount = 0;
+            error_log("Existing payment check: " . ($existingPayment ? "Found record ID: {$existingPayment['id_wyplaty']}" : "No existing record"));
+            
+            // Start transaction
+            $this->pdo->beginTransaction();
+            
+            try {
+                // Calculate the amount if not provided
+                $amount = $data['amount'] ?? null;
+                if ($amount === null || $amount == 0) {
+                    // First try to get amount from sprawy table
+                    $amountSql = "SELECT wywalczona_kwota, stawka_success_fee FROM sprawy WHERE id_sprawy = ?";
+                    $amountStmt = $this->pdo->prepare($amountSql);
+                    $amountStmt->execute([$data['case_id']]);
+                    $sprawaResult = $amountStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($sprawaResult && isset($sprawaResult['wywalczona_kwota']) && isset($sprawaResult['stawka_success_fee'])) {
+                        // Calculate commission based on success fee percentage
+                        $amount = round($sprawaResult['wywalczona_kwota'] * $sprawaResult['stawka_success_fee'] * 0.1, 2);
+                        error_log("Calculated amount from sprawy: $amount");
+                    } else {
+                        // Check if there's one in oplaty_spraw
+                        $amountSql = "SELECT oczekiwana_kwota FROM oplaty_spraw WHERE id_sprawy = ? AND opis_raty = ?";
+                        $amountStmt = $this->pdo->prepare($amountSql);
+                        $amountStmt->execute([$data['case_id'], "Rata " . $data['installment_number']]);
+                        $oplatyResult = $amountStmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($oplatyResult && isset($oplatyResult['oczekiwana_kwota'])) {
+                            $amount = round($oplatyResult['oczekiwana_kwota'] * 0.1, 2);
+                            error_log("Calculated amount from oplaty_spraw: $amount");
+                        } else {
+                            // Last resort - use a default amount or the one from the request
+                            $amount = $data['amount'] ?? 1000.00;
+                            error_log("Using fallback amount: $amount");
+                        }
+                    }
                 }
-            }
-            
-            if ($existingPayment) {
-                // Update existing payment record
-                $updateQuery = "UPDATE agenci_wyplaty 
-                              SET czy_oplacone = 1, 
-                                  numer_faktury = ?,
-                                  kwota = ?,
-                                  data_platnosci = CURDATE(),
-                                  data_modyfikacji = NOW()
-                              WHERE id_wyplaty = ?";
                 
-                $updateStmt = $this->pdo->prepare($updateQuery);
-                $success = $updateStmt->execute([$data['invoice_number'] ?? null, $amount, $existingPayment['id_wyplaty']]);
-                $action = 'updated';
-            } else {
-                // Insert new payment record
-                $insertQuery = "INSERT INTO agenci_wyplaty 
-                              (id_sprawy, id_agenta, opis_raty, kwota, czy_oplacone, numer_faktury, data_platnosci, data_utworzenia) 
-                              VALUES (?, ?, ?, ?, 1, ?, CURDATE(), NOW())";
+                // Ensure amount is numeric
+                $amount = is_numeric($amount) ? $amount : 0;
                 
-                $insertStmt = $this->pdo->prepare($insertQuery);
-                $success = $insertStmt->execute([
-                    $data['case_id'],
-                    $data['agent_id'],
-                    $desc,
-                    $amount,
-                    $data['invoice_number'] ?? null
+                if ($existingPayment) {
+                    // Update existing payment record
+                    $updateQuery = "UPDATE agenci_wyplaty 
+                                  SET czy_oplacone = :is_paid, 
+                                      numer_faktury = :invoice_number,
+                                      kwota = :amount,
+                                      data_platnosci = " . ($isPaid ? "CURDATE()" : "NULL") . ",
+                                      data_modyfikacji = NOW()
+                                  WHERE id_wyplaty = :id";
+                    
+                    $updateStmt = $this->pdo->prepare($updateQuery);
+                    $updateStmt->bindValue(':is_paid', $isPaid ? 1 : 0, PDO::PARAM_INT);
+                    $updateStmt->bindValue(':invoice_number', $invoiceNumber, PDO::PARAM_STR);
+                    $updateStmt->bindValue(':amount', $amount, PDO::PARAM_STR);
+                    $updateStmt->bindValue(':id', $existingPayment['id_wyplaty'], PDO::PARAM_INT);
+                    
+                    $success = $updateStmt->execute();
+                    $paymentId = $existingPayment['id_wyplaty'];
+                    $action = 'updated';
+                    
+                    $rowCount = $updateStmt->rowCount();
+                    error_log("Updated existing record, result: " . ($success ? 'success' : 'failed') . 
+                            ", payment ID: {$paymentId}" .
+                            ", set to paid: " . ($isPaid ? 'yes' : 'no') .
+                            ", rows affected: {$rowCount}");
+                } else {
+                    // Insert new payment record
+                    $insertQuery = "INSERT INTO agenci_wyplaty 
+                                  (id_sprawy, id_agenta, opis_raty, kwota, czy_oplacone, numer_faktury, data_platnosci, data_utworzenia) 
+                                  VALUES (:case_id, :agent_id, :desc, :amount, :is_paid, :invoice_number, " . 
+                                    ($isPaid ? "CURDATE()" : "NULL") . ", NOW())";
+                    
+                    $insertStmt = $this->pdo->prepare($insertQuery);
+                    $insertStmt->bindValue(':case_id', $data['case_id'], PDO::PARAM_INT);
+                    $insertStmt->bindValue(':agent_id', $data['agent_id'], PDO::PARAM_STR);
+                    $insertStmt->bindValue(':desc', $desc, PDO::PARAM_STR);
+                    $insertStmt->bindValue(':amount', $amount, PDO::PARAM_STR);
+                    $insertStmt->bindValue(':is_paid', $isPaid ? 1 : 0, PDO::PARAM_INT);
+                    $insertStmt->bindValue(':invoice_number', $invoiceNumber, PDO::PARAM_STR);
+                    
+                    $success = $insertStmt->execute();
+                    $paymentId = $this->pdo->lastInsertId();
+                    $action = 'created';
+                    
+                    error_log("Inserted new record, result: " . ($success ? 'success' : 'failed') . 
+                            ", last insert ID: {$paymentId}" .
+                            ", set to paid: " . ($isPaid ? 'yes' : 'no'));
+                }
+                
+                // Also update the oplaty_spraw table to mark the installment as paid
+                if ($isPaid) {
+                    $updateOplatySql = "UPDATE oplaty_spraw 
+                                      SET czy_oplacona = 1,
+                                          faktura_id = :invoice_number,
+                                          data_oplaty = CURDATE()
+                                      WHERE id_sprawy = :case_id 
+                                      AND opis_raty = :installment_desc";
+                    
+                    $updateOplatyStmt = $this->pdo->prepare($updateOplatySql);
+                    $updateOplatyStmt->bindValue(':invoice_number', $invoiceNumber, PDO::PARAM_STR);
+                    $updateOplatyStmt->bindValue(':case_id', $data['case_id'], PDO::PARAM_INT);
+                    $updateOplatyStmt->bindValue(':installment_desc', "Rata " . $data['installment_number'], PDO::PARAM_STR);
+                    
+                    $updateOplatyResult = $updateOplatyStmt->execute();
+                    error_log("Updated oplaty_spraw: " . ($updateOplatyResult ? 'success' : 'failed') . 
+                             ", rows affected: " . $updateOplatyStmt->rowCount());
+                }
+                
+                // Double-check that the record was actually saved
+                $verifyQuery = "SELECT id_wyplaty, czy_oplacone FROM agenci_wyplaty 
+                              WHERE id_sprawy = ? 
+                              AND id_agenta = ?
+                              AND opis_raty = ?
+                              LIMIT 1";
+                
+                $verifyStmt = $this->pdo->prepare($verifyQuery);
+                $verifyStmt->execute([$data['case_id'], $data['agent_id'], $desc]);
+                $verifyResult = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($verifyResult) {
+                    error_log("Verification successful - record exists with ID: {$verifyResult['id_wyplaty']}, " .
+                             "paid status: " . ($verifyResult['czy_oplacone'] ? 'paid' : 'not paid'));
+                } else {
+                    error_log("WARNING: Verification failed - record not found after save operation");
+                }
+                
+                // Commit the transaction
+                $this->pdo->commit();
+                
+                // Return success response
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'action' => $action,
+                    'is_paid' => $isPaid,
+                    'invoice_number' => $invoiceNumber,
+                    'payment_id' => $paymentId,
+                    'amount' => $amount
                 ]);
-                $action = 'created';
-                
-                error_log("Inserted new record, result: " . ($success ? 'success' : 'failed') . ", last insert ID: " . $this->pdo->lastInsertId());
+            } catch (PDOException $e) {
+                // Rollback on error
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                error_log("Database error during transaction: " . $e->getMessage() . ", SQL state: " . $e->getCode());
+                throw $e; // Re-throw to be caught by outer catch block
             }
-            
-            // Also update the corresponding commission_paid field in test2 table
-            $this->updateCommissionPaidStatus($data['case_id'], $data['installment_number'], $data['status'], $data['invoice_number'] ?? null);
-            
-            // Return success response
-            header('Content-Type: application/json');
-            echo json_encode(['success' => true]);
             
         } catch (PDOException $e) {
             error_log("DB Error in updatePayment: " . $e->getMessage());
@@ -172,38 +280,6 @@ class PaymentController {
             error_log("General Error in updatePayment: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => 'Server error: ' . $e->getMessage()]);
-        }
-    }
-    
-    /**
-     * Helper method to update commission paid status in test2 table
-     */
-    private function updateCommissionPaidStatus(int $caseId, int $installmentNumber, int $status, ?string $invoiceNumber): void {
-        try {
-            $fieldMapping = [
-                1 => ['paid' => 'installment1_commission_paid', 'invoice' => 'installment1_commission_invoice'],
-                2 => ['paid' => 'installment2_commission_paid', 'invoice' => 'installment2_commission_invoice'],
-                3 => ['paid' => 'installment3_commission_paid', 'invoice' => 'installment3_commission_invoice'],
-                4 => ['paid' => 'final_installment_commission_paid', 'invoice' => 'final_installment_commission_invoice']
-            ];
-            
-            if (!isset($fieldMapping[$installmentNumber])) {
-                error_log("Invalid installment number: $installmentNumber");
-                return;
-            }
-            
-            $paidField = $fieldMapping[$installmentNumber]['paid'];
-            $invoiceField = $fieldMapping[$installmentNumber]['invoice'];
-            
-            $query = "UPDATE test2 SET {$paidField} = ?, {$invoiceField} = ? WHERE id = ?";
-            $stmt = $this->pdo->prepare($query);
-            $result = $stmt->execute([$status, $invoiceNumber, $caseId]);
-            
-            error_log("Updated test2 table for case $caseId, installment $installmentNumber, result: " . ($result ? 'success' : 'failed'));
-            
-        } catch (PDOException $e) {
-            error_log("Error updating commission paid status: " . $e->getMessage());
-            // Let this error pass through as it's not critical
         }
     }
 } 
