@@ -117,11 +117,6 @@ $agentTreeJson = json_encode($agentTree);
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/table" class="cleannav__link" data-tooltip="Tabela z danymi">
-          <i class="fa-solid fa-table cleannav__icon"></i>
-        </a>
-      </li>
-      <li class="cleannav__item">
         <a href="/wizard" class="cleannav__link" data-tooltip="Kreator rekordu">
           <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
         </a>
@@ -376,8 +371,48 @@ document.addEventListener('DOMContentLoaded', function() {
             const nodeId = data.node.id;
             $('#' + nodeId).addClass('selected-agent-node');
             
+            // Get agent ID from the node ID (format: "agent_X")
+            const agentId = nodeId.replace('agent_', '');
+            
+            // For special case of Kuba/Jakub, use "jakub" as the ID
+            const isKuba = data.node.text.toLowerCase() === 'kuba' || 
+                         data.node.text.toLowerCase() === 'jakub';
+            
+            // Store the selected agent info for later use
+            window.selectedAgentId = agentId !== 'no-agents' ? agentId : null;
+            window.selectedAgentName = data.node.text;
+            window.selectedAgentIsKuba = isKuba;
+            
+            // Show the "View Cases" button if a valid agent is selected
+            if (agentId !== 'no-agents') {
+                // Create or update the view button
+                let viewButton = $('#view-agent-cases-button');
+                if (viewButton.length === 0) {
+                    // Create the button if it doesn't exist
+                    viewButton = $('<button id="view-agent-cases-button" class="view-cases-button">' +
+                                   '<i class="fas fa-folder-open"></i> Zobacz sprawy agenta</button>');
+                    
+                    // Add click handler to navigate to the test page
+                    viewButton.on('click', function() {
+                        if (window.selectedAgentId) {
+                            const redirectUrl = window.selectedAgentIsKuba ? 
+                                '/test?agent_id=jakub' : 
+                                `/test?agent_id=${window.selectedAgentId}`;
+                            window.location.href = redirectUrl;
+                        }
+                    });
+                    
+                    // Add to the page after the tree
+                    $('#agent-tree-container').after(viewButton);
+                }
+                
+                // Update button text with agent name
+                viewButton.html(`<i class="fas fa-folder-open"></i> Zobacz sprawy agenta: <strong>${data.node.text}</strong>`);
+                viewButton.show();
+            }
+            
             // Optional: do something when a node is selected
-            console.log('Selected agent:', data.node.text);
+            console.log('Selected agent:', data.node.text, 'with ID:', agentId);
             
             // Highlight hierarchy path
             highlightHierarchyPath(data.node);
@@ -385,9 +420,48 @@ document.addEventListener('DOMContentLoaded', function() {
             // Remove selected class from parent li
             $('.selected-agent-node').removeClass('selected-agent-node');
             
+            // Hide the view button when deselecting
+            $('#view-agent-cases-button').hide();
+            
+            // Clear the selected agent info
+            window.selectedAgentId = null;
+            window.selectedAgentName = null;
+            window.selectedAgentIsKuba = false;
+            
             // Remove hierarchy path highlighting
             resetHierarchyHighlighting();
         });
+        
+        // Add cursor pointer style to tree nodes to indicate they are clickable
+        $('<style>').text(`
+            .jstree-anchor {
+                cursor: pointer;
+            }
+            .jstree-anchor:hover {
+                background-color: rgba(0, 123, 255, 0.1);
+            }
+            .view-cases-button {
+                display: none;
+                margin-top: 15px;
+                padding: 10px 15px;
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: background-color 0.2s;
+            }
+            .view-cases-button:hover {
+                background-color: #0056b3;
+            }
+            .view-cases-button i {
+                margin-right: 8px;
+            }
+            .view-cases-button strong {
+                font-weight: 600;
+            }
+        `).appendTo('head');
     }
     
     // Function to transform agent data for jsTree format

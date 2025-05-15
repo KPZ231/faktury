@@ -57,9 +57,6 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     $r->addRoute('GET',    '/wizard',      [WizardController::class, 'show']);
     $r->addRoute('POST',   '/wizard',      [WizardController::class, 'store']);
 
-    $r->addRoute('GET', '/table',          [TableController::class, 'index']);
-    $r->addRoute('GET', '/recalculate', [TableController::class, 'recalculateCase']);
-    
     // Add new route for syncing payment statuses
     $r->addRoute('GET', '/sync-payments', [TableController::class, 'syncPaymentStatuses']);
     $r->addRoute('POST', '/sync-payments-ajax', [TableController::class, 'syncPaymentsAjax']);

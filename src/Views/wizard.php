@@ -29,11 +29,6 @@
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/table" class="cleannav__link" data-tooltip="Tabela z danymi">
-          <i class="fa-solid fa-table cleannav__icon"></i>
-        </a>
-      </li>
-      <li class="cleannav__item">
         <a href="/wizard" class="cleannav__link" data-tooltip="Kreator rekordu">
           <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
         </a>
