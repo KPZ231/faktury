@@ -288,8 +288,8 @@
         <legend>Podstawowe dane</legend>
         <div class="field-group">
           <label>
-            <span class="field-label">Nazwa sprawy:</span>
-            <select name="case_name" id="case_name" required>
+            <span class="field-label">Nazwa sprawy (wybierz z listy):</span>
+            <select name="case_name" id="case_name">
               <option value="">-- Wybierz nabywcę --</option>
               <?php if (isset($buyers) && !empty($buyers)): ?>
                 <?php foreach ($buyers as $buyer): ?>
@@ -300,6 +300,16 @@
               <?php endif; ?>
             </select>
             <span class="error-message" id="error_case_name"></span>
+          </label>
+        </div>
+        
+        <!-- Nowe pole do ręcznego wprowadzania nazwy sprawy -->
+        <div class="field-group">
+          <label>
+            <span class="field-label">Nazwa sprawy (wpisz ręcznie):</span>
+            <input type="text" name="manual_case_name" id="manual_case_name" placeholder="Wprowadź własną nazwę sprawy" 
+                   value="<?php echo isset($_SESSION['wizard_form_data']['manual_case_name']) ? htmlspecialchars($_SESSION['wizard_form_data']['manual_case_name']) : ''; ?>">
+            <span class="error-message" id="error_manual_case_name"></span>
           </label>
         </div>
         
@@ -314,7 +324,9 @@
           <label>
             <span class="field-label">Wywalczona kwota:</span>
             <div class="currency-input-wrapper">
-              <input type="number" step="0.01" name="amount_won" id="amount_won" class="currency-input" value="<?php echo isset($_SESSION['wizard_form_data']['amount_won']) ? htmlspecialchars($_SESSION['wizard_form_data']['amount_won']) : ''; ?>">
+              <input type="number" step="0.01" name="amount_won" id="amount_won" class="currency-input" 
+                     placeholder="Wprowadź wywalczoną kwotę" 
+                     value="<?php echo isset($_SESSION['wizard_form_data']['amount_won']) ? htmlspecialchars($_SESSION['wizard_form_data']['amount_won']) : ''; ?>">
               <span class="currency-display" id="amount_won_display"></span>
             </div>
             <span class="error-message" id="error_amount_won"></span>
@@ -325,7 +337,9 @@
           <label>
             <span class="field-label">Opłata wstępna:</span>
             <div class="currency-input-wrapper">
-              <input type="number" step="0.01" name="upfront_fee" id="upfront_fee" class="currency-input" value="<?php echo isset($_SESSION['wizard_form_data']['upfront_fee']) ? htmlspecialchars($_SESSION['wizard_form_data']['upfront_fee']) : ''; ?>">
+              <input type="number" step="0.01" name="upfront_fee" id="upfront_fee" class="currency-input"
+                     placeholder="Wprowadź opłatę wstępną"
+                     value="<?php echo isset($_SESSION['wizard_form_data']['upfront_fee']) ? htmlspecialchars($_SESSION['wizard_form_data']['upfront_fee']) : ''; ?>">
               <span class="currency-display" id="upfront_fee_display"></span>
             </div>
             <span class="error-message" id="error_upfront_fee"></span>
@@ -336,7 +350,9 @@
           <label>
             <span class="field-label">Procent success fee:</span>
             <div class="currency-input-wrapper">
-              <input type="number" step="0.01" name="success_fee_percentage" id="success_fee_percentage" class="currency-input" value="<?php echo isset($_SESSION['wizard_form_data']['success_fee_percentage']) ? htmlspecialchars($_SESSION['wizard_form_data']['success_fee_percentage']) : ''; ?>">
+              <input type="number" step="0.01" name="success_fee_percentage" id="success_fee_percentage" class="currency-input"
+                     placeholder="Wprowadź procent success fee"
+                     value="<?php echo isset($_SESSION['wizard_form_data']['success_fee_percentage']) ? htmlspecialchars($_SESSION['wizard_form_data']['success_fee_percentage']) : ''; ?>">
               <span class="currency-display" id="success_fee_percentage_display"></span>
             </div>
             <span class="error-message" id="error_success_fee_percentage"></span>
@@ -367,7 +383,9 @@
           <label>
             <span class="field-label">Prowizja Kuby:</span>
             <div class="percentage-input-wrapper">
-              <input type="number" step="0.01" name="kuba_percentage" id="kuba_percentage" class="currency-input" value="<?php echo isset($_SESSION['wizard_form_data']['kuba_percentage']) ? htmlspecialchars($_SESSION['wizard_form_data']['kuba_percentage']) : ''; ?>">
+              <input type="number" step="0.01" name="kuba_percentage" id="kuba_percentage" class="currency-input" 
+                   placeholder="Wprowadź procent prowizji Kuby"
+                   value="<?php echo isset($_SESSION['wizard_form_data']['kuba_percentage']) ? htmlspecialchars($_SESSION['wizard_form_data']['kuba_percentage']) : ''; ?>">
               <span class="currency-display" id="kuba_percentage_display"></span>
             </div>
             <span class="error-message" id="error_kuba_percentage"></span>
@@ -483,7 +501,9 @@
     const agentsSection = document.getElementById('agentsSection');
     const instSection = document.getElementById('installmentsSection');
     const installmentSummarySection = document.getElementById('installmentSummarySection');
-
+    const caseNameDropdown = document.getElementById('case_name');
+    const manualCaseNameInput = document.getElementById('manual_case_name');
+    
     // Lista agentów pobrana z PHP
     const agents = <?php echo json_encode($agents); ?>;
     
@@ -538,26 +558,76 @@
       }
     }
     
-    // Function to validate a specific step
+    // Dodaj obsługę zależności między polem wyboru i ręcznym wprowadzaniem nazwy sprawy
+    caseNameDropdown.addEventListener('change', function() {
+      if (this.value) {
+        manualCaseNameInput.disabled = true;
+        manualCaseNameInput.value = '';
+      } else {
+        manualCaseNameInput.disabled = false;
+      }
+      validateStep(1);
+    });
+    
+    manualCaseNameInput.addEventListener('input', function() {
+      if (this.value.trim()) {
+        caseNameDropdown.disabled = true;
+        caseNameDropdown.value = '';
+      } else {
+        caseNameDropdown.disabled = false;
+      }
+      validateStep(1);
+    });
+    
+    // Wywołanie funkcji przy załadowaniu strony, aby ustawić początkowy stan
+    document.addEventListener('DOMContentLoaded', function() {
+      // Sprawdź początkowe wartości
+      if (caseNameDropdown.value) {
+        manualCaseNameInput.disabled = true;
+        manualCaseNameInput.value = ''; // Clear the manual input if dropdown is selected
+      } else if (manualCaseNameInput.value.trim()) {
+        caseNameDropdown.disabled = true;
+        caseNameDropdown.value = ''; // Clear the dropdown if manual input has value
+      }
+      
+      // Inicjalizacja pól currency dla formularza
+      document.querySelectorAll('.currency-input').forEach(input => {
+        if (input.value) {
+          updateInputDisplay(input);
+        }
+      });
+      
+      // Sprawdź, czy trzeba wykonać walidację formularza
+      validateStep(1);
+    });
+
+    // Update the validateStep function to include validation for the manual case name
     function validateStep(stepNumber) {
       let isValid = true;
       
       if (stepNumber === 1) {
         // Clear error messages
         document.getElementById('error_case_name').innerText = "";
+        document.getElementById('error_manual_case_name').innerText = "";
         document.getElementById('error_amount_won').innerText = "";
         document.getElementById('error_upfront_fee').innerText = "";
         document.getElementById('error_success_fee_percentage').innerText = "";
         
-        // Case name validation
+        // Case name validation - either dropdown or manual input must have a value
         const caseNameInput = document.querySelector('select[name="case_name"]');
+        const manualCaseNameInput = document.querySelector('input[name="manual_case_name"]');
         const caseName = caseNameInput.value.trim();
-        if (!caseName) {
-          document.getElementById('error_case_name').innerText = "Nazwa sprawy jest wymagana.";
+        const manualCaseName = manualCaseNameInput.value.trim();
+        
+        if (!caseName && !manualCaseName) {
+          document.getElementById('error_case_name').innerText = "Wybierz nazwę sprawy z listy lub wprowadź ręcznie.";
+          document.getElementById('error_manual_case_name').innerText = "Wprowadź nazwę sprawy lub wybierz z listy.";
           caseNameInput.classList.add('input-error');
+          manualCaseNameInput.classList.add('input-error');
           isValid = false;
         } else {
           caseNameInput.classList.remove('input-error');
+          manualCaseNameInput.classList.remove('input-error');
         }
         
         // Numeric fields validation
@@ -693,6 +763,7 @@
         percentInput.name = `agent${i}_percentage`;
         percentInput.id = `agent${i}_percentage`;
         percentInput.className = 'agent-percentage currency-input';
+        percentInput.placeholder = `Wprowadź procent dla agenta ${i}`;
         
         // Sprawdź czy jest zapisana wartość procentowa
         const savedAgentPercentage = document.getElementById(`saved_agent${i}_percentage`);
@@ -802,6 +873,7 @@
         input.name = `installment${i}_amount`;
         input.id = `installment${i}_amount`;
         input.className = 'installment-amount currency-input';
+        input.placeholder = `Wprowadź kwotę raty ${i}`;
         
         // Sprawdź czy jest zapisana wartość raty
         const savedInstallmentAmount = document.getElementById(`saved_installment${i}_amount`);
@@ -899,15 +971,21 @@
         }
       });
 
-      // 1. Walidacja pola nazwy sprawy
+      // 1. Walidacja pola nazwy sprawy - sprawdź zarówno dropdown jak i pole ręczne
       const caseNameInput = document.querySelector('select[name="case_name"]');
+      const manualCaseNameInput = document.querySelector('input[name="manual_case_name"]');
       const caseName = caseNameInput.value.trim();
-      if (!caseName) {
-        document.getElementById('error_case_name').innerText = "Nazwa sprawy jest wymagana.";
+      const manualCaseName = manualCaseNameInput.value.trim();
+      
+      if (!caseName && !manualCaseName) {
+        document.getElementById('error_case_name').innerText = "Wybierz nazwę sprawy z listy lub wprowadź ręcznie.";
+        document.getElementById('error_manual_case_name').innerText = "Wprowadź nazwę sprawy lub wybierz z listy.";
         caseNameInput.classList.add('input-error');
+        manualCaseNameInput.classList.add('input-error');
         formValid = false;
       } else {
         caseNameInput.classList.remove('input-error');
+        manualCaseNameInput.classList.remove('input-error');
       }
 
       // 2. Walidacja pól numerycznych: amount_won, upfront_fee, success_fee_percentage
@@ -1268,13 +1346,6 @@
       updateInputDisplay(this);
     });
 
-    // Walidacja formularza przed wysłaniem
-    document.getElementById('wizardForm').addEventListener('submit', function(e) {
-      if (!validateForm()) {
-        e.preventDefault();
-      }
-    });
-
     // Renderuj pola przy starcie
     renderAgents();
     renderInstallments();
@@ -1285,6 +1356,32 @@
     document.querySelectorAll('.currency-input').forEach(input => {
       if (input.value) {
         updateInputDisplay(input);
+      }
+    });
+
+    // Walidacja formularza przed wysłaniem
+    document.getElementById('wizardForm').addEventListener('submit', function(e) {
+      // First, re-enable disabled fields so their values are submitted
+      const caseNameDropdown = document.getElementById('case_name');
+      const manualCaseNameInput = document.getElementById('manual_case_name');
+      
+      // If manual name is entered, ensure the dropdown remains disabled visually
+      // but is enabled for form submission
+      if (manualCaseNameInput.value.trim() !== '') {
+        caseNameDropdown.disabled = false;
+        caseNameDropdown.value = '';
+      }
+      
+      // Similarly, if dropdown is selected, ensure manual input remains disabled visually
+      // but is enabled for form submission
+      if (caseNameDropdown.value !== '') {
+        manualCaseNameInput.disabled = false;
+        manualCaseNameInput.value = '';
+      }
+      
+      // Then perform validation
+      if (!validateForm()) {
+        e.preventDefault();
       }
     });
 
