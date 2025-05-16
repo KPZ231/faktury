@@ -203,6 +203,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             // Ustalamy domyślne sortowanie i pobieranie danych
             $year = $_GET['year'] ?? date('Y');
             $month = $_GET['month'] ?? '';
+            $sortColumn = $_GET['sort'] ?? 'Data wystawienia';
+            $sortDirection = $_GET['dir'] ?? 'DESC';
             
             $whereClause = '';
             $params = [];
@@ -224,7 +226,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 $whereClause = "WHERE " . $whereClause;
             }
             
-            $sql = "SELECT $colsEsc FROM `faktury` $whereClause ORDER BY `Data wystawienia` DESC LIMIT 1000";
+            // Przygotuj kolumnę sortowania (escapowanie dla bezpieczeństwa)
+            $safeColumn = "`" . str_replace("`", "``", $sortColumn) . "`";
+            $safeDirection = ($sortDirection === 'ASC') ? 'ASC' : 'DESC';
+            
+            $sql = "SELECT $colsEsc FROM `faktury` $whereClause ORDER BY $safeColumn $safeDirection LIMIT 1000";
             
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
@@ -240,8 +246,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                         <thead>
                             <tr>
                                 <?php foreach ($columns as $column): ?>
-                                <th data-column="<?php echo htmlspecialchars($column); ?>" class="column-<?php echo htmlspecialchars($column); ?>">
-                                    <?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $column))); ?>
+                                <?php $columnClass = preg_replace('/[^a-zA-Z0-9]/', '-', $column); ?>
+                                <th data-column="<?php echo htmlspecialchars($column); ?>" data-column-class="<?php echo htmlspecialchars($columnClass); ?>" class="column-<?php echo htmlspecialchars($columnClass); ?> sortable">
+                                    <div class="column-header">
+                                        <span class="column-title"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $column))); ?></span>
+                                        <span class="sort-icon <?php echo ($sortColumn === $column) ? ($sortDirection === 'ASC' ? 'sort-asc' : 'sort-desc') : ''; ?>">
+                                            <i class="fa-solid fa-sort"></i>
+                                        </span>
+                                    </div>
                                 </th>
                                 <?php endforeach; ?>
                             </tr>
@@ -250,7 +262,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                             <?php foreach ($invoices as $invoice): ?>
                             <tr>
                                 <?php foreach ($columns as $column): ?>
-                                <td class="column-<?php echo htmlspecialchars($column); ?>">
+                                <?php $columnClass = preg_replace('/[^a-zA-Z0-9]/', '-', $column); ?>
+                                <td class="column-<?php echo htmlspecialchars($columnClass); ?>">
                                     <?php 
                                     // Formatowanie specjalne dla dat i kwot
                                     if (strpos(strtolower($column), 'data') === 0 && !empty($invoice[$column])) {
@@ -285,6 +298,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
         }
         ?>
     </section>
+
+    <style>
+        /* Style dla kolumn z możliwością sortowania */
+        .sortable {
+            cursor: pointer;
+        }
+        
+        .column-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .sort-icon {
+            display: inline-flex;
+            margin-left: 5px;
+            color: #aaa;
+            transition: transform 0.2s;
+        }
+        
+        .sort-asc .fa-sort:before {
+            content: "\f0de"; /* fa-sort-up */
+            color: var(--primary);
+        }
+        
+        .sort-desc .fa-sort:before {
+            content: "\f0dd"; /* fa-sort-down */
+            color: var(--primary);
+        }
+        
+        /* Style dla ukrywania kolumn */
+        .hidden-column {
+            display: none !important;
+        }
+        
+        /* Style dla selektora kolumn */
+        .column-selector {
+            display: none;
+            position: absolute;
+            right: 20px;
+            top: 180px;
+            background-color: white;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            width: 250px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    </style>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -325,6 +389,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             // Generate checkboxes for each column
             columns.forEach(column => {
                 const columnName = column.getAttribute('data-column');
+                const columnClass = column.getAttribute('data-column-class') || columnName.replace(/[^a-zA-Z0-9]/g, '-');
                 const isEssential = essentialColumns.includes(columnName);
                 
                 const label = document.createElement('label');
@@ -334,9 +399,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 checkbox.type = 'checkbox';
                 checkbox.className = 'column-checkbox';
                 checkbox.value = columnName;
+                checkbox.setAttribute('data-column-class', columnClass);
                 
                 // Set initial checkbox state based on saved preferences or defaults
                 let isChecked = true; // Default visible
+                
+                // Log the essential columns for debugging
+                if (essentialColumns.includes(columnName)) {
+                    console.log(`Column ${columnName} is essential`);
+                }
                 
                 if (isEssential) {
                     isChecked = true; // Essential columns always visible
@@ -344,6 +415,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                     label.className += ' essential';
                 } else if (columnVisibility.hasOwnProperty(columnName)) {
                     isChecked = columnVisibility[columnName];
+                    console.log(`Loading saved visibility for ${columnName}: ${isChecked}`);
                 }
                 
                 checkbox.checked = isChecked;
@@ -351,27 +423,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
                 // Apply initial visibility
                 if (!isChecked) {
                     // Apply hidden class immediately
-                    document.querySelectorAll(`.column-${columnName}`).forEach(cell => {
+                    document.querySelectorAll(`.column-${columnClass}`).forEach(cell => {
                         cell.classList.add('hidden-column');
                     });
                 }
                 
                 checkbox.addEventListener('change', function() {
-                    toggleColumnVisibility(columnName, this.checked);
+                    toggleColumnVisibility(columnName, columnClass, this.checked);
                     saveColumnVisibility();
                     updateColumnCounter();
                 });
                 
                 label.appendChild(checkbox);
-                label.appendChild(document.createTextNode(' ' + column.textContent.trim()));
+                // Pobierz tylko tekst tytułu kolumny, ignorując ikonę sortowania
+                const columnTitle = column.querySelector('.column-title');
+                label.appendChild(document.createTextNode(' ' + (columnTitle ? columnTitle.textContent.trim() : column.textContent.trim())));
                 
                 columnList.appendChild(label);
             });
             
             // Toggle column visibility function
-            function toggleColumnVisibility(columnName, isVisible) {
+            function toggleColumnVisibility(columnName, columnClass, isVisible) {
                 // Select both header and data cells with this column class
-                const columnCells = document.querySelectorAll(`.column-${columnName}`);
+                const columnCells = document.querySelectorAll(`.column-${columnClass}`);
+                console.log(`Toggling visibility for column ${columnName} (class: column-${columnClass}): ${isVisible ? 'show' : 'hide'}, found ${columnCells.length} cells`);
                 
                 if (columnCells.length === 0) {
                     console.warn(`No elements found with class .column-${columnName}`);
@@ -451,17 +526,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             
             // Reset all column visibility first to ensure clean state
             function resetColumnVisibility() {
+                console.log('Resetting column visibility');
                 // First show all columns
                 document.querySelectorAll('th, td').forEach(cell => {
                     cell.classList.remove('hidden-column');
                 });
                 
-                // Then hide columns based on checkboxes
-                document.querySelectorAll('.column-checkbox:not(:checked)').forEach(checkbox => {
+                // Jeśli używamy lokalnego przechowywania, to sprawdzamy stan checkboxów
+                document.querySelectorAll('.column-checkbox').forEach(checkbox => {
                     const columnName = checkbox.value;
-                    document.querySelectorAll(`.column-${columnName}`).forEach(cell => {
-                        cell.classList.add('hidden-column');
-                    });
+                    const isChecked = checkbox.checked;
+                    
+                    console.log(`Column ${columnName}: ${isChecked ? 'visible' : 'hidden'}`);
+                    
+                    // Jeśli checkbox nie jest zaznaczony, ukryj odpowiednie komórki
+                    if (!isChecked) {
+                        const columnClass = checkbox.getAttribute('data-column-class') || columnName.replace(/[^a-zA-Z0-9]/g, '-');
+                        document.querySelectorAll(`.column-${columnClass}`).forEach(cell => {
+                            cell.classList.add('hidden-column');
+                        });
+                    }
                 });
                 
                 updateColumnCounter();
@@ -548,6 +632,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             const urlParams = new URLSearchParams(window.location.search);
             const yearParam = urlParams.get('year');
             const monthParam = urlParams.get('month');
+            const sortParam = urlParams.get('sort');
+            const dirParam = urlParams.get('dir');
+            
+            // Initialize sorting functionality
+            initSorting(sortParam, dirParam);
+            
+            // Table column sorting functionality
+            function initSorting(currentSortColumn, currentSortDirection) {
+                const sortableHeaders = document.querySelectorAll('th.sortable');
+                
+                sortableHeaders.forEach(header => {
+                    header.addEventListener('click', function() {
+                        const column = this.getAttribute('data-column');
+                        let direction = 'ASC';
+                        
+                        // If already sorting by this column, toggle direction
+                        if (column === currentSortColumn) {
+                            direction = currentSortDirection === 'ASC' ? 'DESC' : 'ASC';
+                        }
+                        
+                        // Create URL with sort parameters
+                        let url = new URL(window.location);
+                        url.searchParams.set('sort', column);
+                        url.searchParams.set('dir', direction);
+                        
+                        // Preserve any existing filter parameters
+                        window.location.href = url.toString();
+                    });
+                });
+            }
             
             if (yearParam) {
                 yearSelect.value = yearParam;
