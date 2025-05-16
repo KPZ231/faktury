@@ -418,7 +418,7 @@ class WizardController
         error_log("WizardController::store - Zakończono " . ($isUpdate ? "aktualizację" : "dodawanie") . " sprawy, przekierowanie do /wizard");
         
         // Ustaw komunikat powodzenia i przekieruj
-        header('Location: /wizard?success=1', true, 302);
+        header('Location: /test', true, 302);
         exit;
     }
 
