@@ -326,7 +326,7 @@
                 <button class="action-button">Zarządzaj agentami</button>
             </a>
             
-            <a href="/table" class="feature-card">
+            <a href="/test" class="feature-card">
                 <i class="fa-solid fa-table feature-icon"></i>
                 <h3 class="feature-title">Tabele i Raporty</h3>
                 <p class="feature-description">Dane prezentowane w czytelnych tabelach z zaawansowanymi opcjami sortowania, filtrowania i eksportu.</p>
