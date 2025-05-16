@@ -396,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     viewButton.on('click', function() {
                         if (window.selectedAgentId) {
                             const redirectUrl = window.selectedAgentIsKuba ? 
-                                '/test?agent_id=jakub' : 
+                                '/test?agent_id=1' : 
                                 `/test?agent_id=${window.selectedAgentId}`;
                             window.location.href = redirectUrl;
                         }
