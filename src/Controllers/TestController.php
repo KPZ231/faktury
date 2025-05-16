@@ -155,8 +155,12 @@ class TestController {
     /**
      * Sync payment statuses with agenci_wyplaty table
      */
-    private function syncPaymentStatuses(): void {
+    public function syncPaymentStatuses(): void {
         try {
+            // Globalnie czyścimy wszystkie przypisania faktur - aby zapewnić, że faktury zostaną przypisane na nowo
+            $globalResetQuery = "UPDATE oplaty_spraw SET faktura_id = NULL, czy_oplacona = 0 WHERE opis_raty LIKE 'Rata %'"; 
+            $this->pdo->exec($globalResetQuery);
+            error_log("Globally reset all invoice assignments");
             // First, ensure the agenci_wyplaty table is properly configured
             $this->ensureAgenciWyplatyTable();
             
@@ -172,7 +176,118 @@ class TestController {
                            WHERE aw.czy_oplacone = 1";
             $this->pdo->exec($updateQuery);
             
-            // Update any paid invoice references - handle all formats
+            // Chronologiczne przypisanie faktur do rat - najstarsze faktury do raty 1, nowsze do kolejnych
+            // 1. Pobierz wszystkie sprawy
+            $sprawyQuery = "SELECT DISTINCT id_sprawy FROM sprawy";
+            $sprawy = $this->pdo->query($sprawyQuery)->fetchAll(PDO::FETCH_COLUMN);
+            
+            foreach ($sprawy as $id_sprawy) {
+                // 2. Pobierz identyfikator sprawy (potrzebny do wyszukiwania faktur)
+                $sprawaQuery = "SELECT identyfikator_sprawy FROM sprawy WHERE id_sprawy = ?";
+                $stmt = $this->pdo->prepare($sprawaQuery);
+                $stmt->execute([$id_sprawy]);
+                $identyfikator_sprawy = $stmt->fetchColumn();
+                
+                if (empty($identyfikator_sprawy)) {
+                    continue; // Pomiń jeśli nie ma identyfikatora
+                }
+                
+                // 3. Pobierz wszystkie raty dla tej sprawy
+                $ratyQuery = "SELECT id_oplaty_sprawy, opis_raty, oczekiwana_kwota FROM oplaty_spraw 
+                             WHERE id_sprawy = ? AND opis_raty LIKE 'Rata %' 
+                             ORDER BY CASE 
+                                WHEN opis_raty = 'Rata 1' THEN 1
+                                WHEN opis_raty = 'Rata 2' THEN 2
+                                WHEN opis_raty = 'Rata 3' THEN 3
+                                WHEN opis_raty = 'Rata 4' THEN 4
+                                WHEN opis_raty = 'Rata 5' THEN 5
+                                WHEN opis_raty = 'Rata 6' THEN 6
+                                ELSE 100 END";
+                $ratyStmt = $this->pdo->prepare($ratyQuery);
+                $ratyStmt->execute([$id_sprawy]);
+                $raty = $ratyStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                if (empty($raty)) {
+                    continue; // Pomiń jeśli nie ma rat
+                }
+                
+                // 4. Pobierz wszystkie faktury dla tej sprawy
+                $fakturyQuery = "SELECT numer, `Data wystawienia`, `Data płatności`, `Kwota opłacona` 
+                                FROM faktury 
+                                WHERE Nabywca = ? AND Status = 'Opłacona'";
+                $fakturyStmt = $this->pdo->prepare($fakturyQuery);
+                $fakturyStmt->execute([$identyfikator_sprawy]);
+                $faktury = $fakturyStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Dodaj również faktury już przypisane do tej sprawy, ale czyścimy je przed nowym przypisaniem
+                $przypisaneFakturyQuery = "SELECT f.numer, f.`Data wystawienia`, f.`Data płatności`, f.`Kwota opłacona` 
+                                         FROM faktury f
+                                         JOIN oplaty_spraw os ON f.numer = os.faktura_id
+                                         WHERE os.id_sprawy = ?";
+                $przypisaneFakturyStmt = $this->pdo->prepare($przypisaneFakturyQuery);
+                $przypisaneFakturyStmt->execute([$id_sprawy]);
+                $przypisaneFaktury = $przypisaneFakturyStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Faktury już nie mają przypisań dzięki globalnemu czyszczeniu, więc wszystkie są dostępne
+                // Usuwamy duplikaty (faktury mogły pojawić się zarówno w $faktury jak i $przypisaneFaktury)
+                $wszystkieFaktury = array_unique(array_merge($faktury, $przypisaneFaktury), SORT_REGULAR);
+                
+                // Dodaj log z informacją o liczbie faktur dla tej sprawy
+                error_log("Found " . count($wszystkieFaktury) . " invoices for case ID: $id_sprawy, identifier: $identyfikator_sprawy");
+                
+                if (empty($wszystkieFaktury)) {
+                    continue; // Pomiń jeśli nie ma faktur
+                }
+                
+                // 5. Sortuj faktury według daty wystawienia (od najstarszej do najnowszej)
+                usort($wszystkieFaktury, function($a, $b) {
+                    // Pierwszeństwo dla daty wystawienia
+                    $dateA = !empty($a['Data wystawienia']) ? strtotime($a['Data wystawienia']) : PHP_INT_MAX;
+                    $dateB = !empty($b['Data wystawienia']) ? strtotime($b['Data wystawienia']) : PHP_INT_MAX;
+                    
+                    if ($dateA != $dateB) {
+                        return $dateA - $dateB; // Od najstarszej do najnowszej
+                    }
+                    
+                    // Jeśli daty wystawienia są takie same, sprawdź datę płatności
+                    $payDateA = !empty($a['Data płatności']) ? strtotime($a['Data płatności']) : PHP_INT_MAX;
+                    $payDateB = !empty($b['Data płatności']) ? strtotime($b['Data płatności']) : PHP_INT_MAX;
+                    
+                    if ($payDateA != $payDateB) {
+                        return $payDateA - $payDateB; // Od najstarszej do najnowszej
+                    }
+                    
+                    // Jeśli obie daty są takie same, sprawdź numer faktury
+                    if (preg_match('/FV\/([0-9]+)\//', $a['numer'], $matchesA) && 
+                        preg_match('/FV\/([0-9]+)\//', $b['numer'], $matchesB)) {
+                        return intval($matchesA[1]) - intval($matchesB[1]); // Po numerze faktury
+                    }
+                    
+                    return 0;
+                });
+                
+                // 6. Przypisz faktury do rat w kolejności chronologicznej
+                $i = 0;
+                foreach ($raty as $rata) {
+                    if ($i < count($wszystkieFaktury)) {
+                        $faktura = $wszystkieFaktury[$i];
+                        $kwotaRaty = floatval($rata['oczekiwana_kwota'] ?? 0);
+                        $kwotaFaktury = floatval($faktura['Kwota opłacona'] ?? 0);
+                        
+                        // Sprawdź, czy kwota faktury odpowiada kwocie raty
+                        // Zastosuj margines błędu (epsilon) przy porównywaniu kwot
+                        $epsilon = 0.01;
+                        if (abs($kwotaRaty - $kwotaFaktury) <= $epsilon || $kwotaRaty == 0 || $kwotaFaktury == 0) {
+                            // Przypisz fakturę do raty
+                            $updateQuery = "UPDATE oplaty_spraw SET faktura_id = ?, czy_oplacona = 1 WHERE id_oplaty_sprawy = ?";
+                            $this->pdo->prepare($updateQuery)->execute([$faktura['numer'], $rata['id_oplaty_sprawy']]);
+                            $i++; // Przejdź do następnej faktury
+                        }
+                    }
+                }
+            }
+            
+            // Uzupełniamy faktury dla rat, które mogły zostać pominięte powyżej
             $updateInvoicesQuery = "UPDATE oplaty_spraw os
                                    JOIN agenci_wyplaty aw ON os.id_sprawy = aw.id_sprawy
                                    AND (
@@ -184,7 +299,7 @@ class TestController {
                                    WHERE aw.czy_oplacone = 1 
                                    AND aw.numer_faktury IS NOT NULL 
                                    AND aw.numer_faktury != ''
-                                   AND (os.faktura_id IS NULL OR os.faktura_id = '')";
+                                   AND os.faktura_id IS NULL";
             $this->pdo->exec($updateInvoicesQuery);
             
             // Check for missing prowizje_agentow_spraw entries
