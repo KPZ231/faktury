@@ -295,30 +295,46 @@ $liczbaRat = count($ratyOpis);
 
         /* Style dla opłaconych rat */
         .prowizje-rata-cell .agent-payout.paid-installment {
-            background-color: #ffebee;
+            background-color: #f8f9fa; /* Changed from #ffebee to neutral color */
             padding: 4px 8px;
             border-radius: 4px;
-            border-left: 3px solid #dc3545;
+            border-left: 3px solid #007bff; /* Changed from #dc3545 to neutral blue */
             margin: 4px 0;
-            animation: glow 1.5s infinite;
+            animation: none; /* Removed glow animation */
             position: relative;
         }
         .prowizje-rata-cell .agent-payout.paid-installment .agent-name {
-            color: #b71c1c;
+            color: #555; /* Changed from #b71c1c to neutral color */
             font-weight: 600;
         }
         .prowizje-rata-cell .agent-payout.paid-installment .agent-amount {
-            color: #b71c1c;
+            color: #2c3e50; /* Changed from #b71c1c to neutral color */
             font-weight: 600;
         }
-        .prowizje-rata-cell .agent-payout.paid-installment.payment-confirmed {
-            animation: none;
-            background-color: #e8f5e9;
-            border-left: 3px solid #2e7d32;
+        
+        /* Styles for agent-info when installment is not paid */
+        .agent-info {
+            margin-bottom: 8px;
+            padding: 5px;
+            display: block;
+            position: relative;
+            border-radius: 3px;
+            background-color: #f8f9fa;
+            border-left: 3px solid #adb5bd;
         }
-        .prowizje-rata-cell .agent-payout.paid-installment.payment-confirmed .agent-name,
-        .prowizje-rata-cell .agent-payout.paid-installment.payment-confirmed .agent-amount {
-            color: #155724;
+        
+        .agent-info .agent-name {
+            font-weight: normal;
+            color: #555;
+        }
+        
+        .agent-info .agent-amount {
+            font-weight: normal;
+            color: #555;
+        }
+        
+        .kuba-info {
+            border-left: 3px solid #ffc107;
         }
 
         /* Style dla przycisku i formularza */
@@ -506,6 +522,31 @@ $liczbaRat = count($ratyOpis);
             background: #fdecea;
             color: #b71c1c;
         }
+        /* Style dla powiadomień */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+
+        .notification.success {
+            background-color: #4CAF50;
+        }
+
+        .notification.info {
+            background-color: #2196F3;
+        }
+
+        .notification.error {
+            background-color: #F44336;
+        }
     </style>
 </head>
 <body>
@@ -595,10 +636,15 @@ $liczbaRat = count($ratyOpis);
                                             if ($agent_id != $kuba_id): // Pomiń Kubę w pierwszej pętli
                                                 $kwotaProwizji = $kwotaRaty * $proc;
                                                 if ($kwotaProwizji > $epsilon):
-                                                    $paidClass = $czyRataOplacona ? 'paid-installment' : '';
+                                                    // Only add paid-installment class if the installment is paid
+                                                    $paidClass = '';
                                                     $uniqueId = "payment_{$sprawa['id_sprawy']}_{$opisRaty}_{$agent_id}";
                                 ?>
+                                                    <?php if ($czyRataOplacona): ?>
                                                     <span class="agent-payout <?php echo $paidClass; ?>">
+                                                    <?php else: ?>
+                                                    <span class="agent-info">
+                                                    <?php endif; ?>
                                                         <div class="amount-row">
                                                             <span class="agent-name"><?php echo htmlspecialchars($agenci[$agent_id] ?? "Agent {$agent_id}"); ?>:</span>
                                                             <span class="agent-amount"><?php echo format_currency($kwotaProwizji); ?></span>
@@ -640,10 +686,14 @@ $liczbaRat = count($ratyOpis);
                                         // Teraz wyświetl prowizję dla Kuby używając obliczonego procentu
                                         $kubaKwotaProwizji = $kwotaRaty * $sprawa['do_wyplaty_kuba_proc'];
                                         if ($kubaKwotaProwizji > $epsilon):
-                                            $kubaPaidClass = $czyRataOplacona ? 'paid-installment' : '';
+                                            $kubaPaidClass = '';
                                             $kubaUniqueId = "payment_{$sprawa['id_sprawy']}_{$opisRaty}_kuba";
                                 ?>
+                                            <?php if ($czyRataOplacona): ?>
                                             <span class="agent-payout kuba-payout <?php echo $kubaPaidClass; ?>">
+                                            <?php else: ?>
+                                            <span class="agent-info kuba-info">
+                                            <?php endif; ?>
                                                 <div class="amount-row">
                                                     <span class="agent-name"><?php echo htmlspecialchars($agenci[$kuba_id] ?? "Kuba"); ?>:</span>
                                                     <span class="agent-amount"><?php echo format_currency($kubaKwotaProwizji); ?></span>
@@ -1024,6 +1074,119 @@ document.getElementById('deleteCaseConfirmBtn').onclick = function() {
         }
     });
 };
+
+// Updating JavaScript function to handle both agent-payout and agent-info classes
+function handlePaidCheckboxClick(event) {
+    const paidCheckbox = event.target;
+    const uniqueId = paidCheckbox.id.replace('paid_', '');
+    const agentPayoutElement = document.querySelector(`[data-payment-id="${uniqueId}"]`); // Modified to find by data-payment-id instead of class
+    const invoiceContainer = document.getElementById('invoice_container_' + uniqueId);
+    const confirmCheckbox = document.getElementById('confirmed_' + uniqueId);
+    const invoiceNumberInput = document.getElementById('invoice_number_' + uniqueId);
+    
+    if (paidCheckbox.checked) {
+        // Convert agent-info to agent-payout when checked
+        if (agentPayoutElement.classList.contains('agent-info')) {
+            agentPayoutElement.classList.remove('agent-info');
+            if (agentPayoutElement.classList.contains('kuba-info')) {
+                agentPayoutElement.classList.remove('kuba-info');
+                agentPayoutElement.classList.add('agent-payout', 'kuba-payout');
+            } else {
+                agentPayoutElement.classList.add('agent-payout');
+            }
+        }
+        
+        // Rest of existing checkbox click handler code
+        // ... existing code ...
+    }
+}
+
+function updatePaymentStatus() {
+    // Update payment element based on checkbox status
+    const uniqueId = currentPaymentData.uniqueId;
+    const isPaid = document.getElementById('modalPaidCheckbox').checked;
+    const invoiceNumber = document.getElementById('modalInvoiceInput').value;
+    
+    // Find payment element by data-payment-id attribute instead of class
+    const paymentElement = document.querySelector(`[data-payment-id="${uniqueId}"]`);
+    
+    if (!paymentElement) {
+        console.error('Payment element not found:', uniqueId);
+        return;
+    }
+    
+    // Check if element is Kuba's
+    const isKuba = uniqueId.includes('_kuba');
+    
+    if (isPaid) {
+        // If paid, convert agent-info to agent-payout if needed
+        if (paymentElement.classList.contains('agent-info')) {
+            paymentElement.classList.remove('agent-info');
+            if (paymentElement.classList.contains('kuba-info')) {
+                paymentElement.classList.remove('kuba-info');
+                paymentElement.classList.add('agent-payout', 'kuba-payout');
+            } else {
+                paymentElement.classList.add('agent-payout');
+            }
+        }
+        
+        // Add payment confirmation class
+        paymentElement.classList.add('paid-installment');
+        
+        // Show invoice info
+        const paymentInfoDiv = document.createElement('div');
+        paymentInfoDiv.className = 'payment-info';
+        paymentInfoDiv.innerHTML = `<div class="invoice-number">Faktura: ${invoiceNumber}</div>`;
+        
+        // Remove existing payment info if present
+        const existingInfo = paymentElement.querySelector('.payment-info');
+        if (existingInfo) existingInfo.remove();
+        
+        // Add new payment info
+        paymentElement.appendChild(paymentInfoDiv);
+    } else {
+        // If not paid, convert agent-payout to agent-info
+        if (paymentElement.classList.contains('agent-payout')) {
+            paymentElement.classList.remove('agent-payout', 'paid-installment');
+            if (paymentElement.classList.contains('kuba-payout')) {
+                paymentElement.classList.remove('kuba-payout');
+                paymentElement.classList.add('agent-info', 'kuba-info');
+            } else {
+                paymentElement.classList.add('agent-info');
+            }
+        }
+        
+        // Remove payment info if exists
+        const existingInfo = paymentElement.querySelector('.payment-info');
+        if (existingInfo) existingInfo.remove();
+    }
+    
+    // Show notification
+    // Remove any existing notification
+    const existingNotification = document.getElementById('notification-' + uniqueId);
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // Show success notification
+    const notification = document.createElement('div');
+    notification.id = 'notification-' + uniqueId;
+    notification.className = 'notification ' + (isPaid ? 'success' : 'info');
+    notification.textContent = isPaid ? 'Płatność zapisana!' : 'Status płatności zaktualizowany';
+    notification.style.opacity = '0';
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.opacity = '1';
+    }, 10);
+    
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            notification.remove();
+        }, 500);
+    }, 3000);
+}
 </script>
 
 </body>

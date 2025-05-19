@@ -230,30 +230,126 @@ class DatabaseManageController {
         try {
             $pdo = $this->getDbConnection();
             
-            // Najpierw spróbuj użyć DELETE zamiast TRUNCATE (mniej uprawnień potrzebne)
-            try {
-                error_log("DatabaseManageController::truncateTable - Trying DELETE FROM approach");
-                $pdo->exec("DELETE FROM `$tableName`");
+            // Sprawdź, czy tabela jest tabelą agentów, która zawiera rekordy, które powinniśmy zachować
+            $stmt = $pdo->prepare("SHOW COLUMNS FROM `$tableName` LIKE 'id'");
+            $stmt->execute();
+            $hasIdColumn = $stmt->rowCount() > 0;
+            
+            // Sprawdź czy mamy kolumnę id_agenta zamiast id
+            $stmt = $pdo->prepare("SHOW COLUMNS FROM `$tableName` LIKE 'id_agenta'");
+            $stmt->execute();
+            $hasIdAgentaColumn = $stmt->rowCount() > 0;
+            
+            $idColumnName = $hasIdAgentaColumn ? 'id_agenta' : 'id';
+            
+            $stmt = $pdo->prepare("SHOW COLUMNS FROM `$tableName` LIKE 'name'");
+            $stmt->execute();
+            $hasNameColumn = $stmt->rowCount() > 0;
+            
+            // Znajdź agenta do zachowania, jeśli istnieje
+            $agentToPreserve = null;
+            $isAgentTable = ($hasIdAgentaColumn || $hasIdColumn) && $hasNameColumn;
+            
+            // Jeśli to tabela agentów, sprawdź czy istnieje agent o id=1 i name='Kuba'
+            if ($isAgentTable) {
+                $stmt = $pdo->prepare("SELECT * FROM `$tableName` WHERE $idColumnName = 1 AND name = 'Kuba'");
+                $stmt->execute();
+                $agentToPreserve = $stmt->fetch(PDO::FETCH_ASSOC);
                 
-                echo json_encode([
-                    'success' => true, 
-                    'message' => "Usunięto wszystkie rekordy z tabeli $tableName"
-                ]);
+                if ($agentToPreserve) {
+                    error_log("DatabaseManageController::truncateTable - Found agent with $idColumnName=1 and name='Kuba' to preserve");
+                }
+            }
+            
+            // Wyłącz sprawdzanie kluczy obcych tymczasowo
+            error_log("DatabaseManageController::truncateTable - Disabling foreign key checks");
+            $pdo->exec("SET FOREIGN_KEY_CHECKS = 0");
+            
+            // Najpierw spróbuj użyć DELETE
+            try {
+                error_log("DatabaseManageController::truncateTable - Trying DELETE FROM approach with foreign key checks disabled");
+                
+                // Jeśli to tabela agentów, użyj DELETE z warunkiem WHERE
+                if ($isAgentTable) {
+                    error_log("DatabaseManageController::truncateTable - Using DELETE with condition to preserve agent with $idColumnName=1");
+                    $pdo->exec("DELETE FROM `$tableName` WHERE $idColumnName <> 1");
+                } else {
+                    // Dla innych tabel użyj standardowego DELETE
+                    $pdo->exec("DELETE FROM `$tableName`");
+                }
+                
+                // Ponownie włącz sprawdzanie kluczy obcych
+                $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+                
+                // Komunikat o pomyślnym usunięciu rekordów z zachowaniem agenta (jeśli dotyczy)
+                if ($isAgentTable) {
+                    echo json_encode([
+                        'success' => true, 
+                        'message' => "Usunięto wszystkie rekordy z tabeli $tableName (z zachowaniem agenta o $idColumnName=1)"
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => true, 
+                        'message' => "Usunięto wszystkie rekordy z tabeli $tableName"
+                    ]);
+                }
                 return;
             } catch (PDOException $deleteError) {
                 error_log("DatabaseManageController::truncateTable - DELETE failed: " . $deleteError->getMessage());
-                // Jeśli DELETE nie zadziała, spróbuj TRUNCATE
+                // Jeśli DELETE nie zadziała, spróbuj TRUNCATE (z wyłączonymi już kluczami obcymi)
             }
             
-            // Próba TRUNCATE jeśli DELETE nie zadziałało
-            error_log("DatabaseManageController::truncateTable - Trying TRUNCATE TABLE approach");
+            // Spróbuj TRUNCATE z wyłączonymi kluczami obcymi
+            error_log("DatabaseManageController::truncateTable - Trying TRUNCATE TABLE approach with foreign key checks disabled");
+            
+            // Jeśli to tabela agentów, najpierw zabezpiecz agenta o id=1
+            if ($isAgentTable) {
+                // Pobierz dane agenta do zachowania, nawet jeśli go nie znaleźliśmy wcześniej
+                if (!$agentToPreserve) {
+                    $stmt = $pdo->prepare("SELECT * FROM `$tableName` WHERE $idColumnName = 1");
+                    $stmt->execute();
+                    $agentToPreserve = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($agentToPreserve) {
+                        error_log("DatabaseManageController::truncateTable - Found agent with $idColumnName=1 to preserve for TRUNCATE");
+                    }
+                }
+            }
+            
+            // Wykonaj TRUNCATE
             $pdo->exec("TRUNCATE TABLE `$tableName`");
+            
+            // Ponownie włącz sprawdzanie kluczy obcych
+            $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+            
+            // Jeśli agent istniał, przywróć go
+            if ($agentToPreserve) {
+                $columns = array_keys($agentToPreserve);
+                $placeholders = array_fill(0, count($columns), '?');
+                
+                $sql = "INSERT INTO `$tableName` (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $placeholders) . ")";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute(array_values($agentToPreserve));
+                
+                echo json_encode([
+                    'success' => true, 
+                    'message' => "Usunięto wszystkie rekordy z tabeli $tableName (z zachowaniem agenta o $idColumnName=1)"
+                ]);
+                return;
+            }
             
             echo json_encode([
                 'success' => true, 
                 'message' => "Usunięto wszystkie rekordy z tabeli $tableName"
             ]);
         } catch (PDOException $e) {
+            // W przypadku błędu upewnij się, że klucze obce są ponownie włączone
+            try {
+                $pdo->exec("SET FOREIGN_KEY_CHECKS = 1");
+            } catch (PDOException $e2) {
+                error_log("DatabaseManageController::truncateTable - Error re-enabling foreign key checks: " . $e2->getMessage());
+            }
+            
             error_log("DatabaseManageController::truncateTable - Error: " . $e->getMessage());
             // Sprawdź czy to error dostępu
             $errorCode = $e->getCode();

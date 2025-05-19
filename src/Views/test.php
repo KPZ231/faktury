@@ -237,6 +237,78 @@ syncPaymentStatuses($pdo);
     .nav-toggle.expanded {
         left: 230px; /* Move toggle button when nav is expanded */
     }
+
+    /* Style dla opłaconych rat */
+    .prowizje-rata-cell .agent-payout.paid-installment {
+        background-color: #f8f9fa; /* Changed from #ffebee to neutral color */
+        padding: 4px 8px;
+        border-radius: 4px;
+        border-left: 3px solid #007bff; /* Changed from #dc3545 to neutral blue */
+        margin: 4px 0;
+        animation: none; /* Removed glow animation */
+        position: relative;
+    }
+    .prowizje-rata-cell .agent-payout.paid-installment .agent-name {
+        color: #555; /* Changed from #b71c1c to neutral color */
+        font-weight: 600;
+    }
+    .prowizje-rata-cell .agent-payout.paid-installment .agent-amount {
+        color: #2c3e50; /* Changed from #b71c1c to neutral color */
+        font-weight: 600;
+    }
+
+    /* Styles for agent-info when installment is not paid */
+    .agent-info {
+        margin-bottom: 8px;
+        padding: 5px;
+        display: block;
+        position: relative;
+        border-radius: 3px;
+        background-color: #f8f9fa;
+        border-left: 3px solid #adb5bd;
+    }
+
+    .agent-info .agent-name {
+        font-weight: normal;
+        color: #555;
+    }
+
+    .agent-info .agent-amount {
+        font-weight: normal;
+        color: #555;
+    }
+
+    .kuba-info {
+        border-left: 3px solid #ffc107;
+    }
+
+    /* Style dla powiadomień */
+    .notification {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 15px;
+        border-radius: 4px;
+        color: white;
+        font-weight: 500;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 1000;
+        transition: opacity 0.3s ease;
+    }
+
+    .notification.success {
+        background-color: #4CAF50;
+    }
+
+    .notification.info {
+        background-color: #2196F3;
+    }
+
+    .notification.error {
+        background-color: #F44336;
+    }
+
+    /* Styl dla agent-info bez czerwonych kolorów */
 </style>
 
 <body>
@@ -476,7 +548,11 @@ syncPaymentStatuses($pdo);
                                                             // Ustaw klasy CSS na podstawie statusu
                                                             $payoutClass = $czyOplacone ? 'zaplecono-faktura' : '';
                                             ?>
+                                                            <?php if ($czyRataOplacona): ?>
                                                             <div class="agent-payout <?php echo $payoutClass; ?>" data-payment-id="payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_<?php echo $agent_id; ?>">
+                                                            <?php else: ?>
+                                                            <div class="agent-info" data-payment-id="payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_<?php echo $agent_id; ?>">
+                                                            <?php endif; ?>
                                                                 <span class="agent-name"><?php echo htmlspecialchars($agenci[$agent_id] ?? "Agent {$agent_id}"); ?>:</span>
                                                                 <span class="agent-amount"><?php echo format_currency($kwotaProwizji); ?></span>
 
@@ -511,7 +587,11 @@ syncPaymentStatuses($pdo);
                                                         $kubaPayoutClass .= ' zaplacono-faktura';
                                                     }
                                                     ?>
+                                                    <?php if ($czyRataOplacona): ?>
                                                     <div class="agent-payout <?php echo $kubaPayoutClass; ?>" data-payment-id="payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_<?php echo $kuba_id; ?>">
+                                                    <?php else: ?>
+                                                    <div class="agent-info kuba-info" data-payment-id="payment_<?php echo $sprawa['id_sprawy']; ?>_<?php echo $opisRaty; ?>_<?php echo $kuba_id; ?>">
+                                                    <?php endif; ?>
                                                         <span class="agent-name">Kuba:</span>
                                                         <span class="agent-amount"><?php echo format_currency($kubaKwotaProwizji); ?></span>
 
@@ -1025,30 +1105,88 @@ syncPaymentStatuses($pdo);
             }
 
             // Function to update payment status
-            async function updatePaymentStatus(caseId, installmentDesc, agentId) {
-                try {
-                    const response = await fetch(`/get-payment-status?case_id=${caseId}&installment_desc=${encodeURIComponent(installmentDesc)}&agent_id=${agentId}`);
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    const data = await response.json();
-
-                    // Update UI based on payment status
-                    const statusElement = document.querySelector(`[data-payment-status="${caseId}-${installmentDesc}-${agentId}"]`);
-                    const linkElement = document.querySelector(`[data-payment-link="${caseId}-${installmentDesc}-${agentId}"]`);
-
-                    if (statusElement) {
-                        if (data.status) {
-                            statusElement.textContent = 'Zapłacono';
-                            statusElement.classList.add('status-zapłacono');
-                            if (linkElement) linkElement.style.display = 'none';
+            function updatePaymentStatus(uniqueId, paid, confirmed, invoiceNumber) {
+                // Find element by data-payment-id attribute instead of class name
+                const paymentElement = document.querySelector(`[data-payment-id="${currentPaymentId}"]`);
+                
+                if (!paymentElement) {
+                    console.error('Payment element not found:', currentPaymentId);
+                    return;
+                }
+                
+                // Handle class conversions between agent-info and agent-payout
+                const isKuba = paymentElement.getAttribute('data-payment-id').includes('_kuba');
+                
+                if (paid) {
+                    // If paid, convert agent-info to agent-payout if needed
+                    if (paymentElement.classList.contains('agent-info')) {
+                        paymentElement.classList.remove('agent-info');
+                        if (paymentElement.classList.contains('kuba-info')) {
+                            paymentElement.classList.remove('kuba-info');
+                            paymentElement.classList.add('agent-payout', 'kuba-payout');
                         } else {
-                            statusElement.textContent = '';
-                            statusElement.classList.remove('status-zapłacono');
-                            if (linkElement) linkElement.style.display = 'inline-block';
+                            paymentElement.classList.add('agent-payout');
                         }
                     }
-                } catch (error) {
-                    console.error('Error fetching payment status:', error);
+                    
+                    // Add 'zaplacono-faktura' class to indicate payment
+                    paymentElement.classList.add('zaplacono-faktura');
+                    
+                    // Show payment info
+                    const paymentInfo = document.createElement('div');
+                    paymentInfo.className = 'payment-info';
+                    paymentInfo.innerHTML = `<div class="invoice-number">Faktura: ${invoiceNumber}</div>`;
+                    
+                    // Remove any existing payment info
+                    const existingPaymentInfo = paymentElement.querySelector('.payment-info');
+                    if (existingPaymentInfo) {
+                        existingPaymentInfo.remove();
+                    }
+                    
+                    paymentElement.appendChild(paymentInfo);
+                } else {
+                    // If not paid, convert agent-payout to agent-info
+                    if (paymentElement.classList.contains('agent-payout')) {
+                        paymentElement.classList.remove('agent-payout', 'zaplacono-faktura');
+                        if (paymentElement.classList.contains('kuba-payout')) {
+                            paymentElement.classList.remove('kuba-payout');
+                            paymentElement.classList.add('agent-info', 'kuba-info');
+                        } else {
+                            paymentElement.classList.add('agent-info');
+                        }
+                    }
+                    
+                    // Remove payment info
+                    const existingPaymentInfo = paymentElement.querySelector('.payment-info');
+                    if (existingPaymentInfo) {
+                        existingPaymentInfo.remove();
+                    }
                 }
+                
+                // Remove any existing notification
+                const existingNotification = document.getElementById('notification-' + currentPaymentId);
+                if (existingNotification) {
+                    existingNotification.remove();
+                }
+                
+                // Show success notification
+                const notification = document.createElement('div');
+                notification.id = 'notification-' + currentPaymentId;
+                notification.className = 'notification ' + (paid ? 'success' : 'info');
+                notification.textContent = paid ? 'Płatność zapisana!' : 'Status płatności zaktualizowany';
+                notification.style.opacity = '0';
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.opacity = '1';
+                }, 10);
+                
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 500);
+                }, 3000);
             }
 
             // Function to refresh all payment statuses on the page
