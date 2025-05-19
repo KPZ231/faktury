@@ -34,8 +34,8 @@
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/test" class="cleannav__link" data-tooltip="Test">
-          <i class="fa-solid fa-vial cleannav__icon"></i>
+        <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie spraw">
+          <i class="fa-solid fa-clipboard-list cleannav__icon"></i>
         </a>
       </li>
       <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
