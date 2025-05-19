@@ -377,7 +377,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             const columns = Array.from(document.querySelectorAll('th[data-column]'));
             
             // Essential columns that should not be hidden
-            const essentialColumns = ['LP', 'numer', 'Typ', 'Sprzedający', 'Data wystawienia', 'Wartość brutto'];
+            const essentialColumns = ['numer', 'Data wystawienia', 'Wartość brutto', 'Nabywca'];
             
             // Load saved column visibility preferences
             let columnVisibility = {};
