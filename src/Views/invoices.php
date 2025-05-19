@@ -134,6 +134,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
     </div>
 
     <div class="sort-controls">
+        <div class="filter-actions">
+            <button id="resetFilters" class="btn btn-secondary" title="Wyczyść wszystkie filtry i sortowanie">
+                <i class="fas fa-undo"></i> Wyczyść filtry
+            </button>
+        </div>
         <div class="date-filter">
             <div class="filter-group">
                 <span class="filter-label">Rok</span>
@@ -606,6 +611,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             const applyFilterBtn = document.getElementById('applyDateFilter');
             const yearSelect = document.getElementById('yearSelect');
             const monthSelect = document.getElementById('monthSelect');
+            const searchInput = document.getElementById('searchInput');
+            const resetFiltersBtn = document.getElementById('resetFilters');
+
+            // Reset all filters and sorting
+            function resetAllFilters() {
+                // Reset year and month selects
+                if (yearSelect) yearSelect.value = '';
+                if (monthSelect) monthSelect.value = '';
+                
+                // Reset search input
+                if (searchInput) searchInput.value = '';
+                
+                // Reset URL parameters
+                const url = new URL(window.location.href);
+                const params = new URLSearchParams(url.search);
+                
+                // Remove all filter and sort parameters
+                ['year', 'month', 'search', 'sort', 'dir'].forEach(param => {
+                    params.delete(param);
+                });
+                
+                // Redirect to clean URL
+                window.location.href = url.pathname + (params.toString() ? '?' + params.toString() : '');
+            }
+            
+            // Add click event for reset button
+            if (resetFiltersBtn) {
+                resetFiltersBtn.addEventListener('click', resetAllFilters);
+            }
             
             applyFilterBtn.addEventListener('click', function() {
                 const year = yearSelect.value;
