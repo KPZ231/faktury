@@ -3059,7 +3059,6 @@ td.hidden-column {
 }
 
 .currency-input-wrapper::after {
-  content: "zł";
   position: absolute;
   right: 10px;
   top: 50%;
@@ -3116,7 +3115,7 @@ td.hidden-column {
 
 /* Wersja dla pól procentowych */
 .percentage-input-wrapper::after {
-  content: "%";
+
   position: absolute;
   right: 10px;
   top: 50%;
