@@ -242,22 +242,37 @@ class DatabaseManageController {
             
             $idColumnName = $hasIdAgentaColumn ? 'id_agenta' : 'id';
             
+            // Sprawdź czy mamy kolumnę 'imie' zamiast 'name'
             $stmt = $pdo->prepare("SHOW COLUMNS FROM `$tableName` LIKE 'name'");
             $stmt->execute();
             $hasNameColumn = $stmt->rowCount() > 0;
+            
+            if (!$hasNameColumn) {
+                $stmt = $pdo->prepare("SHOW COLUMNS FROM `$tableName` LIKE 'imie'");
+                $stmt->execute();
+                $hasImieColumn = $stmt->rowCount() > 0;
+                if ($hasImieColumn) {
+                    $hasNameColumn = true;
+                    $nameColumnName = 'imie';
+                } else {
+                    $nameColumnName = 'name';
+                }
+            } else {
+                $nameColumnName = 'name';
+            }
             
             // Znajdź agenta do zachowania, jeśli istnieje
             $agentToPreserve = null;
             $isAgentTable = ($hasIdAgentaColumn || $hasIdColumn) && $hasNameColumn;
             
-            // Jeśli to tabela agentów, sprawdź czy istnieje agent o id=1 i name='Kuba'
+            // Jeśli to tabela agentów, sprawdź czy istnieje agent o id=1
             if ($isAgentTable) {
-                $stmt = $pdo->prepare("SELECT * FROM `$tableName` WHERE $idColumnName = 1 AND name = 'Kuba'");
+                $stmt = $pdo->prepare("SELECT * FROM `$tableName` WHERE $idColumnName = 1");
                 $stmt->execute();
                 $agentToPreserve = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($agentToPreserve) {
-                    error_log("DatabaseManageController::truncateTable - Found agent with $idColumnName=1 and name='Kuba' to preserve");
+                    error_log("DatabaseManageController::truncateTable - Found agent with $idColumnName=1 to preserve");
                 }
             }
             
@@ -269,9 +284,9 @@ class DatabaseManageController {
             try {
                 error_log("DatabaseManageController::truncateTable - Trying DELETE FROM approach with foreign key checks disabled");
                 
-                // Jeśli to tabela agentów, użyj DELETE z warunkiem WHERE
+                // Jeśli to tabela agentów, użyj DELETE z warunkiem WHERE aby zachować agenta o id=1
                 if ($isAgentTable) {
-                    error_log("DatabaseManageController::truncateTable - Using DELETE with condition to preserve agent with $idColumnName=1");
+                    error_log("DatabaseManageController::truncateTable - Using DELETE with condition to preserve ONLY agent with $idColumnName=1");
                     $pdo->exec("DELETE FROM `$tableName` WHERE $idColumnName <> 1");
                 } else {
                     // Dla innych tabel użyj standardowego DELETE
@@ -285,7 +300,7 @@ class DatabaseManageController {
                 if ($isAgentTable) {
                     echo json_encode([
                         'success' => true, 
-                        'message' => "Usunięto wszystkie rekordy z tabeli $tableName (z zachowaniem agenta o $idColumnName=1)"
+                        'message' => "Usunięto wszystkie rekordy z tabeli $tableName (z wyjątkiem agenta o $idColumnName=1)"
                     ]);
                 } else {
                     echo json_encode([
@@ -333,7 +348,7 @@ class DatabaseManageController {
                 
                 echo json_encode([
                     'success' => true, 
-                    'message' => "Usunięto wszystkie rekordy z tabeli $tableName (z zachowaniem agenta o $idColumnName=1)"
+                    'message' => "Usunięto wszystkie rekordy z tabeli $tableName (z wyjątkiem agenta o $idColumnName=1)"
                 ]);
                 return;
             }
