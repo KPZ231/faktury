@@ -3009,7 +3009,6 @@ td.hidden-column {
 }
 
 .currency-input-wrapper::after {
-  content: "zł";
   position: absolute;
   right: 10px;
   top: 50%;
