@@ -171,7 +171,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             align-self: flex-start;
-            margin-top: auto;
+            margin: auto;
         }
         
         .action-button:hover {
