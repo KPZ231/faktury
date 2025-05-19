@@ -1,3 +1,12 @@
+<?php
+// Debug information
+echo "<!-- Home page loaded -->";
+echo "<!-- SESSION: " . (isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'no role') . " -->";
+
+// Remove the incorrect include statement that's causing errors
+// include BASE_DIR . '/src/Views/partials/navbar.php'; 
+?>
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -279,6 +288,11 @@
                 </a>
             </li>
             <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
+            <li class="cleannav__item">
+                <a href="/zarzadzanie-uzytkownikami" class="cleannav__manage-btn" data-tooltip="Zarządzanie Użytkownikami">
+                    <i class="fa-solid fa-users-cog cleannav__icon"></i>
+                </a>
+            </li>
             <li class="cleannav__item">
                 <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
                     <i class="fa-solid fa-database cleannav__icon"></i>

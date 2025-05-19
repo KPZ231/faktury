@@ -42,18 +42,6 @@
         
         <div class="login-footer">
             <p>System zarządzania fakturami</p>
-            
-            <div class="users-info">
-                <h3>Dostępni użytkownicy:</h3>
-                <div class="user-row">
-                    <span><strong>admin</strong> / admin</span>
-                    <span class="user-role role-admin">Admin</span>
-                </div>
-                <div class="user-row">
-                    <span><strong>root</strong> / superadmin</span>
-                    <span class="user-role role-superadmin">Superadmin</span>
-                </div>
-            </div>
         </div>
     </div>
 </body>

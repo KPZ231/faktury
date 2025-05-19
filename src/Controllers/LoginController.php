@@ -3,19 +3,13 @@ namespace Dell\Faktury\Controllers;
 
 class LoginController
 {
-    // Definiuje dostępnych użytkowników i ich role
-    private $users = [
-        'admin' => [
-            'password' => 'admin',
-            'role' => 'admin',
-            'id' => 1
-        ],
-        'root' => [
-            'password' => 'superadmin',
-            'role' => 'superadmin',
-            'id' => 2
-        ]
-    ];
+    private $db;
+
+    public function __construct()
+    {
+        global $pdo;
+        $this->db = $pdo;
+    }
 
     public function showLoginForm()
     {
@@ -30,23 +24,38 @@ class LoginController
         $username = $_POST['username'] ?? '';
         $password = $_POST['password'] ?? '';
 
-        // Sprawdź, czy użytkownik istnieje
-        if (isset($this->users[$username]) && $this->users[$username]['password'] === $password) {
-            $user = $this->users[$username];
-            
-            $_SESSION['user'] = $username;
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['user_role'] = $user['role'];
-            $_SESSION['login_time'] = time();
-            
-            // Zapisz ostatnie logowanie
-            error_log("User {$username} logged in successfully with role {$user['role']}");
-            
-            // Przekieruj na stronę główną
-            header('Location: /');
-            exit;
-        } else {
-            $error = 'Nieprawidłowy login lub hasło';
+        if (empty($username) || empty($password)) {
+            $error = 'Proszę wprowadzić nazwę użytkownika i hasło';
+            require __DIR__ . '/../Views/login.php';
+            return;
+        }
+
+        try {
+            // Pobierz użytkownika z bazy danych
+            $stmt = $this->db->prepare("SELECT id, username, password, role FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            $user = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            // Sprawdź czy użytkownik istnieje i hasło się zgadza
+            if ($user && password_verify($password, $user['password'])) {
+                $_SESSION['user'] = $user['username'];
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_role'] = $user['role'];
+                $_SESSION['login_time'] = time();
+                
+                // Zapisz ostatnie logowanie
+                error_log("User {$username} logged in successfully with role {$user['role']}");
+                
+                // Przekieruj na stronę główną
+                header('Location: /');
+                exit;
+            } else {
+                $error = 'Nieprawidłowy login lub hasło';
+                require __DIR__ . '/../Views/login.php';
+            }
+        } catch (\PDOException $e) {
+            error_log("Database error during login: " . $e->getMessage());
+            $error = 'Wystąpił błąd podczas logowania. Spróbuj ponownie później.';
             require __DIR__ . '/../Views/login.php';
         }
     }

@@ -100,6 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             </li>
             <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
             <li class="cleannav__item">
+                <a href="/zarzadzanie-uzytkownikami" class="cleannav__manage-btn" data-tooltip="Zarządzanie Użytkownikami">
+                    <i class="fa-solid fa-users-cog cleannav__icon"></i>
+                </a>
+            </li>
+            <li class="cleannav__item">
                 <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
                     <i class="fa-solid fa-database cleannav__icon"></i>
                 </a>

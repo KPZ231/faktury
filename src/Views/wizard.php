@@ -40,6 +40,11 @@
       </li>
       <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
       <li class="cleannav__item">
+        <a href="/zarzadzanie-uzytkownikami" class="cleannav__manage-btn" data-tooltip="Zarządzanie Użytkownikami">
+          <i class="fa-solid fa-users-cog cleannav__icon"></i>
+        </a>
+      </li>
+      <li class="cleannav__item">
         <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
           <i class="fa-solid fa-database cleannav__icon"></i>
         </a>
@@ -1398,11 +1403,6 @@
       // Dodaj klasę animacji do każdego pola
       errorFields.forEach(field => {
         field.classList.add('highlight-error');
-        
-        // Przewiń do pierwszego pola z błędem
-        if (field === errorFields[0]) {
-          field.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
       });
       
       // Usuń klasę animacji po zakończeniu
@@ -1485,8 +1485,8 @@
       // Wywołaj oryginalną funkcję
       const result = originalValidateForm.apply(this, arguments);
       
-      // Po walidacji, podświetl pola z błędami
-      setTimeout(highlightErrorFields, 100);
+      // Nie wywołujemy highlightErrorFields, aby uniknąć automatycznego przewijania
+      // do błędów - błędy będą po prostu wyświetlane pod odpowiednimi polami
       
       return result;
     };
@@ -1497,8 +1497,8 @@
       // Wywołaj oryginalną funkcję
       const result = originalValidateStep.apply(this, [stepNumber]);
       
-      // Po walidacji, podświetl pola z błędami
-      setTimeout(highlightErrorFields, 100);
+      // Nie wywołujemy highlightErrorFields, aby uniknąć automatycznego przewijania
+      // do błędów - błędy będą po prostu wyświetlane pod odpowiednimi polami
       
       return result;
     };

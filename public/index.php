@@ -128,6 +128,7 @@ use Dell\Faktury\Controllers\InvoicesController;
 use Dell\Faktury\Controllers\CommissionController;
 use Dell\Faktury\Controllers\PodsumowanieController;
 use Dell\Faktury\Controllers\PaymentController;
+use Dell\Faktury\Controllers\UserManagementController;
 
 // Sprawdź, czy użytkownik jest zalogowany i przekieruj na stronę logowania jeśli nie
 $uri = $_SERVER['REQUEST_URI'];
@@ -148,9 +149,10 @@ if (!isset($_SESSION['user']) && !in_array($uriWithoutQuery, $publicRoutes)) {
 }
 
 // Sprawdź uprawnienia do stron zastrzeżonych dla superadmina
-$superadminRoutes = ['/database']; // Trasy dostępne tylko dla superadminów 
+$superadminRoutes = ['/database', '/zarzadzanie-uzytkownikami']; // Trasy dostępne tylko dla superadminów 
 if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'superadmin' && 
-    (in_array($uriWithoutQuery, $superadminRoutes) || strpos($uriWithoutQuery, '/database/') === 0)) {
+    (in_array($uriWithoutQuery, $superadminRoutes) || strpos($uriWithoutQuery, '/database/') === 0 || 
+     strpos($uriWithoutQuery, '/zarzadzanie-uzytkownikami/') === 0)) {
     error_log("Access denied to {$uri} for role: " . $_SESSION['user_role']);
     header('Location: ' . $baseUrl . '/?access_denied=1');
     exit;
@@ -215,6 +217,13 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     // Payment API endpoints
     $r->addRoute('POST',   '/update-payment',       [PaymentController::class, 'updatePayment']);
     $r->addRoute('GET',    '/get-payment-status',   [PaymentController::class, 'getPaymentStatus']);
+    
+    // User Management Routes
+    $r->addRoute('GET',    '/zarzadzanie-uzytkownikami',              [UserManagementController::class, 'index']);
+    $r->addRoute('POST',   '/zarzadzanie-uzytkownikami/add',          [UserManagementController::class, 'addUser']);
+    $r->addRoute('POST',   '/zarzadzanie-uzytkownikami/change-password', [UserManagementController::class, 'changePassword']);
+    $r->addRoute('POST',   '/zarzadzanie-uzytkownikami/change-role',  [UserManagementController::class, 'changeRole']);
+    $r->addRoute('POST',   '/zarzadzanie-uzytkownikami/delete',       [UserManagementController::class, 'deleteUser']);
 });
 error_log("Routes setup complete");
 
