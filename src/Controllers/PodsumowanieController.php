@@ -5,7 +5,7 @@ namespace Dell\Faktury\Controllers;
 use PDO;
 use PDOException;
 
-class TestController {
+class PodsumowanieController {
     private $pdo;
 
     /**
@@ -36,7 +36,7 @@ class TestController {
             $stmt->execute([$id]);
 
             $this->pdo->commit();
-            header('Location: /test?deleted=1');
+            header('Location: /podsumowanie-spraw?deleted=1');
             exit;
         } catch (PDOException $e) {
             $this->pdo->rollBack();
@@ -72,7 +72,7 @@ class TestController {
         $filterByAgentId = $selectedAgentId;
         
         // Render the view
-        include __DIR__ . '/../Views/test.php';
+        include __DIR__ . '/../Views/podsumowanie-spraw.php';
     }
     
     /**

@@ -274,8 +274,8 @@
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/test" class="cleannav__link" data-tooltip="Test">
-                    <i class="fa-solid fa-vial cleannav__icon"></i>
+                <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie spraw">
+                    <i class="fa-solid fa-clipboard-list cleannav__icon"></i>
                 </a>
             </li>
             <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
@@ -326,8 +326,8 @@
                 <button class="action-button">Zarządzaj agentami</button>
             </a>
             
-            <a href="/test" class="feature-card">
-                <i class="fa-solid fa-table feature-icon"></i>
+            <a href="/podsumowanie-spraw" class="feature-card">
+                <i class="fa-solid fa-clipboard-list feature-icon"></i>
                 <h3 class="feature-title">Tabele i Raporty</h3>
                 <p class="feature-description">Dane prezentowane w czytelnych tabelach z zaawansowanymi opcjami sortowania, filtrowania i eksportu.</p>
                 <button class="action-button">Zobacz tabele</button>

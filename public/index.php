@@ -17,7 +17,7 @@ use Dell\Faktury\Controllers\LoginController;
 use Dell\Faktury\Controllers\DatabaseManageController;
 use Dell\Faktury\Controllers\InvoicesController;
 use Dell\Faktury\Controllers\CommissionController;
-use Dell\Faktury\Controllers\TestController;
+use Dell\Faktury\Controllers\PodsumowanieController;
 use Dell\Faktury\Controllers\PaymentController;
 
 // Sprawdź, czy użytkownik jest zalogowany i przekieruj na stronę logowania jeśli nie
@@ -94,8 +94,8 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
     $r->addRoute('POST',   '/login',       [LoginController::class, 'login']);
     $r->addRoute('GET',    '/logout',      [LoginController::class, 'logout']);
 
-    $r->addRoute('GET',    '/test',       [TestController::class, 'index']);
-    $r->addRoute('POST',   '/sprawy/{id:\d+}/delete', [TestController::class, 'delete']);
+    $r->addRoute('GET',    '/podsumowanie-spraw',       [PodsumowanieController::class, 'index']);
+    $r->addRoute('POST',   '/sprawy/{id:\d+}/delete', [PodsumowanieController::class, 'delete']);
     
     // Payment API endpoints
     $r->addRoute('POST',   '/update-payment',       [PaymentController::class, 'updatePayment']);
