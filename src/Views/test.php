@@ -189,6 +189,7 @@ syncPaymentStatuses($pdo);
         letter-spacing: 1.5px;
         margin: 0;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        color: white;
     }
     
     /* Add spacing for content to appear below header */
@@ -373,8 +374,7 @@ syncPaymentStatuses($pdo);
 
     <!-- Added content wrapper div to contain all content below header -->
     <div class="content-wrapper">
-        <a href="/agents" class="strona">Dodaj nowego agenta</a>
-        <a href="/wizard" class="strona">Dodaj Nową Sprawę</a>
+
 
         <div class="search-container">
             <input type="text" id="searchInput" class="search-input" placeholder="Wyszukaj sprawę..." autocomplete="off">

@@ -541,9 +541,21 @@
             font-size: 16px;
             transition: border-color 0.3s;
         }
+
+        .search-input::placeholder {
+            color: #999;
+            font-style: italic;
+        }
+
+        .search-input:hover {
+            border-color: #92bce8;
+        }
         .search-input:focus {
             border-color: #007bff;
             outline: none;
+            transition: background-color 0.5s;
+            background-color: #c2d6eb;
+            box-shadow: 0 5px 10px rgba(0, 123, 255, 0.1);
         }
         .highlight {
             background-color: #e3f2fd;
