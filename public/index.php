@@ -3,9 +3,118 @@ session_start();
 require __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/database.php';
 
+// Define the base directory
+define('BASE_DIR', dirname(__DIR__));
+
+// Determine base path in case the application is in a subdirectory
+$scriptName = dirname($_SERVER['SCRIPT_NAME']);
+$baseUrl = $scriptName === '/' ? '' : $scriptName;
+
+// If public/ is part of the path, keep it (we need it for accurate paths)
+if (strpos($baseUrl, '/public') === false && $baseUrl !== '') {
+    $baseUrl .= '/public';
+}
+
 error_log("=== REQUEST STARTED ===");
+error_log("Script name: " . $_SERVER['SCRIPT_NAME']);
+error_log("Base URL detected: " . $baseUrl);
 error_log("Request URI: " . $_SERVER['REQUEST_URI']);
 error_log("Request Method: " . $_SERVER['REQUEST_METHOD']);
+
+// Check if request is for a file in the src or assets directory
+$uri = $_SERVER['REQUEST_URI'];
+// Remove the base URL from the URI if needed
+if (!empty($baseUrl) && strpos($uri, $baseUrl) === 0) {
+    $uri = substr($uri, strlen($baseUrl));
+    error_log("Adjusted URI after removing base URL: " . $uri);
+}
+
+// Handle various potential asset paths - extended patterns to catch common issues
+$assetPatterns = [
+    '/^\/src\/(.*)$/' => BASE_DIR . '/src/$1',
+    '/^\/assets\/(.*)$/' => __DIR__ . '/assets/$1',
+    '/^\/\.\.\/\.\.\/assets\/(.*)$/' => __DIR__ . '/assets/$1', // Handle ../../assets/ pattern
+    '/^\/\.\.\/assets\/(.*)$/' => __DIR__ . '/assets/$1', // Handle ../assets/ pattern
+    '/^\/public\/assets\/(.*)$/' => __DIR__ . '/assets/$1', // Handle /public/assets/ pattern
+    '/^\/css\/(.*)$/' => __DIR__ . '/assets/css/$1', // Direct access to CSS files
+    '/^\/js\/(.*)$/' => __DIR__ . '/assets/js/$1', // Direct access to JS files
+    '/^\/images\/(.*)$/' => __DIR__ . '/assets/images/$1', // Direct access to image files
+    // Additional patterns for direct access
+    '/^\/?style\.css$/' => __DIR__ . '/assets/css/style.css',
+    '/^\/?table\.css$/' => __DIR__ . '/assets/css/table.css',
+    '/^\/assets\/css\/style\.css$/' => __DIR__ . '/assets/css/style.css',
+    '/^\/assets\/css\/table\.css$/' => __DIR__ . '/assets/css/table.css'
+];
+
+// Log the request path for debugging
+error_log("Checking URI for assets: " . $uri);
+
+// Test each pattern to see if it matches
+foreach ($assetPatterns as $pattern => $replacement) {
+    if (preg_match($pattern, $uri, $matches)) {
+        $filePath = str_replace('$1', $matches[1] ?? '', $replacement);
+        error_log("Looking for file: " . $filePath);
+        if (file_exists($filePath)) {
+            serveStaticFile($filePath);
+            exit;
+        } else {
+            error_log("File not found: " . $filePath);
+        }
+    }
+}
+
+// Add specific check for style.css since it's frequently causing 404 errors
+$styleFiles = [
+    __DIR__ . '/assets/css/style.css',
+    __DIR__ . '/assets/css/table.css'
+];
+
+foreach ($styleFiles as $styleFile) {
+    if (strpos($uri, basename($styleFile)) !== false && file_exists($styleFile)) {
+        error_log("Serving style file directly: " . $styleFile);
+        serveStaticFile($styleFile);
+        exit;
+    }
+}
+
+// Function to serve static files with proper content type
+function serveStaticFile($filePath) {
+    // Determine content type based on file extension
+    $extension = pathinfo($filePath, PATHINFO_EXTENSION);
+    $contentType = 'application/octet-stream'; // default
+    
+    $contentTypes = [
+        'css' => 'text/css',
+        'js' => 'application/javascript',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'svg' => 'image/svg+xml',
+        'json' => 'application/json',
+        'html' => 'text/html',
+        'txt' => 'text/plain',
+        'woff' => 'font/woff',
+        'woff2' => 'font/woff2',
+        'ttf' => 'font/ttf',
+        'eot' => 'application/vnd.ms-fontobject',
+    ];
+    
+    if (isset($contentTypes[$extension])) {
+        $contentType = $contentTypes[$extension];
+    }
+    
+    // Set cache headers for better performance
+    $timestamp = filemtime($filePath);
+    $etag = '"' . md5($timestamp . $filePath) . '"';
+    
+    header('Content-Type: ' . $contentType);
+    header('ETag: ' . $etag);
+    header('Cache-Control: public, max-age=86400'); // Cache for 1 day
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $timestamp) . ' GMT');
+    
+    readfile($filePath);
+}
 
 use Dell\Faktury\Controllers\AgentController;
 use FastRoute\Dispatcher;
@@ -22,13 +131,19 @@ use Dell\Faktury\Controllers\PaymentController;
 
 // Sprawdź, czy użytkownik jest zalogowany i przekieruj na stronę logowania jeśli nie
 $uri = $_SERVER['REQUEST_URI'];
+// Remove the base URL from the URI if needed
+if (!empty($baseUrl) && strpos($uri, $baseUrl) === 0) {
+    $uri = substr($uri, strlen($baseUrl));
+    error_log("Adjusted URI after removing base URL: " . $uri);
+}
+
 // Usuwamy parametry z URI przed sprawdzeniem czy to trasa publiczna
 $uriWithoutQuery = parse_url($uri, PHP_URL_PATH);
 $publicRoutes = ['/login', '/logout']; // Trasy dostępne bez logowania
 
 if (!isset($_SESSION['user']) && !in_array($uriWithoutQuery, $publicRoutes)) {
     error_log("Unauthorized access attempt to {$uri}, redirecting to login");
-    header('Location: /login?required=1');
+    header('Location: ' . $baseUrl . '/login?required=1');
     exit;
 }
 
@@ -37,7 +152,7 @@ $superadminRoutes = ['/database']; // Trasy dostępne tylko dla superadminów
 if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'superadmin' && 
     (in_array($uriWithoutQuery, $superadminRoutes) || strpos($uriWithoutQuery, '/database/') === 0)) {
     error_log("Access denied to {$uri} for role: " . $_SESSION['user_role']);
-    header('Location: /?access_denied=1');
+    header('Location: ' . $baseUrl . '/?access_denied=1');
     exit;
 }
 
@@ -104,6 +219,7 @@ $dispatcher = simpleDispatcher(function(FastRoute\RouteCollector $r) {
 error_log("Routes setup complete");
 
 $httpMethod = $_SERVER['REQUEST_METHOD'];
+// Make sure we're using the URI without the base URL
 if (false !== $pos = strpos($uri, '?')) {
     $uri = substr($uri, 0, $pos);
     error_log("URI with query string removed: " . $uri);

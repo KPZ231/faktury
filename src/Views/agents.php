@@ -87,13 +87,160 @@ $agentTreeJson = json_encode($agentTree);
 
 <head>
     <meta charset="UTF-8">
-    <link rel="shortcut icon" href="../../assets/images/favicon.png" type="image/x-icon">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../../assets/css/style.css">
+    <title>Zarządzanie agentami</title>
+    <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/x-icon">
+    <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- jsTree CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.16/themes/default/style.min.css" />
-    <title>Dodaj Agenta</title>
+    
+    <style>
+        /* Styling for the agent tree and components */
+        .agent-tree {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .agent-tree-title {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            color: #333;
+        }
+        
+        #agent-tree-container {
+            min-height: 200px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: white;
+        }
+        
+        .agent-tree-search {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        #agent-tree-search-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px 0 0 4px;
+        }
+        
+        #agent-tree-search-button, #agent-tree-search-clear {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background-color: #f8f9fa;
+            cursor: pointer;
+        }
+        
+        #agent-tree-search-button {
+            border-radius: 0;
+            border-left: none;
+        }
+        
+        #agent-tree-search-clear {
+            border-radius: 0 4px 4px 0;
+            border-left: none;
+        }
+        
+        .agent-tree-legend {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .legend-item i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* Node styling */
+        .jstree-animate-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        .jstree-loading:before {
+            content: "Ładowanie hierarchii...";
+            display: block;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .kuba-node-highlight {
+            background-color: #fff8e1 !important;
+        }
+        
+        .kuba-node-anchor {
+            font-weight: bold !important;
+            color: #ff9800 !important;
+        }
+        
+        .selected-agent-node > .jstree-anchor {
+            background-color: #e3f2fd !important;
+            color: #1976d2 !important;
+        }
+        
+        .has-supervisor {
+            color: #007bff;
+            background-color: #e7f1ff;
+            font-weight: bold;
+        }
+        
+        .view-cases-button {
+            margin-top: 15px;
+            padding: 10px 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        
+        .view-cases-button i {
+            margin-right: 8px;
+        }
+        
+        .view-cases-button:hover {
+            background-color: #388e3c;
+        }
+        
+        .agent-count {
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
 </head>
 
 <body>
@@ -122,8 +269,8 @@ $agentTreeJson = json_encode($agentTree);
         </a>
       </li>
       <li class="cleannav__item">
-        <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie spraw">
-          <i class="fa-solid fa-clipboard-list cleannav__icon"></i>
+        <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie Faktur">
+          <i class="fa-solid fa-file-invoice-dollar cleannav__icon"></i>
         </a>
       </li>
       <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
@@ -266,6 +413,48 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     
+    // Function to transform agent data into jsTree format
+    function transformAgentDataForJsTree(agentData) {
+        // If there are no agents, return a placeholder
+        if (!agentData || agentData.length === 0) {
+            return [{
+                id: 'no-agents',
+                text: 'Brak agentów w systemie',
+                icon: 'fas fa-info-circle',
+                state: {
+                    opened: true,
+                    disabled: true
+                }
+            }];
+        }
+        
+        // Convert agent data to jsTree format
+        return agentData.map(agent => {
+            // Check if this is Kuba/Jakub for special styling
+            const isKuba = agent.nazwa_agenta.toLowerCase() === 'kuba' || 
+                         agent.nazwa_agenta.toLowerCase() === 'jakub';
+            
+            // Create the node
+            const node = {
+                id: 'agent_' + agent.id_agenta,
+                text: agent.nazwa_agenta,
+                // Determine the node type based on children and special names
+                type: isKuba ? 'kuba' : 
+                     (agent.children && agent.children.length > 0) ? 'supervisor' : 'subordinate',
+                state: {
+                    opened: true
+                }
+            };
+            
+            // Add children if they exist
+            if (agent.children && agent.children.length > 0) {
+                node.children = transformAgentDataForJsTree(agent.children);
+            }
+            
+            return node;
+        });
+    }
+    
     // Function to initialize jsTree with agent data
     function initializeTree(agentData) {
         // Destroy existing tree if it exists
@@ -396,8 +585,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     viewButton.on('click', function() {
                         if (window.selectedAgentId) {
                             const redirectUrl = window.selectedAgentIsKuba ? 
-                                '/test?agent_id=1' : 
-                                `/test?agent_id=${window.selectedAgentId}`;
+                                '/podsumowanie-spraw?agent_id=1' : 
+                                `/podsumowanie-spraw?agent_id=${window.selectedAgentId}`;
                             window.location.href = redirectUrl;
                         }
                     });
@@ -408,322 +597,80 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Update button text with agent name
                 viewButton.html(`<i class="fas fa-folder-open"></i> Zobacz sprawy agenta: <strong>${data.node.text}</strong>`);
-                viewButton.show();
             }
-            
-            // Optional: do something when a node is selected
-            console.log('Selected agent:', data.node.text, 'with ID:', agentId);
-            
-            // Highlight hierarchy path
-            highlightHierarchyPath(data.node);
-        }).on('deselect_node.jstree', function(e, data) {
-            // Remove selected class from parent li
-            $('.selected-agent-node').removeClass('selected-agent-node');
-            
-            // Hide the view button when deselecting
-            $('#view-agent-cases-button').hide();
-            
-            // Clear the selected agent info
-            window.selectedAgentId = null;
-            window.selectedAgentName = null;
-            window.selectedAgentIsKuba = false;
-            
-            // Remove hierarchy path highlighting
-            resetHierarchyHighlighting();
-        });
-        
-        // Add cursor pointer style to tree nodes to indicate they are clickable
-        $('<style>').text(`
-            .jstree-anchor {
-                cursor: pointer;
-            }
-            .jstree-anchor:hover {
-                background-color: rgba(0, 123, 255, 0.1);
-            }
-            .view-cases-button {
-                display: none;
-                margin-top: 15px;
-                padding: 10px 15px;
-                background-color: #007bff;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-                transition: background-color 0.2s;
-            }
-            .view-cases-button:hover {
-                background-color: #0056b3;
-            }
-            .view-cases-button i {
-                margin-right: 8px;
-            }
-            .view-cases-button strong {
-                font-weight: 600;
-            }
-        `).appendTo('head');
-    }
-    
-    // Function to transform agent data for jsTree format
-    function transformAgentDataForJsTree(agents) {
-        if (!agents || agents.length === 0) {
-            return [{
-                'id': 'no-agents',
-                'text': 'Brak agentów w systemie lub brak relacji nadrzędnych.',
-                'type': 'default'
-            }];
-        }
-        
-        // Filter out agents with supervisors to show only supervisors at the top level
-        let topLevelAgents = agents.filter(agent => !agent.nadagent);
-        
-        // If there are no top level agents, show all agents
-        if (topLevelAgents.length === 0) {
-            topLevelAgents = agents;
-        }
-        
-        return topLevelAgents.map(agent => {
-            // Check if this is Kuba/Jakub
-            const isKuba = agent.nazwa_agenta.toLowerCase() === 'kuba' || 
-                           agent.nazwa_agenta.toLowerCase() === 'jakub';
-            
-            // Create node object
-            const node = {
-                'id': 'agent_' + agent.id_agenta,
-                'text': agent.nazwa_agenta,
-                'type': agent.children && agent.children.length > 0 ? 'supervisor' : 'subordinate'
-            };
-            
-            // If this is Kuba, set special type
-            if (isKuba) {
-                node.type = 'kuba';
-            }
-            
-            // Add children if they exist
-            if (agent.children && agent.children.length > 0) {
-                node.children = transformAgentDataForJsTree(agent.children);
-                // If the agent has children, mark as a supervisor
-                node.type = 'supervisor';
-            }
-            
-            return node;
         });
     }
     
     // Function to highlight Kuba in the tree
     function highlightKubaInTree() {
-        fetch(`/api/agent-hierarchy?agent_name=Kuba`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.kuba_agent) {
-                    const kubaId = 'agent_' + data.kuba_agent.id_agenta;
-                    const kubaNode = $('#agent-tree-container').find(`li[id="${kubaId}"]`);
-                    
-                    if (kubaNode.length) {
-                        kubaNode.addClass('kuba-agent');
-                        // Ensure Kuba is visible by expanding all its parent nodes
-                        $('#agent-tree-container').jstree('_open_to', kubaId);
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Błąd pobierania informacji o Kubie:', error);
-            });
+        // Find Kuba/Jakub node
+        $('.jstree-node').each(function() {
+            const nodeText = $(this).find('.jstree-anchor').text().toLowerCase();
+            if (nodeText === 'kuba' || nodeText === 'jakub') {
+                // Add special styling
+                $(this).addClass('kuba-node-highlight');
+                $(this).find('.jstree-anchor').addClass('kuba-node-anchor');
+            }
+        });
     }
-
-    // Function to add a search box
+    
+    // Function to add search box for the tree
     function addSearchBox() {
         // Create search box
-        const searchBox = $('<div class="tree-search-container">' +
-            '<input type="text" class="tree-search-input" placeholder="Szukaj agenta...">' +
-            '<button class="tree-search-clear"><i class="fas fa-times"></i></button>' +
-            '</div>');
+        const searchBox = `
+            <div class="agent-tree-search">
+                <input type="text" id="agent-tree-search-input" placeholder="Szukaj agenta...">
+                <button id="agent-tree-search-button"><i class="fas fa-search"></i></button>
+                <button id="agent-tree-search-clear"><i class="fas fa-times"></i></button>
+            </div>
+        `;
         
         // Add search box before the tree
         $('#agent-tree-container').before(searchBox);
         
         // Add search functionality
-        const searchTimer = {};
-        $('.tree-search-input').on('keyup', function() {
-            const searchString = $(this).val();
-            clearTimeout(searchTimer);
-            
-            searchTimer.search = setTimeout(function() {
-                $('#agent-tree-container').jstree('search', searchString);
-                
-                if (searchString.length > 0) {
-                    $('.tree-search-clear').show();
-                } else {
-                    $('.tree-search-clear').hide();
-                }
-            }, 250);
+        $('#agent-tree-search-button').on('click', function() {
+            const searchString = $('#agent-tree-search-input').val();
+            $('#agent-tree-container').jstree('search', searchString);
         });
         
-        // Add clear button functionality
-        $('.tree-search-clear').on('click', function() {
-            $('.tree-search-input').val('').trigger('keyup');
-            $(this).hide();
-        }).hide();
+        // Add clear search functionality
+        $('#agent-tree-search-clear').on('click', function() {
+            $('#agent-tree-search-input').val('');
+            $('#agent-tree-container').jstree('clear_search');
+        });
         
-        // Add styles
-        $('<style>').text(`
-            .tree-search-container {
-                margin-bottom: 15px;
-                position: relative;
+        // Search on Enter key
+        $('#agent-tree-search-input').on('keyup', function(e) {
+            if (e.key === 'Enter') {
+                const searchString = $(this).val();
+                $('#agent-tree-container').jstree('search', searchString);
             }
-            .tree-search-input {
-                width: 100%;
-                padding: 10px 35px 10px 15px;
-                border: 1px solid #e0e0e0;
-                border-radius: 6px;
-                font-size: 14px;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            }
-            .tree-search-input:focus {
-                outline: none;
-                border-color: #007bff;
-                box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
-            }
-            .tree-search-clear {
-                position: absolute;
-                right: 10px;
-                top: 50%;
-                transform: translateY(-50%);
-                background: none;
-                border: none;
-                color: #6c757d;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 20px;
-                height: 20px;
-                border-radius: 50%;
-            }
-            .tree-search-clear:hover {
-                background-color: #f0f0f0;
-                color: #007bff;
-            }
-            .agent-count {
-                font-size: 14px;
-                color: #6c757d;
-                font-weight: normal;
-            }
-        `).appendTo('head');
+        });
     }
-
-    // Function to add legend
+    
+    // Function to add legend for tree node types
     function addTreeLegend() {
-        const legend = $('<div class="tree-legend">' +
-            '<div class="legend-title">Legenda:</div>' +
-            '<div class="legend-item"><span class="legend-icon supervisor-icon"><i class="fas fa-user-tie"></i></span> Agent zarządzający</div>' +
-            '<div class="legend-item"><span class="legend-icon subordinate-icon"><i class="fas fa-user"></i></span> Agent podwładny</div>' +
-            '<div class="legend-item"><span class="legend-icon kuba-icon"><i class="fas fa-crown"></i></span> Agent główny (Kuba)</div>' +
-            '</div>');
+        // Create legend HTML
+        const legend = `
+            <div class="agent-tree-legend">
+                <div class="legend-title">Legenda:</div>
+                <div class="legend-item">
+                    <i class="fas fa-crown"></i> <span>Główny agent</span>
+                </div>
+                <div class="legend-item">
+                    <i class="fas fa-user-tie"></i> <span>Agent z podwładnymi</span>
+                </div>
+                <div class="legend-item">
+                    <i class="fas fa-user"></i> <span>Agent bez podwładnych</span>
+                </div>
+            </div>
+        `;
         
         // Add legend after the tree
-        $('#agent-tree-container').after(legend);
-        
-        // Add styles
-        $('<style>').text(`
-            .tree-legend {
-                margin-top: 20px;
-                padding: 15px;
-                background-color: #f8f9fa;
-                border-radius: 6px;
-                border: 1px solid #e0e0e0;
-                display: flex;
-                flex-wrap: wrap;
-                align-items: center;
-                gap: 15px;
-            }
-            .legend-title {
-                font-weight: 600;
-                color: #495057;
-                margin-right: 10px;
-            }
-            .legend-item {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                font-size: 14px;
-                color: #495057;
-            }
-            .legend-icon {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                width: 24px;
-                height: 24px;
-                border-radius: 50%;
-            }
-            .supervisor-icon {
-                color: #007bff;
-                background-color: #e7f5ff;
-            }
-            .subordinate-icon {
-                color: #6c757d;
-                background-color: #f8f9fa;
-            }
-            .kuba-icon {
-                color: #ffc107;
-                background-color: #fff3cd;
-            }
-        `).appendTo('head');
-    }
-
-    // Function to highlight the path in the hierarchy
-    function highlightHierarchyPath(node) {
-        // Remove previous highlighting
-        resetHierarchyHighlighting();
-        
-        // Add highlighting to current node
-        $('#' + node.id).addClass('highlight-current');
-        
-        // Get all parents
-        const tree = $('#agent-tree-container').jstree(true);
-        const parents = tree.get_path(node.id, false, true);
-        
-        // Highlight parents
-        parents.forEach(function(parentId) {
-            if (parentId !== node.id) {
-                $('#' + parentId).addClass('highlight-parent');
-            }
-        });
-        
-        // Highlight children
-        if (node.children) {
-            node.children.forEach(function(childId) {
-                $('#' + childId).addClass('highlight-child');
-            });
-        }
-        
-        // Add styles
-        if (!$('#hierarchy-highlight-styles').length) {
-            $('<style id="hierarchy-highlight-styles">').text(`
-                .highlight-current > .jstree-anchor {
-                    box-shadow: 0 0 0 2px #007bff !important;
-                    z-index: 10;
-                }
-                .highlight-parent > .jstree-anchor {
-                    box-shadow: 0 0 0 1px rgba(0, 123, 255, 0.5) !important;
-                    background-color: rgba(0, 123, 255, 0.05) !important;
-                }
-                .highlight-child > .jstree-anchor {
-                    box-shadow: 0 0 0 1px rgba(108, 117, 125, 0.5) !important;
-                    background-color: rgba(108, 117, 125, 0.05) !important;
-                }
-            `).appendTo('head');
-        }
-    }
-
-    // Function to reset hierarchy highlighting
-    function resetHierarchyHighlighting() {
-        $('.highlight-current, .highlight-parent, .highlight-child').removeClass('highlight-current highlight-parent highlight-child');
+        $('.agent-tree').append(legend);
     }
 });
 </script>
-
 </body>
-
 </html>

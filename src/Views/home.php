@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Faktur - Strona Główna</title>
-    <link rel="shortcut icon" href="../../assets/images/favicon.png" type="image/x-icon">
-    <link rel="stylesheet" href="../../assets/css/style.css">
+    <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/x-icon">
+    <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .hero-section {
@@ -274,8 +274,8 @@
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie spraw">
-                    <i class="fa-solid fa-clipboard-list cleannav__icon"></i>
+                <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie Faktur">
+                    <i class="fa-solid fa-file-invoice-dollar cleannav__icon"></i>
                 </a>
             </li>
             <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
@@ -327,7 +327,7 @@
             </a>
             
             <a href="/podsumowanie-spraw" class="feature-card">
-                <i class="fa-solid fa-clipboard-list feature-icon"></i>
+                <i class="fa-solid fa-table feature-icon"></i>
                 <h3 class="feature-title">Tabele i Raporty</h3>
                 <p class="feature-description">Dane prezentowane w czytelnych tabelach z zaawansowanymi opcjami sortowania, filtrowania i eksportu.</p>
                 <button class="action-button">Zobacz tabele</button>

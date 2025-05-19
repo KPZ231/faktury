@@ -9,9 +9,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zarządzanie bazą danych</title>
-    <link rel="stylesheet" href="../../assets/css/style.css">
-    <link rel="shortcut icon" href="../../assets/images/favicon.png" type="image/x-icon">
+    <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/x-icon">
+    <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ... existing code ... */
+    </style>
 </head>
 
 <body>
@@ -39,8 +42,8 @@
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie spraw">
-                    <i class="fa-solid fa-clipboard-list cleannav__icon"></i>
+                <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie Faktur">
+                    <i class="fa-solid fa-file-invoice-dollar cleannav__icon"></i>
                 </a>
             </li>
             <li class="cleannav__item">

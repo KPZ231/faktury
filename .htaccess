@@ -1,0 +1,48 @@
+# Enable rewrite engine
+RewriteEngine On
+RewriteBase /
+
+# Ensure proper paths to assets in the public directory
+RewriteRule ^assets/(.*)$ public/assets/$1 [L]
+RewriteRule ^css/(.*)$ public/assets/css/$1 [L]
+RewriteRule ^js/(.*)$ public/assets/js/$1 [L]
+RewriteRule ^images/(.*)$ public/assets/images/$1 [L]
+
+# Handle direct requests to existing files/directories
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Special handling for common asset paths
+RewriteRule ^style\.css$ public/assets/css/style.css [L]
+RewriteRule ^table\.css$ public/assets/css/table.css [L]
+
+# Set proper permissions
+<FilesMatch ".(php|html|htm|js|css|jpg|jpeg|png|gif|svg|ico)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+# Enable access headers (CORS)
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>
+
+# Add proper MIME types for serving files
+<IfModule mod_mime.c>
+  AddType text/css .css
+  AddType application/javascript .js
+  AddType image/jpeg .jpg .jpeg
+  AddType image/png .png
+  AddType image/gif .gif
+  AddType image/svg+xml .svg
+</IfModule>
+
+# Send all requests not going to actual files to the public/index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ public/index.php [QSA,L]
+
+# Remove the PHP errors for production
+php_flag display_errors Off
+php_value error_reporting E_ALL 

@@ -46,8 +46,8 @@ if (!isset($_SESSION['user_id'])) {
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie spraw">
-                    <i class="fa-solid fa-clipboard-list cleannav__icon"></i>
+                <a href="/podsumowanie-spraw" class="cleannav__link" data-tooltip="Podsumowanie Faktur">
+                    <i class="fa-solid fa-file-invoice-dollar cleannav__icon"></i>
                 </a>
             </li>
             <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>

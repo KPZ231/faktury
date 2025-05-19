@@ -1337,27 +1337,30 @@ form#wizardForm select:focus {
 }
 
 .toggle-columns-btn {
-  background: var(--primary-color);
-  color: white;
-  padding: 0.8rem 1.2rem;
-  border: none;
-  border-radius: 8px;
+  background-color: white;
+  color: var(--text-primary);
+  padding: 8px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 .toggle-columns-btn:hover {
-  background: var(--primary-dark);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(100, 181, 246, 0.3);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .toggle-columns-btn i {
   font-size: 0.9rem;
+  color: var(--primary-color);
 }
 
 .column-selector {
@@ -1365,25 +1368,25 @@ form#wizardForm select:focus {
   right: 0;
   top: calc(100% + 10px);
   background: white;
-  border-radius: 10px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  width: 300px;
+  border-radius: 8px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+  width: 320px;
   z-index: 100;
-  max-height: 400px;
+  max-height: 450px;
   display: none;
   overflow: hidden;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  animation: fadeInDown 0.3s ease;
 }
 
 .column-selector.show {
   display: block;
-  animation: fadeInDown 0.3s ease;
 }
 
 @keyframes fadeInDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-15px);
   }
   to {
     opacity: 1;
@@ -1395,17 +1398,17 @@ form#wizardForm select:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 15px;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--primary-light);
-  color: var(--primary-dark);
+  padding: 15px;
+  border-bottom: 1px solid #f0f0f0;
+  background-color: #fafafa;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: var(--primary-dark);
+  color: #9e9e9e;
   cursor: pointer;
   font-size: 16px;
   display: flex;
@@ -1418,12 +1421,13 @@ form#wizardForm select:focus {
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
 }
 
 .column-selector-body {
   padding: 10px 0;
-  max-height: 300px;
+  max-height: 350px;
   overflow-y: auto;
 }
 
@@ -1448,996 +1452,66 @@ form#wizardForm select:focus {
   margin-right: 10px;
 }
 
+.column-checkbox-label {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  transition: background-color 0.2s;
+  cursor: pointer;
+  user-select: none;
+}
+
+.column-checkbox-label:hover {
+  background-color: rgba(33, 150, 243, 0.05);
+}
+
+.column-checkbox-label.essential {
+  color: var(--primary-color);
+  font-weight: 500;
+  background-color: rgba(33, 150, 243, 0.03);
+}
+
 .column-selector-footer {
   display: flex;
   justify-content: space-between;
-  padding: 10px 15px;
-  border-top: 1px solid var(--border-color);
-  background-color: #f9f9f9;
+  padding: 12px 15px;
+  border-top: 1px solid #f0f0f0;
+  background-color: #fafafa;
 }
 
 .btn-small {
-  background: var(--background);
-  border: 1px solid var(--border-color);
+  background: white;
+  border: 1px solid #e0e0e0;
   border-radius: 4px;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 12px;
-  padding: 6px 12px;
+  font-size: 0.8rem;
+  padding: 7px 12px;
   transition: all 0.2s ease;
 }
 
 .btn-small:hover {
   background: var(--primary-light);
   color: var(--primary-dark);
+  border-color: var(--primary-light);
 }
 
 /* Hide/show table columns functionality */
 table.data-table th.hidden-column,
-table.data-table td.hidden-column {
-  display: none;
-}
-
-/* Superadmin badge */
-.superadmin-badge {
-  background-color: #ff9800;
-  color: white;
-  padding: 8px 15px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 15px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  box-shadow: 0 2px 5px rgba(255, 152, 0, 0.3);
-  max-width: fit-content;
-}
-
-.superadmin-badge i {
-  font-size: 1.1rem;
-}
-
-.panel-header {
-  margin-bottom: 20px;
-}
-
-@media (max-width: 768px) {
-  header h1 {
-    font-size: 1.6rem;
-  }
-
-  .user-info {
-    top: auto;
-    bottom: 15px;
-    right: 15px;
-    font-size: 0.8rem;
-    padding: 4px 8px;
-  }
-
-  .user-role {
-    padding: 1px 6px;
-    font-size: 0.7rem;
-  }
-}
-
-/* Additional styles for collapsible sections */
-.collapsible-section {
-  cursor: pointer;
-  position: relative;
-}
-
-.collapsible {
-  cursor: pointer;
-  position: relative;
-  padding-right: 30px !important;
-  background-color: #64b5f6;
-  border-left: 1px solid rgba(255, 255, 255, 0.3);
-  border-right: 1px solid rgba(255, 255, 255, 0.3);
-  transition: all 0.3s ease;
-}
-
-.collapsible:hover {
-  background-color: #42a5f5;
-}
-
-.collapse-icon,
-.nested-icon {
-  display: inline-block;
-  transition: transform 0.3s ease;
-  margin-right: 8px;
-  font-size: 0.8em;
-}
-
-.collapse-icon.expanded,
-.nested-icon.expanded {
-  transform: rotate(90deg);
-}
-
-.has-nested-data {
-  position: relative;
-  cursor: pointer;
-  padding: 0 !important;
-  height: 56px;
-  /* Standardowa wysokość komórki */
-  overflow: hidden;
-  transition: height 0.3s ease;
-}
-
-.has-nested-data.expanded {
-  height: auto;
-  min-height: 200px;
-  z-index: 5;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.nested-data-trigger {
-  display: flex;
-  align-items: center;
-  padding: 1.2rem 1.5rem;
-  height: 56px;
-  color: var(--text-primary);
-  background-color: inherit;
-  cursor: pointer;
-  font-weight: 500;
-  z-index: 2;
-  position: relative;
-}
-
-.nested-data-container {
-  background-color: white;
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
-  padding: 10px 15px;
-  border-radius: 0 0 8px 8px;
-  z-index: 1;
-}
-
-.nested-data-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.nested-data-row:last-child {
-  border-bottom: none;
-}
-
-.nested-label {
-  font-weight: 500;
-  font-size: 0.9em;
-  color: var(--text-secondary);
-  margin-right: 15px;
-  flex: 0 0 40%;
-}
-
-.nested-value {
-  text-align: right;
-  font-weight: 500;
-  flex: 0 0 55%;
-}
-
-/* Styl podpowiedzi dla zagnieżdżonych elementów */
-.nested-tooltip {
-  font-size: 11px;
-  padding: 4px 8px;
-}
-
-/* Input fields in modal */
-.modal-input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-  margin-bottom: 10px;
-}
-
-/* Form elements styling */
-.input-group {
-  margin-bottom: 15px;
-}
-
-.input-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-  color: #333;
-}
-
-/* Modal buttons */
-.modal-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.modal-button {
-  padding: 8px 15px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.save-button {
-  background-color: #4caf50;
-  color: white;
-}
-
-.save-button:hover {
-  background-color: #45a049;
-}
-
-.cancel-button {
-  background-color: #f44336;
-  color: white;
-}
-
-.cancel-button:hover {
-  background-color: #d32f2f;
-}
-
-/* Commission and payment status styling */
-.commission-needed {
-  position: relative;
-  background-color: #fff3e0 !important;
-  border-left: 3px solid #ff9800;
-}
-
-.commission-paid {
-  position: relative;
-  background-color: #e8f5e9 !important;
-  border-left: 3px solid #4caf50;
-}
-
-.has-payment-info {
-  position: relative;
-  cursor: help;
-}
-
-.has-payment-info::after {
-  content: "";
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 8px;
-  height: 8px;
-  background-color: #2196f3;
-  border-radius: 50%;
-  border: 1px solid #1976d2;
-}
-
-.agent-payment-tooltip {
-  display: none;
-  position: absolute;
-  bottom: calc(100% + 5px);
-  left: 50%;
-  transform: translateX(-50%);
-  min-width: 200px;
-  background-color: #fff;
-  padding: 8px 12px;
-  border-radius: 4px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e0e0e0;
-  z-index: 100;
-  font-size: 12px;
-  color: #333;
-  text-align: left;
-  white-space: normal;
-}
-
-.agent-payment-tooltip::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 5px;
-  border-style: solid;
-  border-color: #fff transparent transparent transparent;
-}
-
-.tooltip-section {
-  padding: 5px 0;
-  color: #0277bd;
-  font-weight: 500;
-}
-
-.tooltip-separator {
-  border-bottom: 1px dashed #e0e0e0;
-  margin: 5px 0;
-}
-
-/* Commission invoice info styling */
-.commission-invoice-info {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 10px;
-  position: relative;
-}
-
-.commission-invoice-info i {
-  color: #4caf50;
-  cursor: help;
-}
-
-.commission-invoice-tooltip {
-  display: none;
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  min-width: 200px;
-  background-color: #fff;
-  padding: 8px;
-  border-radius: 4px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid #e0e0e0;
-  z-index: 100;
-  font-size: 12px;
-  color: #333;
-  text-align: left;
-  white-space: normal;
-}
-
-.commission-invoice-info:hover .commission-invoice-tooltip {
-  display: block;
-}
-
-/* Rate cell with payment status */
-.rate-paid {
-  background-color: rgba(76, 175, 80, 0.08) !important;
-}
-
-/* Ensure currency class is properly styled */
-.currency {
-  text-align: right !important;
-  font-family: "Consolas", monospace !important;
-  font-weight: 500 !important;
-  white-space: nowrap !important;
-}
-
-/* Agent hierarchy tree styling */
-.agent-tree {
-  margin: 20px 0;
-  padding: 20px;
-  background-color: #f8f9fa;
-  border-radius: 5px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.agent-tree-title {
-  font-size: 18px;
-  color: #495057;
-  margin-bottom: 15px;
-  text-align: center;
-}
-
-/* Hierarchy Container Styles */
-.hierarchy-container {
-  margin: 20px 0;
-  font-family: Arial, sans-serif;
-}
-
-.hierarchy-branch {
-  margin-bottom: 30px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.supervisor-box {
-  margin-bottom: 15px;
-}
-
-/* Connection Line Styles */
-.connection-line {
-  width: 2px;
-  height: 20px;
-  background-color: #6c757d;
-  margin: 5px 0;
-}
-
-.connection-t-line {
-  position: relative;
-  width: 15px;
-  height: 2px;
-  background-color: #6c757d;
-  margin-right: 10px;
-  display: inline-block;
-  vertical-align: middle;
-}
-
-.connection-t-line:before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 2px;
-  height: 10px;
-  background-color: #6c757d;
-  transform: translateY(-100%);
-}
-
-.subordinates-container {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.subordinate-item {
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-
-.subordinate-item:not(.last-item):after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -10px;
-  width: 2px;
-  height: 10px;
-  background-color: #6c757d;
-}
-
-/* Agent Node Styles */
-.agent-node {
-  padding: 8px 15px;
-  border-radius: 5px;
-  display: inline-block;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.agent-node.supervisor {
-  background-color: #007bff;
-  color: white;
-  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-}
-
-.agent-node.subordinate {
-  background-color: #6c757d;
-  color: white;
-  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
-}
-
-.agent-node:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-/* Special Kuba Agent Style */
-.kuba-agent {
-  background-color: #ffc107 !important;
-  color: #212529 !important;
-  box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3) !important;
-  position: relative;
-}
-
-.kuba-agent:before {
-  content: "👑";
-  margin-right: 5px;
-}
-
-/* Dropdown Styles */
-option.has-supervisor {
-  color: #007bff;
-  background-color: #e7f1ff;
-  font-weight: bold;
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-  .hierarchy-container {
-    padding-left: 20px;
-  }
-
-  .agent-node {
-    font-size: 14px;
-    padding: 6px 10px;
-  }
-}
-
-/* jsTree custom styling */
-.jstree-default .jstree-icon.jstree-themeicon-custom {
-  background-size: contain !important;
-}
-
-#agent-tree-container {
-  min-height: 250px;
-  max-height: 600px;
-  overflow: auto;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 20px;
-  background: linear-gradient(to bottom, #ffffff, #f8f9fa);
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.02);
-  margin-top: 25px;
-  font-family: "Poppins", sans-serif;
-}
-
-/* Style for tree nodes */
-.jstree-default .jstree-anchor {
-  font-size: 15px;
-  line-height: 28px;
-  height: auto !important;
-  padding: 6px 12px !important;
-  border-radius: 6px;
-  transition: all 0.3s ease;
-  position: relative;
-  margin: 2px 0;
-}
-
-/* Hover effect for nodes */
-.jstree-default .jstree-hovered {
-  background-color: #e9f7fe !important;
-  box-shadow: inset 0 0 0 1px #e9f7fe, 0 3px 8px rgba(0, 123, 255, 0.1) !important;
-  color: #007bff !important;
-  transform: translateY(-2px);
-  z-index: 10;
-}
-
-/* Selected node style */
-.jstree-default .jstree-clicked {
-  background: linear-gradient(to right, #007bff, #4dabf7) !important;
-  color: white !important;
-  box-shadow: 0 3px 10px rgba(0, 123, 255, 0.2) !important;
-  border-radius: 6px;
-  border: none !important;
-}
-
-/* Line connecting nodes */
-.jstree-default .jstree-children .jstree-children:before {
-  content: "";
-  position: absolute;
-  left: 7px;
-  width: 2px;
-  height: calc(100% - 10px);
-  background-color: #dee2e6;
-  z-index: 0;
-}
-
-/* Custom styling for different agent types */
-.jstree-default .jstree-icon.fa-user-tie {
-  color: #007bff !important;
-  font-size: 16px;
-}
-
-.jstree-default .jstree-icon.fa-user {
-  color: #6c757d !important;
-  font-size: 15px;
-}
-
-.jstree-default .jstree-icon.fa-crown {
-  color: #ffc107 !important;
-  font-size: 16px;
-  text-shadow: 0 0 3px rgba(255, 193, 7, 0.3);
-}
-
-/* Special styling for Kuba node */
-.jstree-default .jstree-node.kuba-agent > .jstree-anchor {
-  background: linear-gradient(to right, #fff3cd, #ffeeba) !important;
-  color: #856404 !important;
-  font-weight: bold;
-  border: 1px solid #ffc107;
-  box-shadow: 0 3px 10px rgba(255, 193, 7, 0.15);
-  padding-left: 35px !important;
-  border-radius: 8px;
-}
-
-.jstree-default .jstree-node.kuba-agent > .jstree-anchor::before {
-  content: "👑";
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 16px;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.5) 30%,
-    transparent 70%
-  );
-  padding: 3px;
-  border-radius: 50%;
-}
-
-/* Make tree more compact and readable */
-.jstree-default .jstree-node {
-  margin-left: 15px !important;
-}
-
-.jstree-default .jstree-container-ul > .jstree-node {
-  margin-left: 0 !important;
-}
-
-/* Add arrow-style to wholerow plugin */
-.jstree-default.jstree-wholerow .jstree-wholerow-clicked {
-  background: #007bff !important;
-}
-
-.jstree-default.jstree-wholerow .jstree-wholerow-hovered {
-  background: #e9f7fe !important;
-}
-
-/* Empty tree message styling */
-.jstree-default .jstree-node[id="no-agents"] > .jstree-anchor {
-  color: #6c757d;
-  font-style: italic;
-  background-color: #f8f9fa;
-  border: 1px dashed #ced4da;
-  text-align: center;
-  padding: 10px 15px !important;
-}
-
-/* Additional jsTree improvements */
-#agent-tree-container {
-  min-height: 200px;
-  max-height: 600px;
-  overflow: auto;
-  border: 1px solid #e3e3e3;
-}
-
-/* Improve node icons */
-.jstree-default .jstree-icon {
-  color: inherit;
-}
-
-/* Improve connector styles */
-.jstree-default .jstree-children {
-  position: relative;
-}
-
-.jstree-default .jstree-children::before {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 0;
-  bottom: 12px;
-  width: 1px;
-  background-color: #dee2e6;
-  z-index: 0;
-}
-
-.jstree-default .jstree-anchor {
-  position: relative;
-}
-
-.jstree-default .jstree-node {
-  position: relative;
-}
-
-.jstree-default .jstree-node::before {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 12px;
-  width: 10px;
-  height: 1px;
-  background-color: #dee2e6;
-  z-index: 0;
-}
-
-.jstree-default .jstree-last {
-  position: relative;
-}
-
-.jstree-default .jstree-last::after {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 0;
-  height: 12px;
-  width: 1px;
-  background-color: #dee2e6;
-  z-index: 0;
-}
-
-/* Improve Kuba highlighting */
-.jstree-default .jstree-node.kuba-agent > .jstree-anchor {
-  position: relative;
-  background-color: #fff3cd !important;
-  color: #856404 !important;
-  font-weight: bold;
-  border: 1px solid #ffc107;
-  padding-left: 30px !important;
-}
-
-.jstree-default .jstree-node.kuba-agent > .jstree-anchor::before {
-  content: "👑";
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 14px;
-}
-
-/* Better differentiate between supervisors and subordinates */
-.jstree-default .jstree-anchor[data-jstree='{"type":"supervisor"}'] {
-  font-weight: 600;
-}
-
-.jstree-default .jstree-anchor[data-jstree='{"type":"subordinate"}'] {
-  color: #6c757d;
-}
-
-/* Add hover effects to tree nodes */
-.jstree-default .jstree-anchor:hover {
-  background-color: #e9f7fe !important;
-  color: #007bff !important;
-  box-shadow: inset 0 0 0 1px #e9f7fe !important;
-  transform: translateY(-1px);
-  transition: all 0.2s ease;
-}
-
-/* Emphasize parent-child relationships on hover */
-.jstree-default .jstree-hovered + .jstree-children::before,
-.jstree-default .jstree-hovered + .jstree-children .jstree-node::before {
-  background-color: #007bff !important;
-}
-
-/* Tree container loading state */
-#agent-tree-container.jstree-loading {
-  background: url("/assets/images/loading.gif") center center no-repeat;
-  opacity: 0.5;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  #agent-tree-container {
-    max-height: 400px;
-  }
-
-  .jstree-default .jstree-anchor {
-    font-size: 14px;
-    padding: 4px 6px !important;
-  }
-}
-
-/* Enhanced jsTree styling */
-#agent-tree-container {
-  min-height: 250px;
-  max-height: 600px;
-  overflow: auto;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 20px;
-  background: linear-gradient(to bottom, #ffffff, #f8f9fa);
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.02);
-  margin-top: 25px;
-  font-family: "Poppins", sans-serif;
-}
-
-/* Create a card-like container for the tree */
-.agent-tree {
-  margin: 30px 0;
-  padding: 25px;
-  background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-  border: 1px solid #f0f0f0;
-}
-
-.agent-tree-title {
-  font-size: 20px;
-  color: #37474f;
-  margin-bottom: 20px;
-  text-align: center;
-  font-weight: 600;
-  position: relative;
-  padding-bottom: 12px;
-}
-
-.agent-tree-title:after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 3px;
-  background: linear-gradient(to right, #007bff, #4dabf7);
-  border-radius: 3px;
-}
-
-/* Improved node styling */
-.jstree-default .jstree-anchor {
-  font-size: 15px;
-  line-height: 28px;
-  height: auto !important;
-  padding: 6px 12px !important;
-  border-radius: 6px;
-  transition: all 0.3s ease;
-  position: relative;
-  margin: 2px 0;
-}
-
-/* Enhanced supervisor nodes */
-.jstree-default .jstree-anchor[data-jstree='{"type":"supervisor"}'] {
-  font-weight: 600;
-  background-color: #e7f5ff;
-  border-left: 3px solid #007bff;
-  color: #0062cc;
-  box-shadow: 0 2px 5px rgba(0, 123, 255, 0.1);
-}
-
-/* Enhanced subordinate nodes */
-.jstree-default .jstree-anchor[data-jstree='{"type":"subordinate"}'] {
-  color: #495057;
-  background-color: #f8f9fa;
-  border-left: 3px solid #6c757d;
-  box-shadow: 0 2px 5px rgba(108, 117, 125, 0.05);
-}
-
-/* Icons for different agent types */
-.jstree-default .jstree-icon.fa-user-tie {
-  color: #007bff !important;
-  font-size: 16px;
-}
-
-.jstree-default .jstree-icon.fa-user {
-  color: #6c757d !important;
-  font-size: 15px;
-}
-
-.jstree-default .jstree-icon.fa-crown {
-  color: #ffc107 !important;
-  font-size: 16px;
-  text-shadow: 0 0 3px rgba(255, 193, 7, 0.3);
-}
-
-/* Improved connection lines */
-.jstree-default .jstree-children::before {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: 0;
-  bottom: 12px;
-  width: 2px;
-  background: linear-gradient(to bottom, #dee2e6, rgba(222, 226, 230, 0.5));
-  z-index: 0;
-  border-radius: 1px;
-}
-
-.jstree-default .jstree-node::before {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: 15px;
-  width: 12px;
-  height: 2px;
-  background-color: #dee2e6;
-  z-index: 0;
-  border-radius: 1px;
-}
-
-/* Enhanced hover effects */
-.jstree-default .jstree-hovered {
-  background-color: #e9f7fe !important;
-  box-shadow: inset 0 0 0 1px #e9f7fe, 0 3px 8px rgba(0, 123, 255, 0.1) !important;
-  color: #007bff !important;
-  transform: translateY(-2px);
-  z-index: 10;
-}
-
-/* Improved selected node style */
-.jstree-default .jstree-clicked {
-  background: linear-gradient(to right, #007bff, #4dabf7) !important;
-  color: white !important;
-  box-shadow: 0 3px 10px rgba(0, 123, 255, 0.2) !important;
-  border-radius: 6px;
-  border: none !important;
-}
-
-/* Special Kuba styling - make it stand out more */
-.jstree-default .jstree-node.kuba-agent > .jstree-anchor {
-  background: linear-gradient(to right, #fff3cd, #ffeeba) !important;
-  color: #856404 !important;
-  font-weight: bold;
-  border: 1px solid #ffc107;
-  box-shadow: 0 3px 10px rgba(255, 193, 7, 0.15);
-  padding-left: 35px !important;
-  border-radius: 8px;
-}
-
-.jstree-default .jstree-node.kuba-agent > .jstree-anchor::before {
-  content: "👑";
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 16px;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
-  background: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.5) 30%,
-    transparent 70%
-  );
-  padding: 3px;
-  border-radius: 50%;
-}
-
-/* Empty state styling */
-.jstree-default .jstree-node[id="no-agents"] > .jstree-anchor {
-  color: #6c757d;
-  font-style: italic;
-  background-color: #f8f9fa;
-  border: 1px dashed #ced4da;
-  text-align: center;
-  padding: 10px 15px !important;
-}
-
-/* Add a subtle animation to the tree loading */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.jstree-animate-in .jstree-node {
-  animation: fadeIn 0.3s ease-in-out;
-  animation-fill-mode: both;
-}
-
-.jstree-animate-in .jstree-node:nth-child(1) {
-  animation-delay: 0.05s;
-}
-.jstree-animate-in .jstree-node:nth-child(2) {
-  animation-delay: 0.1s;
-}
-.jstree-animate-in .jstree-node:nth-child(3) {
-  animation-delay: 0.15s;
-}
-.jstree-animate-in .jstree-node:nth-child(4) {
-  animation-delay: 0.2s;
-}
-.jstree-animate-in .jstree-node:nth-child(5) {
-  animation-delay: 0.25s;
-}
-
-/* Enhanced connection lines styling */
-.jstree-default .jstree-children .jstree-children {
-  margin-left: 5px;
-}
-
-/* Custom connector from parent to child */
-.jstree-default .jstree-children:after {
-  content: "";
-  position: absolute;
-  left: 7px;
-  top: -2px;
-  width: 5px;
-  height: 5px;
-  background-color: #fff;
-  border: 2px solid #dee2e6;
-  border-radius: 50%;
-  z-index: 1;
-}
-
-/* Add tooltips to nodes */
-.jstree-node-tooltip {
-  position: absolute;
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-  z-index: 1000;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
+table.data-table td.hidden-column,
+.table th.hidden-column,
+.table td.hidden-column,
+th.hidden-column,
+td.hidden-column {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Additional style to ensure column visibility */
+.table th:not(.hidden-column),
+.table td:not(.hidden-column) {
+  display: table-cell;
+  visibility: visible;
 }
 
 /* Wizard Steps Styling */
@@ -3187,6 +2261,27 @@ option.has-supervisor {
   overflow-y: auto;
 }
 
+.column-checkbox {
+  display: flex;
+  align-items: center;
+  padding: 8px 15px;
+  transition: background-color 0.2s;
+}
+
+.column-checkbox:hover {
+  background-color: rgba(100, 181, 246, 0.1);
+}
+
+.column-checkbox.hidden-column {
+  opacity: 0.7;
+  text-decoration: line-through;
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.column-checkbox input {
+  margin-right: 10px;
+}
+
 .column-checkbox-label {
   display: flex;
   align-items: center;
@@ -3204,14 +2299,6 @@ option.has-supervisor {
   color: var(--primary-color);
   font-weight: 500;
   background-color: rgba(33, 150, 243, 0.03);
-}
-
-.column-checkbox {
-  margin-right: 10px;
-  cursor: pointer;
-  accent-color: var(--primary-color);
-  width: 16px;
-  height: 16px;
 }
 
 .column-selector-footer {
@@ -3986,4 +3073,456 @@ td.hidden-column {
   transform: translateY(-50%);
   color: #6c757d;
   pointer-events: none;
+}
+
+/* jsTree custom styling */
+.jstree-default .jstree-icon.jstree-themeicon-custom {
+  background-size: contain !important;
+}
+
+#agent-tree-container {
+  min-height: 250px;
+  max-height: 600px;
+  overflow: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.02);
+  margin-top: 25px;
+  font-family: "Poppins", sans-serif;
+}
+
+/* Style for tree nodes */
+.jstree-default .jstree-anchor {
+  font-size: 15px;
+  line-height: 28px;
+  height: auto !important;
+  padding: 6px 12px !important;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  position: relative;
+  margin: 2px 0;
+}
+
+/* Hover effect for nodes */
+.jstree-default .jstree-hovered {
+  background-color: #e9f7fe !important;
+  box-shadow: inset 0 0 0 1px #e9f7fe, 0 3px 8px rgba(0, 123, 255, 0.1) !important;
+  color: #007bff !important;
+  transform: translateY(-2px);
+  z-index: 10;
+}
+
+/* Selected node style */
+.jstree-default .jstree-clicked {
+  background: linear-gradient(to right, #007bff, #4dabf7) !important;
+  color: white !important;
+  box-shadow: 0 3px 10px rgba(0, 123, 255, 0.2) !important;
+  border-radius: 6px;
+  border: none !important;
+}
+
+/* Custom styling for different agent types */
+.jstree-default .jstree-icon.fa-user-tie {
+  color: #007bff !important;
+  font-size: 16px;
+}
+
+.jstree-default .jstree-icon.fa-user {
+  color: #6c757d !important;
+  font-size: 15px;
+}
+
+.jstree-default .jstree-icon.fa-crown {
+  color: #ffc107 !important;
+  font-size: 16px;
+  text-shadow: 0 0 3px rgba(255, 193, 7, 0.3);
+}
+
+/* Special styling for Kuba node */
+.jstree-default .jstree-node.kuba-agent > .jstree-anchor {
+  background: linear-gradient(to right, #fff3cd, #ffeeba) !important;
+  color: #856404 !important;
+  font-weight: bold;
+  border: 1px solid #ffc107;
+  box-shadow: 0 3px 10px rgba(255, 193, 7, 0.15);
+  padding-left: 35px !important;
+  border-radius: 8px;
+}
+
+.jstree-default .jstree-node.kuba-agent > .jstree-anchor::before {
+  content: "👑";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.5) 30%,
+    transparent 70%
+  );
+  padding: 3px;
+  border-radius: 50%;
+}
+
+/* Better differentiate between supervisors and subordinates */
+.jstree-default .jstree-anchor[data-jstree='{"type":"supervisor"}'] {
+  font-weight: 600;
+  background-color: #e7f5ff;
+  border-left: 3px solid #007bff;
+  color: #0062cc;
+  box-shadow: 0 2px 5px rgba(0, 123, 255, 0.1);
+}
+
+.jstree-default .jstree-anchor[data-jstree='{"type":"subordinate"}'] {
+  color: #495057;
+  background-color: #f8f9fa;
+  border-left: 3px solid #6c757d;
+  box-shadow: 0 2px 5px rgba(108, 117, 125, 0.05);
+}
+
+/* Add hover effects to tree nodes */
+.jstree-default .jstree-anchor:hover {
+  background-color: #e9f7fe !important;
+  color: #007bff !important;
+  box-shadow: inset 0 0 0 1px #e9f7fe !important;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Improve connector styles */
+.jstree-default .jstree-children {
+  position: relative;
+}
+
+.jstree-default .jstree-children::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 12px;
+  width: 2px;
+  background: linear-gradient(to bottom, #dee2e6, rgba(222, 226, 230, 0.5));
+  z-index: 0;
+  border-radius: 1px;
+}
+
+.jstree-default .jstree-node {
+  position: relative;
+  margin-left: 15px !important;
+}
+
+.jstree-default .jstree-container-ul > .jstree-node {
+  margin-left: 0 !important;
+}
+
+.jstree-default .jstree-node::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 15px;
+  width: 12px;
+  height: 2px;
+  background-color: #dee2e6;
+  z-index: 0;
+  border-radius: 1px;
+}
+
+.jstree-default .jstree-last {
+  position: relative;
+}
+
+.jstree-default .jstree-last::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 0;
+  height: 12px;
+  width: 1px;
+  background-color: #dee2e6;
+  z-index: 0;
+}
+
+/* Custom connector from parent to child */
+.jstree-default .jstree-children:after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: -2px;
+  width: 5px;
+  height: 5px;
+  background-color: #fff;
+  border: 2px solid #dee2e6;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+/* Enhanced jstree-children styling */
+.jstree-default .jstree-children .jstree-children {
+  margin-left: 5px;
+}
+
+.jstree-default .jstree-children .jstree-children:before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  width: 2px;
+  height: calc(100% - 10px);
+  background-color: #dee2e6;
+  z-index: 0;
+}
+
+/* Add arrow-style to wholerow plugin */
+.jstree-default.jstree-wholerow .jstree-wholerow-clicked {
+  background: #007bff !important;
+}
+
+.jstree-default.jstree-wholerow .jstree-wholerow-hovered {
+  background: #e9f7fe !important;
+}
+
+/* Empty tree message styling */
+.jstree-default .jstree-node[id="no-agents"] > .jstree-anchor {
+  color: #6c757d;
+  font-style: italic;
+  background-color: #f8f9fa;
+  border: 1px dashed #ced4da;
+  text-align: center;
+  padding: 10px 15px !important;
+}
+
+/* Emphasize parent-child relationships on hover */
+.jstree-default .jstree-hovered + .jstree-children::before,
+.jstree-default .jstree-hovered + .jstree-children .jstree-node::before {
+  background-color: #007bff !important;
+}
+
+/* Tree container loading state */
+#agent-tree-container.jstree-loading {
+  background: url("/assets/images/loading.gif") center center no-repeat;
+  opacity: 0.5;
+}
+
+/* Add a subtle animation to the tree loading */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.jstree-animate-in .jstree-node {
+  animation: fadeIn 0.3s ease-in-out;
+  animation-fill-mode: both;
+}
+
+.jstree-animate-in .jstree-node:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.jstree-animate-in .jstree-node:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.jstree-animate-in .jstree-node:nth-child(3) {
+  animation-delay: 0.15s;
+}
+.jstree-animate-in .jstree-node:nth-child(4) {
+  animation-delay: 0.2s;
+}
+.jstree-animate-in .jstree-node:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+/* Add tooltips to nodes */
+.jstree-node-tooltip {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 1000;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  #agent-tree-container {
+    max-height: 400px;
+  }
+
+  .jstree-default .jstree-anchor {
+    font-size: 14px;
+    padding: 4px 6px !important;
+  }
+}
+
+/* Agent tree styling */
+.agent-tree {
+  margin: 30px 0;
+  padding: 25px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f0f0f0;
+}
+
+.agent-tree-title {
+  font-size: 20px;
+  color: #37474f;
+  margin-bottom: 20px;
+  text-align: center;
+  font-weight: 600;
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.agent-tree-title:after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(to right, #007bff, #4dabf7);
+  border-radius: 3px;
+}
+
+/* Hierarchy Container Styles */
+.hierarchy-container {
+  margin: 20px 0;
+  font-family: Arial, sans-serif;
+}
+
+.hierarchy-branch {
+  margin-bottom: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.supervisor-box {
+  margin-bottom: 15px;
+}
+
+/* Connection Line Styles */
+.connection-line {
+  width: 2px;
+  height: 20px;
+  background-color: #6c757d;
+  margin: 5px 0;
+}
+
+.connection-t-line {
+  position: relative;
+  width: 15px;
+  height: 2px;
+  background-color: #6c757d;
+  margin-right: 10px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.connection-t-line:before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 10px;
+  background-color: #6c757d;
+  transform: translateY(-100%);
+}
+
+.subordinates-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.subordinate-item {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.subordinate-item:not(.last-item):after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -10px;
+  width: 2px;
+  height: 10px;
+  background-color: #6c757d;
+}
+
+/* Agent Node Styles */
+.agent-node {
+  padding: 8px 15px;
+  border-radius: 5px;
+  display: inline-block;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.agent-node.supervisor {
+  background-color: #007bff;
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.agent-node.subordinate {
+  background-color: #6c757d;
+  color: white;
+  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.agent-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Special Kuba Agent Style */
+.kuba-agent {
+  background-color: #ffc107 !important;
+  color: #212529 !important;
+  box-shadow: 0 2px 4px rgba(255, 193, 7, 0.3) !important;
+  position: relative;
+}
+
+.kuba-agent:before {
+  content: "👑";
+  margin-right: 5px;
+}
+
+/* Dropdown Styles */
+option.has-supervisor {
+  color: #007bff;
+  background-color: #e7f1ff;
+  font-weight: bold;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .hierarchy-container {
+    padding-left: 20px;
+  }
+
+  .agent-node {
+    font-size: 14px;
+    padding: 6px 10px;
+  }
 }

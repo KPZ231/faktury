@@ -67,7 +67,7 @@ class WizardController
             error_log("WizardController::show - Error fetching agents: " . $e->getMessage());
         }
         
-        include __DIR__ . '../../views/wizard.php';
+        include __DIR__ . '/../Views/wizard.php';
         error_log("WizardController::show - Widok wizarda wyrenderowany");
     }
 
@@ -418,7 +418,7 @@ class WizardController
         error_log("WizardController::store - Zakończono " . ($isUpdate ? "aktualizację" : "dodawanie") . " sprawy, przekierowanie do /wizard");
         
         // Ustaw komunikat powodzenia i przekieruj
-        header('Location: /test', true, 302);
+        header('Location: /podsumowanie-spraw', true, 302);
         exit;
     }
 

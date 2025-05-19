@@ -319,54 +319,43 @@ syncPaymentStatuses($pdo);
             <li class="cleannav__item">
                 <a href="/" class="cleannav__link" data-tooltip="Strona główna">
                     <i class="fa-solid fa-house cleannav__icon"></i>
-                    <span class="cleannav__text">Strona główna</span>
                 </a>
             </li>
             <li class="cleannav__item">
                 <a href="/invoices" class="cleannav__link" data-tooltip="Faktury">
                     <i class="fa-solid fa-file-invoice cleannav__icon"></i>
-                    <span class="cleannav__text">Faktury</span>
                 </a>
             </li>
             <li class="cleannav__item">
                 <a href="/agents" class="cleannav__link" data-tooltip="Dodaj agenta">
                     <i class="fa-solid fa-user-plus cleannav__icon"></i>
-                    <span class="cleannav__text">Dodaj agenta</span>
                 </a>
             </li>
             <li class="cleannav__item">
                 <a href="/wizard" class="cleannav__link" data-tooltip="Kreator rekordu">
                     <i class="fa-solid fa-wand-magic-sparkles cleannav__icon"></i>
-                    <span class="cleannav__text">Kreator rekordu</span>
                 </a>
             </li>
             <li class="cleannav__item">
-                <a href="/podsumowanie-spraw" class="cleannav__link active" data-tooltip="Podsumowanie spraw">
-                    <i class="fa-solid fa-clipboard-list cleannav__icon"></i>
-                    <span class="cleannav__text">Podsumowanie spraw</span>
+                <a href="/podsumowanie-spraw" class="cleannav__link active" data-tooltip="Podsumowanie Faktur">
+                    <i class="fa-solid fa-file-invoice-dollar cleannav__icon"></i>
                 </a>
             </li>
             <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
                 <li class="cleannav__item">
                     <a href="/database" class="cleannav__manage-btn" data-tooltip="Zarządzaj bazą">
                         <i class="fa-solid fa-database cleannav__icon"></i>
-                        <span class="cleannav__text">Zarządzaj bazą</span>
                     </a>
                 </li>
             <?php endif; ?>
             <li class="cleannav__item">
                 <a href="/logout" class="cleannav__link" data-tooltip="Wyloguj">
                     <i class="fa-solid fa-sign-out-alt cleannav__icon"></i>
-                    <span class="cleannav__text">Wyloguj</span>
                 </a>
             </li>
         </ul>
     </nav>
 
-    <!-- Toggle button for navigation -->
-    <button class="nav-toggle" id="navToggle">
-        <i class="fa-solid fa-chevron-right"></i>
-    </button>
 
     <header>
         <h1>Podsumowanie Spraw</h1>
