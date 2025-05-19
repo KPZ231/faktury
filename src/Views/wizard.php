@@ -75,7 +75,7 @@
     <h2>Edytuj sprawę ID: <?php echo htmlspecialchars($_SESSION['wizard_form_data']['case_id']); ?></h2>
     <input type="hidden" name="case_id" value="<?php echo htmlspecialchars($_SESSION['wizard_form_data']['case_id']); ?>">
     <?php else: ?>
-    <h2>Dodaj rekord do bazy</h2>
+    <h1 class="agent-form-heading">Dodaj rekord do bazy</h1>
     <?php endif; ?>
 
     <!-- Globalne, ewentualne komunikaty z ulepszoną stylistyką -->
