@@ -484,7 +484,7 @@ form#wizardForm {
   border-radius: 12px;
   box-shadow: var(--shadow-light);
   padding: 28px;
-  max-width: 700px;
+  max-width: 80%;
   margin: auto;
   border: 1px solid var(--border-color);
 }
@@ -2930,8 +2930,9 @@ td.hidden-column {
 
 .field-group {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 15px;
+  flex-wrap: wrap;
 }
 
 .field-group label {
@@ -2941,6 +2942,55 @@ td.hidden-column {
 .field-label {
   display: block;
   margin-bottom: 5px;
+}
+
+.currency-input-wrapper {
+  position: relative;
+  display: inline-block;
+  width: 50%; /* Zmiana szerokości na 50% */
+}
+
+/* Styl dla elementów split-item z równym podziałem po 50% */
+.split-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed #ddd;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+.split-item > span:first-child {
+  width: 50%;
+  text-align: left;
+  padding-right: 10px;
+  font-weight: normal;
+}
+
+.split-item > span:last-child {
+  width: 50%;
+  text-align: right;
+  font-weight: 600;
+  color: #0d47a1;
+}
+
+/* Nowy styl dla kontenera przy podsumowaniach */
+.calculation-section .split-item {
+  background-color: #f8f9fa;
+  padding: 8px 10px;
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+/* Dodatkowy styl dla installment-split z podziałem 50/50 */
+.installment-split .split-item > span:first-child {
+  width: 50%;
+}
+
+.installment-split .split-item > span:last-child {
+  width: 50%;
+  color: #0d47a1;
 }
 
 .calculation-section {
@@ -3005,7 +3055,7 @@ td.hidden-column {
 .currency-input-wrapper {
   position: relative;
   display: inline-block;
-  width: 100%;
+  width: 50%; /* Zmiana z 100% na 50% */
 }
 
 .currency-input-wrapper::after {
