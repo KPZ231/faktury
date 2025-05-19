@@ -13,7 +13,7 @@
             padding: 60px 20px;
             margin: -60px -20px 40px -20px;
             background: linear-gradient(135deg, #2c3e50, #4CA1AF);
-            border-radius: 0 0 50px 0;
+            border-radius: 0 0 50px 50px;
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             color: white;
@@ -171,7 +171,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             align-self: flex-start;
-            margin-top: auto;
+            margin: auto;
         }
         
         .action-button:hover {
