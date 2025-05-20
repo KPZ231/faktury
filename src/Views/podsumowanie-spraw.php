@@ -218,18 +218,10 @@ syncPaymentStatuses($pdo);
 
 
     .status-cell {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: auto;
-        text-align: center;
-        border: none;
-        font-size: 20px;
-        width: 100%;
-        height: 100%;
-        position: relative;
-        padding: 8px 0;
-        min-height: 40px;
+        text-align: center !important;
+        font-size: 1.4em;
+        vertical-align: middle;
+        
     }
     /* Adjust nav-toggle button to not overlap with header */
     .nav-toggle {
@@ -786,7 +778,7 @@ syncPaymentStatuses($pdo);
                                 <td><?php echo htmlspecialchars($sprawa['identyfikator_sprawy']); ?></td>
                                 <td class="status-cell">
                                     <?php if ($sprawa['czy_zakonczona']): ?><span class="status-zakonczona" title="Zakończona"><i class="fa-solid fa-circle-check"></i></span>
-                                    <?php else: ?><span class="status-niezakonczona" title="Niezakończona"><i class="fa-solid fa-circle-xmark"></i></span><?php endif; ?>
+                                  <?php else: ?><span class="status-niezakonczona" title="Niezakończona"><i class="fa-solid fa-circle-xmark"></i></span><?php endif; ?>
                                 </td>
                                 <td class="currency"><?php echo format_currency($sprawa['wywalczona_kwota']); ?></td>
                                 <td class="currency"><?php echo format_currency($sprawa['oplata_wstepna']); ?></td>

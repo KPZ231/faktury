@@ -448,24 +448,58 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             background-color: #fff;
             border-radius: 5px;
+            -webkit-overflow-scrolling: touch; /* Smooths scrolling on iOS devices */
+            position: relative; /* Creates a new stacking context */
+            z-index: 1; /* Ensures the container is properly rendered */
         }
 
         /* Główna tabela */
         table {
-            border-collapse: collapse;
+            border-collapse: separate !important;
+            border-spacing: 0 !important;
             width: 100%; /* Tabela zajmuje całą szerokość kontenera */
-            min-width: 1600px; /* Minimalna szerokość, aby wymusić przewijanie na mniejszych ekranach */
             font-size: 13px; /* Nieco mniejsza czcionka dla zwartości */
-            border: 1px solid #ddd;
+            border: 1px solid #c0c0c0 !important;
+            table-layout: auto; /* Changed to auto to allow content-driven sizing */
+        }
+        
+        /* Na desktopie możemy pozwolić na przewijanie */
+        @media (min-width: 993px) {
+            table {
+                min-width: 1600px; /* Increased minimum width */
+            }
         }
 
         /* Komórki nagłówka i danych */
         th, td {
-            border: 1px solid #e0e0e0;
-            padding: 8px 10px; /* Dostosowany padding */
+            border: 0.5px solid #d0d0d0 !important; /* Thinner, lighter border */
+            padding: 8px 12px; /* Increased padding */
             text-align: left;
             vertical-align: top; /* Wyrównanie do góry dla spójności */
-            white-space: nowrap; /* Zapobiega łamaniu tekstu w komórkach */
+            white-space: normal; /* Allow text wrapping */
+            position: relative; /* For better border rendering */
+            min-width: 120px; /* Set minimum width for cells */
+        }
+        
+        /* Na urządzeniach mobilnych pozwalamy na zawijanie tekstu */
+        @media (max-width: 992px) {
+            th, td {
+                white-space: normal;
+                word-wrap: break-word;
+                padding: 6px 8px; /* Slightly reduced padding */
+                font-size: 12px; /* Smaller font size */
+            }
+            
+            table {
+                min-width: 1200px; /* Ensure horizontal scrolling works properly */
+                border: 1px solid #000000 !important;
+            }
+            
+            .table-container {
+                margin: 0.5rem;
+                border: 1px solid #000000;
+                overflow-x: auto;
+            }
         }
 
         /* Nagłówek tabeli */
@@ -475,10 +509,21 @@
             font-weight: 600; /* Lekko pogrubione */
             text-align: center; /* Domyślnie centrujemy nagłówki */
             vertical-align: middle;
-            border-bottom: 2px solid #cddde5;
+            border-bottom: 1px solid #c0c0c0;
+            border: 0.5px solid #d0d0d0 !important;
+            padding: 10px 15px; /* Larger padding for headers */
+            min-width: 130px; /* Wider minimum width for headers */
+            height: auto; /* Allow height to grow as needed */
+            white-space: normal; /* Allow text wrapping */
+            word-wrap: break-word;
+            hyphens: auto;
+        }
+        thead tr:first-child th:first-child {
+            border: 0.5px solid #d0d0d0 !important;
+            min-width: 150px; /* Wider first column */
         }
         thead tr:first-child th {
-             border-top: none; /* Usuń górną ramkę dla pierwszego rzędu nagłówka */
+             border-top: 0.5px solid #d0d0d0 !important; /* Thinner, lighter top border */
         }
 
         /* Zebra-striping dla wierszy danych */
@@ -531,6 +576,10 @@
         th:nth-child(1), td:nth-child(1) { /* Sprawa */
             font-weight: 500;
             background-color: #fdfdfe; /* Lekkie tło dla pierwszej kolumny */
+            border-left: 0.5px solid #d0d0d0 !important;
+            border-right: 0.5px solid #d0d0d0 !important;
+            border-top: 0.5px solid #d0d0d0 !important;
+            border-bottom: 0.5px solid #d0d0d0 !important;
         }
 
         /* Style dla tooltipa */
@@ -1230,16 +1279,19 @@
             padding: 0.8rem;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            border: 0.5px solid #d0d0d0;
           }
           
           /* Optimize table for tablets */
           table {
             min-width: 1200px;
             font-size: 12px;
+            border: 0.5px solid #d0d0d0 !important;
           }
           
           th, td {
             padding: 6px 8px;
+            border: 0.5px solid #d0d0d0 !important;
           }
           
           /* Tooltip positioning for tablets */
@@ -1282,6 +1334,27 @@
         @media (max-width: 768px) {
           body {
             margin: 60px 10px 20px 10px;
+          }
+          
+          /* Enhance table usability on mobile */
+          .table-container {
+            margin: 0.25rem;
+            padding: 0;
+            border: 0.5px solid #d0d0d0;
+            border-radius: 3px;
+          }
+          
+          th, td {
+            padding: 5px 6px;
+            font-size: 11px;
+            border: 0.5px solid #d0d0d0 !important;
+          }
+          
+          /* Ensure first column cells have visible borders */
+          th:first-child, td:first-child {
+            border-left: 0.5px solid #d0d0d0 !important;
+            font-weight: 600;
+            background-color: #f8f9fa;
           }
           
           /* Fix navigation on mobile */
@@ -1358,15 +1431,18 @@
           .table-container {
             margin: 10px 0;
             padding: 0.5rem;
+            border: 0.5px solid #d0d0d0;
           }
           
           table {
             min-width: 800px;
             font-size: 11px;
+            border: 0.5px solid #d0d0d0 !important;
           }
           
           th, td {
             padding: 5px 6px;
+            border: 0.5px solid #d0d0d0 !important;
           }
           
           /* Improve search for mobile */
@@ -1580,14 +1656,14 @@
             font-size: 10pt;
           }
           
-          th, td {
+          /* th, td {
             font-size: 9pt;
             padding: 4pt;
             background-color: white !important;
             color: black !important;
             border: 0.5pt solid #ddd;
           }
-          
+           */
           /* Print table header */
           .table-container:before {
             content: "Raport faktur - wydrukowano: " attr(data-print-date);
