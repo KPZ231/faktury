@@ -3809,3 +3809,1083 @@ option.has-supervisor {
     margin-right: 15px;
     color: #4a86e8;
 }
+
+/* ===== RESPONSIVE STYLES ===== */
+/* These styles ensure the website is fully responsive for mobile and tablet devices */
+
+/* Base responsive adjustments */
+@media (max-width: 1200px) {
+  body {
+    padding-left: 60px;
+    padding-top: 15vh;
+  }
+  
+  .agent-form-container,
+  .wizard-steps,
+  form#wizardForm {
+    width: 90%;
+    max-width: 100%;
+  }
+  
+  .features {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+/* Tablet styles */
+@media (max-width: 992px) {
+  /* Tablet-specific styles */
+  body {
+    padding-left: 0 !important;
+    padding-top: 60px;
+  }
+  
+  header {
+    left: 0 !important;
+    width: 100% !important;
+    height: auto;
+    min-height: 60px;
+  }
+  
+  .table-container {
+    overflow-x: auto;
+    width: 100%;
+    position: relative;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    margin: 1rem 0.5rem;
+  }
+  
+  .data-table,
+  .table {
+    min-width: 100%;
+    width: auto;
+    table-layout: fixed;
+  }
+  
+  .data-table th,
+  .data-table td,
+  .table th,
+  .table td {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+  
+  /* Ensure headers are sticky at top during scroll */
+  .table thead,
+  .data-table thead {
+    position: sticky;
+    top: 60px;
+    z-index: 10;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .table th,
+  .data-table th {
+    background-color: #f8f9fa;
+  }
+  
+  /* Fix first row positioning issue */
+  .table tbody tr:first-child,
+  .data-table tbody tr:first-child {
+    position: relative;
+    z-index: 1;
+  }
+  
+  /* Improve form elements for tablets */
+  #uploadFile {
+    padding: 1.8rem;
+  }
+  
+  form#wizardForm {
+    max-width: 90%;
+  }
+  
+  .wizard-steps {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .sort-controls {
+    flex-wrap: wrap;
+  }
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  /* Fix the first-row issue by ensuring proper z-index and positioning */
+  .table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 10px 0;
+    position: relative;
+    z-index: 1;
+  }
+  
+  .data-table,
+  .table {
+    min-width: 100%;
+    width: max-content;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    position: relative; /* Important for stacking context */
+  }
+  
+  /* Critical fix for first row appearing outside the table */
+  .data-table tbody,
+  .table tbody {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .data-table tr,
+  .table tr {
+    position: relative;
+    z-index: 1;
+  }
+  
+  /* Add clearfix to table container to fix overflow issues */
+  .table-container::after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+  
+  /* Add better tap target size for mobile */
+  .data-table td,
+  .table td {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    min-height: 44px; /* Better tap target size */
+  }
+  
+  /* Remove scroll arrows in mobile view */
+  .table-container [class^="scroll-indicator"] {
+    display: none !important;
+  }
+  
+  /* Make swipe indicator more visible on mobile */
+  .swipe-indicator {
+    background-color: rgba(33, 150, 243, 0.15);
+    color: #0277bd;
+    padding: 10px;
+    text-align: center;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-weight: 500;
+    border: 1px dashed #90caf9;
+  }
+  
+  /* Fix navigation on mobile */
+  .cleannav {
+    width: 100%;
+    height: 60px;
+    top: 0;
+    bottom: auto;
+    flex-direction: row;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .cleannav:after {
+    display: none;
+  }
+  
+  .cleannav__list {
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 0;
+    padding: 5px 0;
+  }
+  
+  .cleannav__item {
+    margin: 0;
+    width: auto;
+  }
+  
+  .cleannav__link:before,
+  .cleannav__manage-btn:before {
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  
+  .cleannav__link:hover:before,
+  .cleannav__manage-btn:hover:before {
+    transform: translateX(-50%) translateY(0);
+  }
+  
+  .cleannav__link.active::after {
+    left: 50%;
+    top: auto;
+    bottom: -5px;
+    transform: translateX(-50%);
+    width: 50%;
+    height: 3px;
+  }
+  
+  /* Fix header on mobile */
+  header {
+    left: 0;
+    width: 100%;
+    height: 10vh;
+  }
+  
+  header h1 {
+    font-size: 1.5rem;
+    text-align: center;
+    padding: 0 15px;
+  }
+  
+  /* Fix user info on mobile */
+  .user-info {
+    top: auto;
+    bottom: 10px;
+    right: 10px;
+    font-size: 0.75rem;
+  }
+  
+  /* Adjust tables and controls for mobile */
+  #dataTable,
+  .sort-controls {
+    max-width: 100%;
+    margin: 1rem 0.5rem;
+  }
+  
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 1rem 0;
+    border-radius: 8px;
+  }
+  
+  .data-table {
+    min-width: 650px; /* Force horizontal scrolling for tables */
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 0.8rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  
+  /* Make filter controls stack on mobile */
+  .sort-controls {
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .date-filter {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  .filter-group {
+    min-width: auto;
+    width: 45%;
+  }
+  
+  .sort-controls button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .column-visibility {
+    width: 100%;
+  }
+  
+  .toggle-columns-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .column-selector {
+    width: 90%;
+    max-width: 300px;
+    right: 5%;
+    left: 5%;
+  }
+  
+  /* Improve forms on mobile */
+  #uploadFile {
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group input[type="text"],
+  .form-group input[type="number"],
+  .form-group select,
+  .agent-form-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 10px;
+  }
+  
+  input[type="file"] {
+    font-size: 14px;
+  }
+  
+  /* Wizard and agent forms for mobile */
+  form#wizardForm {
+    padding: 15px;
+    width: 95%;
+  }
+  
+  .wizard-steps {
+    flex-direction: column;
+    align-items: flex-start;
+    max-width: 100%;
+    margin-bottom: 20px;
+    position: relative;
+    gap: 15px;
+  }
+  
+  .wizard-steps::before {
+    content: none;
+  }
+  
+  .wizard-step {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    align-items: center;
+    background-color: #f8f9fa;
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-bottom: 5px;
+  }
+  
+  .step-number {
+    margin-right: 10px;
+    margin-bottom: 0;
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
+  }
+  
+  .step-title {
+    font-size: 0.9rem;
+  }
+  
+  .wizard-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .wizard-actions .btn-next,
+  .wizard-actions .btn-prev,
+  .wizard-actions .btn-submit {
+    width: 100%;
+  }
+  
+  .agent-form-container {
+    width: 95%;
+    padding: 20px;
+    margin: -40px auto 20px;
+  }
+  
+  .agent-form-heading {
+    font-size: 20px;
+  }
+  
+  .agent-submit-button {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Login screen for mobile */
+  .login-container {
+    width: 90%;
+    padding: 30px 20px;
+  }
+  
+  /* Fix column visibility dropdown on mobile */
+  .column-selector-body {
+    max-height: 250px;
+  }
+  
+  .column-checkbox-label {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+  
+  /* Make notification more visible on mobile */
+  .notification {
+    max-width: 90%;
+    right: 5%;
+    padding: 12px 15px;
+    font-size: 0.9rem;
+  }
+  
+  /* Landing page mobile styles */
+  .landing-container {
+    padding: 10px;
+  }
+  
+  .welcome-message {
+    font-size: 1.5rem;
+  }
+  
+  .subtitle {
+    font-size: 1rem;
+  }
+  
+  .feature-card {
+    width: 95%;
+  }
+}
+
+/* Small mobile styles */
+@media (max-width: 480px) {
+  body {
+    padding-top: 8vh;
+  }
+  
+  header {
+    height: 8vh;
+  }
+  
+  header h1 {
+    font-size: 1.3rem;
+  }
+  
+  /* Further simplify navigation for small screens */
+  .cleannav__item:not(.cleannav__item:nth-child(1)):not(.cleannav__item:nth-child(2)):not(.cleannav__item:nth-child(7)) {
+    display: none;
+  }
+  
+  /* Add a more menu button */
+  .cleannav:after {
+    content: "•••";
+    display: block;
+    color: white;
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+  
+  .user-info {
+    display: none;
+  }
+  
+  /* Make tables even more compact */
+  .data-table th,
+  .data-table td {
+    padding: 6px;
+    font-size: 0.75rem;
+  }
+  
+  .filter-group {
+    width: 100%;
+  }
+  
+  .agent-form-heading {
+    font-size: 18px;
+  }
+  
+  form#wizardForm h2 {
+    font-size: 1.3rem;
+  }
+  
+  .column-selector {
+    max-width: 95%;
+    right: 2.5%;
+    left: 2.5%;
+  }
+  
+  /* Reduce footer content size on small screens */
+  .footer-note {
+    font-size: 0.8rem;
+  }
+  
+  /* Minimize form elements */
+  #uploadFile label,
+  .agent-form-label,
+  .form-group label {
+    font-size: 0.9rem;
+  }
+}
+
+/* Orientation-specific styles */
+@media (max-height: 600px) and (orientation: landscape) {
+  body {
+    padding-top: 70px;
+  }
+  
+  header {
+    position: absolute;
+    height: 60px;
+  }
+  
+  .cleannav {
+    width: 100%;
+    height: 60px;
+  }
+  
+  /* Optimize wizard form for landscape */
+  .wizard-steps {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .wizard-step {
+    flex-direction: column;
+    min-width: 100px;
+    flex-shrink: 0;
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    padding: 0;
+    margin: 0;
+    background: white;
+  }
+  
+  header, 
+  .cleannav, 
+  .sort-controls,
+  .column-visibility,
+  .action-buttons,
+  button, 
+  .notification,
+  form {
+    display: none !important;
+  }
+  
+  .data-table,
+  .table-container {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+  
+  .data-table th,
+  .data-table td {
+    font-size: 10pt;
+    padding: 5pt;
+    background-color: white !important;
+    color: black !important;
+    border: 0.5pt solid #ddd;
+  }
+  
+  .table-container:before {
+    content: "Wydrukowano dnia: " attr(data-print-date);
+    display: block;
+    text-align: right;
+    font-size: 8pt;
+    margin-bottom: 10pt;
+  }
+}
+
+/* Mobile-only navigation styles - DEPRECATED, replaced by more specific media queries */
+/* This section is kept for backward compatibility but is no longer used */
+@media (min-width: 769px) and (max-width: 1024px) {
+  /* Tablet-specific styles are now handled in the tablet media query */
+}
+
+/* Show hamburger menu on mobile and tablets */
+@media (max-width: 1024px) {
+  /* Hide original navigation */
+  .cleannav {
+    display: none !important;
+  }
+  
+  /* Hamburger menu button */
+  .mobile-menu-btn {
+    display: block;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    z-index: 1010;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+  
+  /* Slide-out navigation menu */
+  .mobile-nav {
+    position: fixed;
+    top: 0;
+    left: -280px; /* Start off-screen */
+    width: 280px;
+    height: 100vh;
+    background-color: #000;
+    z-index: 1005;
+    transition: left 0.3s ease;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+    overflow-y: auto;
+    padding-top: 60px;
+  }
+  
+  .mobile-nav.active {
+    left: 0; /* Slide in */
+  }
+  
+  /* Mobile navigation list */
+  .mobile-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+  }
+  
+  .mobile-nav-item {
+    margin: 0;
+    width: 100%;
+    padding: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .mobile-nav-link {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    color: white;
+    text-decoration: none;
+    transition: background-color 0.2s;
+  }
+  
+  .mobile-nav-link:hover,
+  .mobile-nav-link.active {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .mobile-nav-icon {
+    margin-right: 15px;
+    width: 20px;
+    text-align: center;
+  }
+  
+  /* Close button */
+  .mobile-menu-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  
+  /* Overlay when menu is open */
+  .mobile-nav-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: none;
+  }
+  
+  .mobile-nav-overlay.active {
+    display: block;
+  }
+  
+  /* Adjust body and header for mobile view */
+  body {
+    padding-left: 0 !important;
+    padding-top: 0 !important;
+  }
+  
+  header {
+    left: 0 !important;
+    width: 100% !important;
+    top: 0;
+    height: auto;
+    min-height: 60px;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  header h1 {
+    font-size: 1.5rem;
+    text-align: center;
+    margin: 0;
+    padding: 15px 50px;
+  }
+  
+  /* Fix for table layout on podsumowanie spraw */
+  .table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 10px 0;
+    position: relative;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .data-table,
+  .table {
+    min-width: 100%;
+    width: max-content;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  
+  .data-table thead,
+  .table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: var(--primary-color);
+  }
+  
+  .data-table th,
+  .data-table td,
+  .table th,
+  .table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px; /* Limit the width of cells */
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .data-table th,
+  .table th {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  
+  /* Fix for first row appearing outside the table */
+  .data-table tbody tr:first-child,
+  .table tbody tr:first-child {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .data-table tbody tr:first-child td,
+  .table tbody tr:first-child td {
+    border-top: none;
+  }
+  
+  /* Remove scroll arrows in mobile and tablet view */
+  @media (max-width: 1024px) {
+    /* Hide the scroll indicator arrows */
+    .table-container [class^="scroll-indicator"],
+    .table-container > div[style*="position: absolute"][style*="top: 50%"] {
+      display: none !important;
+    }
+    
+    /* Additional fix for potential table overflow issues */
+    .data-table,
+    .table {
+      margin: 0;
+      width: 100%;
+    }
+    
+    .data-table tbody,
+    .table tbody {
+      width: 100%;
+    }
+    
+    /* Fix for swipe indicator */
+    .swipe-indicator {
+      position: relative;
+      z-index: 1;
+    }
+  }
+}
+
+/* Enhanced mobile responsiveness for different phone sizes */
+@media (max-width: 1024px) and (min-width: 769px) {
+  /* Tablet adjustments */
+  body {
+    padding-left: 0;
+    padding-top: 60px;
+  }
+  
+  header {
+    left: 0;
+    width: 100%;
+    height: auto;
+    min-height: 60px;
+  }
+  
+  /* Better scaling for tables */
+  .table-container {
+    overflow-x: auto;
+    width: 100%;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+  
+  /* Ensure hamburger menu is visible on tablets */
+  .mobile-menu-btn {
+    display: flex !important;
+  }
+  
+  /* Hide sidebar on tablets */
+  .cleannav {
+    display: none !important;
+  }
+}
+
+/* Large phone sizes (newer devices) */
+@media (max-width: 896px) and (min-width: 769px) {
+  header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .user-info {
+    top: 10px;
+    right: 15px;
+    font-size: 0.85rem;
+  }
+  
+  /* Form elements for larger phones */
+  .form-group input[type="text"],
+  .form-group input[type="number"],
+  .form-group select,
+  .agent-form-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 12px;
+  }
+}
+
+/* Medium-sized phones */
+@media (max-width: 768px) and (min-width: 576px) {
+  body {
+    padding-top: 60px;
+  }
+  
+  header h1 {
+    font-size: 1.6rem;
+  }
+  
+  /* Adjust spacing for forms */
+  .form-group {
+    margin-bottom: 12px;
+  }
+  
+  /* Better button sizes for medium phones */
+  .btn, .action-button, .agent-submit-button {
+    padding: 10px 16px;
+    font-size: 0.95rem;
+  }
+  
+  /* Improve table layout for medium phones */
+  .data-table th,
+  .data-table td {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+}
+
+/* Small phones */
+@media (max-width: 575px) {
+  body {
+    padding-top: 60px;
+    margin: 0 5px;
+  }
+  
+  header h1 {
+    font-size: 1.4rem;
+  }
+  
+  /* Make sure forms fit small screens */
+  form#wizardForm,
+  .agent-form-container {
+    width: 95%;
+    padding: 15px;
+  }
+  
+  /* More compact buttons */
+  .btn, .action-button, .agent-submit-button {
+    padding: 8px 14px;
+    font-size: 0.9rem;
+  }
+}
+
+/* iPhone X, 11, 12, 13 specific fixes */
+@media only screen 
+and (device-width: 375px) 
+and (device-height: 812px) 
+and (-webkit-device-pixel-ratio: 3),
+only screen 
+and (device-width: 414px) 
+and (device-height: 896px) 
+and (-webkit-device-pixel-ratio: 2),
+only screen 
+and (device-width: 390px) 
+and (device-height: 844px) 
+and (-webkit-device-pixel-ratio: 3),
+only screen 
+and (device-width: 428px) 
+and (device-height: 926px) 
+and (-webkit-device-pixel-ratio: 3) {
+  /* Fix for iPhone X notch and newer iPhones */
+  header {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .mobile-menu-btn {
+    top: calc(10px + env(safe-area-inset-top));
+  }
+  
+  .mobile-nav {
+    padding-top: calc(60px + env(safe-area-inset-top));
+  }
+  
+  /* Make table font more readable on high-res screens */
+  .data-table td,
+  .table td {
+    font-size: 0.9rem;
+  }
+}
+
+/* Samsung Galaxy Fold and other folding devices (narrow mode) */
+@media only screen and (max-width: 320px) {
+  body {
+    font-size: 0.9rem;
+  }
+  
+  header h1 {
+    font-size: 1.2rem;
+    padding: 10px 40px;
+  }
+  
+  /* Extremely compact UI for ultra-narrow screens */
+  .mobile-menu-btn {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .form-group label {
+    font-size: 0.85rem;
+  }
+  
+  .form-group input[type="text"],
+  .form-group input[type="number"],
+  .form-group select {
+    padding: 8px;
+    font-size: 0.95rem;
+  }
+}
+
+/* Fix any vertical overflow issues with tall screens */
+@media (min-height: 800px) and (max-width: 768px) {
+  body {
+    min-height: calc(100vh - env(safe-area-inset-bottom, 0px));
+  }
+  
+  .mobile-nav {
+    height: calc(100vh - env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Responsive navigation styles */
+@media (min-width: 1025px) {
+  /* Style dla desktopa - pokazanie paska bocznego */
+  .cleannav {
+    display: flex !important; /* Zapewnienie, że pasek boczny jest widoczny na desktopie */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 60px;
+    height: 100vh;
+    z-index: 1001;
+  }
+  
+  body {
+    padding-left: 60px !important; /* Utrzymanie paddingu dla paska bocznego */
+  }
+  
+  header {
+    left: 60px !important;
+    width: calc(100% - 60px) !important;
+  }
+  
+  /* Ukrycie hamburger menu na desktopie */
+  .mobile-menu-btn,
+  .mobile-nav,
+  .mobile-nav-overlay {
+    display: none !important;
+  }
+}
+
+/* Style dla tabletu i mobile */
+@media (max-width: 1024px) {
+  /* Ukrycie oryginalnej nawigacji */
+  .cleannav {
+    display: none !important;
+  }
+  
+  /* Usunięcie paddingu bocznego */
+  body {
+    padding-left: 0 !important;
+  }
+  
+  header {
+    left: 0 !important;
+    width: 100% !important;
+  }
+  
+  /* Przycisk menu hamburger */
+  .mobile-menu-btn {
+    display: flex !important; /* Wymuszenie wyświetlania na tabletach i telefonach */
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    z-index: 1010;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+}

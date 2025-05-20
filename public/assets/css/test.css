@@ -30,12 +30,38 @@
             background-color: #f9f9f9;
         }
         
-        .status-zakonczona, .status-oplacona {
+        .status-zakonczona {
             color: green;
+            text-align: center;
+            display: flex;
+
+            align-items: center;  
+            justify-content: center;
+            margin: auto;
+            align-self: center;
         }
         
-        .status-niezakonczona, .status-nieoplacona {
+        .status-oplacona {
+            color: green;
+            text-align: center;
+
+            
+        }
+        
+        .status-niezakonczona{
             color: red;
+            text-align: center;
+            align-items: center;  
+            justify-content: center;
+            margin: auto;
+            align-self: center;
+
+            width: 70%;
+            height: auto;
+        }
+
+        .status-nieoplacona {
+          color: red;
         }
         
         .details-section {
@@ -1167,4 +1193,427 @@
         /* Prevent text wrapping in navigation items */
         .cleannav__item {
           white-space: nowrap;
+        }
+
+        /* ===== RESPONSIVE STYLES ===== */
+        /* These styles ensure the website is fully responsive for mobile and tablet devices */
+
+        /* Base responsive adjustments */
+        @media (max-width: 1200px) {
+          body {
+            margin-left: 80px;
+          }
+          
+          /* When navigation is expanded */
+          body.nav-expanded {
+            margin-left: 240px;
+          }
+          
+          .table {
+            min-width: 1400px;
+          }
+        }
+
+        /* Tablet styles */
+        @media (max-width: 992px) {
+          body {
+            margin-left: 70px;
+            margin: 20px 0 20px 70px;
+          }
+          
+          body.nav-expanded {
+            margin-left: 220px;
+          }
+          
+          .table-container {
+            margin: 1rem;
+            padding: 0.8rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+          
+          /* Optimize table for tablets */
+          table {
+            min-width: 1200px;
+            font-size: 12px;
+          }
+          
+          th, td {
+            padding: 6px 8px;
+          }
+          
+          /* Tooltip positioning for tablets */
+          .payment-info {
+            max-width: 250px;
+            font-size: 0.8em;
+          }
+          
+          /* Form elements for tablets */
+          .payment-form {
+            padding: 10px;
+          }
+          
+          .form-group {
+            margin-bottom: 8px;
+          }
+          
+          .button-group button {
+            padding: 6px 10px;
+            font-size: 0.8em;
+          }
+          
+          /* Improve search on tablets */
+          .search-container {
+            margin: 15px 0;
+          }
+          
+          .search-input {
+            width: 250px;
+            padding: 8px;
+            font-size: 14px;
+          }
+          
+          .autocomplete-suggestions {
+            width: 250px;
+          }
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+          body {
+            margin: 60px 10px 20px 10px;
+          }
+          
+          /* Fix navigation on mobile */
+          .cleannav {
+            width: 100%;
+            height: 60px;
+            top: 0;
+            bottom: auto;
+            flex-direction: row;
+            padding: 0;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          .cleannav::after {
+            display: none;
+          }
+          
+          .cleannav__list {
+            flex-direction: row;
+            justify-content: space-around;
+            gap: 0;
+            padding: 5px 0;
+          }
+          
+          .cleannav__item {
+            margin: 0;
+            width: auto;
+          }
+          
+          /* Adjust tooltips for mobile */
+          .cleannav__link:before,
+          .cleannav__manage-btn:before {
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-10px);
+          }
+          
+          .cleannav__link:hover:before,
+          .cleannav__manage-btn:hover:before {
+            transform: translateX(-50%) translateY(0);
+          }
+          
+          /* Active state marker for mobile */
+          .cleannav__link.active::after {
+            left: 50%;
+            top: auto;
+            bottom: -5px;
+            transform: translateX(-50%);
+            width: 50%;
+            height: 3px;
+          }
+          
+          /* Nav toggle position for mobile */
+          .nav-toggle {
+            top: 15px;
+            left: 10px;
+          }
+          
+          .nav-toggle.expanded {
+            left: 10px;
+          }
+          
+          /* Reset expanded nav on mobile */
+          .cleannav.expanded {
+            width: 100%;
+          }
+          
+          body.nav-expanded {
+            margin-left: 10px;
+          }
+          
+          /* Optimize tables for mobile */
+          .table-container {
+            margin: 10px 0;
+            padding: 0.5rem;
+          }
+          
+          table {
+            min-width: 800px;
+            font-size: 11px;
+          }
+          
+          th, td {
+            padding: 5px 6px;
+          }
+          
+          /* Improve search for mobile */
+          .search-container {
+            margin: 10px 0;
+          }
+          
+          .search-input {
+            width: 100%;
+            max-width: 300px;
+            padding: 8px;
+            font-size: 16px; /* Prevent zoom on iOS */
+          }
+          
+          .autocomplete-suggestions {
+            width: 90%;
+            max-width: 300px;
+          }
+          
+          /* Payment modal for mobile */
+          .modal-content {
+            width: 90%;
+            margin: 15% auto;
+          }
+          
+          .modal-header h3 {
+            font-size: 16px;
+          }
+          
+          .payment-details {
+            padding: 10px;
+          }
+          
+          .payment-details p {
+            font-size: 12px;
+          }
+          
+          /* Agent payout on mobile */
+          .agent-payout {
+            padding: 5px;
+            margin-bottom: 5px;
+          }
+          
+          .agent-name, .agent-amount {
+            font-size: 0.85em;
+          }
+          
+          .status-zapłacono {
+            font-size: 0.8em;
+          }
+          
+          .faktura-info {
+            font-size: 11px;
+          }
+          
+          .uzupelnij-link {
+            padding: 3px 8px;
+            font-size: 11px;
+          }
+          
+          /* Form elements for mobile */
+          .form-group input[type="text"] {
+            font-size: 16px; /* Prevent zoom on iOS */
+            padding: 8px;
+          }
+          
+          .button-group {
+            margin-top: 8px;
+          }
+          
+          /* Navigation page links */
+          a.strona {
+            padding: 6px 12px;
+            margin: 2px;
+            font-size: 0.9em;
+          }
+        }
+
+        /* Small mobile styles */
+        @media (max-width: 480px) {
+          body {
+            margin: 50px 5px 10px 5px;
+          }
+          
+          h1 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+          }
+          
+          /* Simplify navigation for very small screens */
+          .cleannav__item:not(.cleannav__item:nth-child(1)):not(.cleannav__item:nth-child(2)):not(.cleannav__item:nth-child(5)) {
+            display: none;
+          }
+          
+          /* Add a more menu button */
+          .cleannav:after {
+            content: "•••";
+            display: block;
+            color: white;
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5rem;
+            cursor: pointer;
+          }
+          
+          /* Further optimize tables */
+          table {
+            min-width: 700px;
+            font-size: 10px;
+          }
+          
+          th, td {
+            padding: 4px 5px;
+          }
+          
+          /* Improve search for small screens */
+          .search-input {
+            padding: 8px;
+            max-width: 250px;
+          }
+          
+          /* Modal improvements */
+          .modal-content {
+            width: 95%;
+          }
+          
+          /* Highlight more compact */
+          .highlight {
+            animation: none;
+          }
+          
+          /* Agent payout more compact */
+          .agent-payout {
+            padding: 4px;
+            margin-bottom: 4px;
+          }
+          
+          .status-zapłacono, .faktura-info {
+            display: inline-block;
+            margin-right: 5px;
+          }
+          
+          /* Payment form elements */
+          .payment-form {
+            padding: 6px;
+          }
+          
+          .form-group {
+            margin-bottom: 5px;
+          }
+          
+          .button-group button {
+            padding: 4px 8px;
+            font-size: 0.75em;
+          }
+        }
+
+        /* Orientation-specific styles */
+        @media (max-height: 500px) and (orientation: landscape) {
+          body {
+            margin-top: 70px;
+          }
+          
+          .cleannav {
+            height: 60px;
+          }
+          
+          /* Fix modal position in landscape */
+          .modal-content {
+            margin: 5% auto;
+          }
+          
+          /* Make search more compact in landscape */
+          .search-container {
+            margin: 5px 0;
+          }
+        }
+
+        /* Print styles */
+        @media print {
+          body {
+            margin: 0;
+            padding: 0;
+            background: white;
+          }
+          
+          .cleannav,
+          .search-container,
+          .uzupelnij-link,
+          button,
+          .payment-form,
+          .payment-modal {
+            display: none !important;
+          }
+          
+          .table-container {
+            width: 100%;
+            overflow: visible;
+            margin: 0;
+            padding: 0;
+            box-shadow: none;
+            border: 1px solid #ddd;
+          }
+          
+          table {
+            width: 100% !important;
+            min-width: auto !important;
+            border-collapse: collapse;
+            font-size: 10pt;
+          }
+          
+          th, td {
+            font-size: 9pt;
+            padding: 4pt;
+            background-color: white !important;
+            color: black !important;
+            border: 0.5pt solid #ddd;
+          }
+          
+          /* Print table header */
+          .table-container:before {
+            content: "Raport faktur - wydrukowano: " attr(data-print-date);
+            display: block;
+            text-align: right;
+            font-size: 8pt;
+            margin-bottom: 10pt;
+          }
+          
+          /* Print specific adjustments */
+          .agent-payout {
+            page-break-inside: avoid;
+            background: none !important;
+            border-left: none !important;
+            border: 0.5pt solid #ddd !important;
+            padding: 3pt !important;
+            margin-bottom: 2pt !important;
+          }
+          
+          /* Reset animations and backgrounds for print */
+          .agent-payout:not(.zaplacono-faktura),
+          .agent-payout.zaplacono-faktura,
+          .agent-payout.zaplecono-faktura,
+          .agent-payout.kuba-payout {
+            animation: none !important;
+            background: none !important;
+            border-left: none !important;
+          }
         }

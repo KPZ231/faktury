@@ -87,13 +87,14 @@ $agentTreeJson = json_encode($agentTree);
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zarządzanie agentami</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Agenci</title>
     <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/x-icon">
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- jsTree CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.16/themes/default/style.min.css" />
+    <script src="/assets/js/responsive.js" defer></script>
     
     <style>
         /* Styling for the agent tree and components */
@@ -239,6 +240,28 @@ $agentTreeJson = json_encode($agentTree);
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
+        }
+        
+        /* Additional mobile styles for agents page */
+        @media (max-width: 768px) {
+            .agent-list-item {
+                padding: 12px;
+            }
+            
+            .agent-form-container {
+                margin-top: 15px;
+            }
+            
+            .agent-cases-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .agent-case-link {
+                margin-bottom: 5px;
+                width: 100%;
+                text-align: center;
+            }
         }
     </style>
 </head>

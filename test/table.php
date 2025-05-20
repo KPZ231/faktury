@@ -3,13 +3,48 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="/assets/css/table.css">
     <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/x-icon">
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <title>Tabela</title>
+    <script src="/assets/js/responsive.js" defer></script>
+    
+    <!-- Additional responsive styles for tables -->
+    <style>
+        @media (max-width: 768px) {
+            .data-table {
+                min-width: 800px;
+            }
+            
+            .tapped {
+                background-color: rgba(33, 150, 243, 0.1);
+            }
+            
+            .expanded {
+                white-space: normal;
+                word-break: break-word;
+            }
+            
+            .swipe-indicator {
+                display: block;
+                text-align: center;
+                padding: 10px;
+                color: #6c757d;
+                font-size: 0.8rem;
+                animation: fadeInOut 2s ease-in-out infinite;
+            }
+            
+            @keyframes fadeInOut {
+                0% { opacity: 0.5; }
+                50% { opacity: 1; }
+                100% { opacity: 0.5; }
+            }
+        }
+    </style>
+    
     <script>
         // Uruchom po załadowaniu DOM
         document.addEventListener('DOMContentLoaded', function() {
@@ -922,6 +957,73 @@
     
     <!-- Include the commission management JS -->
     <script src="/assets/js/commission-management.js"></script>
+
+    <!-- Add this script at the end of the file before the closing body tag -->
+    <script>
+        // Mobile-specific enhancements for tables
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.innerWidth <= 768) {
+                // Add swipe indicators to let users know they can scroll horizontally
+                const tableContainers = document.querySelectorAll('.table-container');
+                tableContainers.forEach(container => {
+                    const swipeIndicator = document.createElement('div');
+                    swipeIndicator.className = 'swipe-indicator';
+                    swipeIndicator.innerHTML = '<i class="fas fa-arrows-left-right"></i> Przesuń palcem w poziomie, aby zobaczyć więcej';
+                    
+                    // Insert before the table container
+                    container.parentNode.insertBefore(swipeIndicator, container);
+                    
+                    // Hide indicator after first scroll
+                    container.addEventListener('scroll', function() {
+                        swipeIndicator.style.display = 'none';
+                    }, { once: true });
+                });
+                
+                // Optimize cell content for small screens
+                const tableCells = document.querySelectorAll('td');
+                tableCells.forEach(cell => {
+                    // If cell content is very long, truncate it and add ellipsis
+                    if (cell.textContent.length > 20 && 
+                        !cell.classList.contains('currency') && 
+                        !cell.classList.contains('percentage') &&
+                        !cell.classList.contains('action-cell') &&
+                        !cell.classList.contains('select-checkbox')) {
+                        
+                        cell.setAttribute('data-full-content', cell.textContent);
+                        cell.textContent = cell.textContent.substring(0, 20) + '...';
+                        
+                        // Show full content on tap
+                        cell.addEventListener('click', function(e) {
+                            // Don't trigger if clicking on a link, button, etc.
+                            if (e.target.tagName.toLowerCase() === 'a' || 
+                                e.target.tagName.toLowerCase() === 'button' ||
+                                e.target.tagName.toLowerCase() === 'input') {
+                                return;
+                            }
+                            
+                            const fullContent = this.getAttribute('data-full-content');
+                            const isExpanded = this.classList.contains('expanded');
+                            
+                            if (isExpanded) {
+                                this.textContent = fullContent.substring(0, 20) + '...';
+                                this.classList.remove('expanded');
+                            } else {
+                                this.textContent = fullContent;
+                                this.classList.add('expanded');
+                            }
+                        });
+                    }
+                });
+                
+                // Make agent cells more visible on mobile
+                const agentCells = document.querySelectorAll('td[class*="agent"], .agent-name, .agent-highlight');
+                agentCells.forEach(cell => {
+                    cell.style.fontWeight = 'bold';
+                    cell.style.color = '#0277bd';
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>

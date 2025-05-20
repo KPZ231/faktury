@@ -7,13 +7,197 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Zarządzanie bazą danych</title>
     <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/x-icon">
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/assets/js/responsive.js" defer></script>
     <style>
-        /* ... existing code ... */
+        .database-panel {
+            padding: 15px;
+            margin: 20px 10px;
+        }
+        
+        .panel-header {
+            margin-bottom: 20px;
+        }
+        
+        .superadmin-badge {
+            display: inline-flex;
+            align-items: center;
+            background-color: #ff9800;
+            color: #fff;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            position: absolute;
+            right: 20px;
+            top: 20px;
+        }
+        
+        .superadmin-badge i {
+            margin-right: 8px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 50px 0;
+            color: #777;
+        }
+        
+        .no-data i {
+            margin-bottom: 15px;
+            color: #ddd;
+        }
+        
+        #notificationContainer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+        
+        .notification {
+            background-color: #333;
+            color: white;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        
+        .notification i {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .notification.success {
+            background-color: #4CAF50;
+        }
+        
+        .notification.error {
+            background-color: #F44336;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        
+        .notification.fadeOut {
+            animation: slideOut 0.3s ease-in forwards;
+        }
+        
+        /* Mobile responsive improvements */
+        @media (max-width: 992px) {
+            .database-panel {
+                padding: 10px;
+                margin: 10px 5px;
+            }
+            
+            .superadmin-badge {
+                position: static;
+                margin: 0 auto 15px auto;
+                display: flex;
+                justify-content: center;
+                width: fit-content;
+            }
+            
+            .database-table {
+                overflow-x: auto;
+            }
+            
+            .database-table-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            
+            .database-table-actions button {
+                flex: 1 1 auto;
+                white-space: nowrap;
+                font-size: 0.9rem;
+                padding: 8px;
+            }
+            
+            .column-list {
+                overflow-x: auto;
+            }
+            
+            .column-list table {
+                min-width: 600px;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .db-login-form {
+                padding: 10px;
+            }
+            
+            /* Modal adjustments for mobile */
+            .modal-content {
+                width: 95%;
+                margin: 50% auto;
+            }
+        }
+        
+        /* Small mobile adjustments */
+        @media (max-width: 576px) {
+            .database-table-info {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .database-table-actions button {
+                padding: 6px;
+                font-size: 0.8rem;
+            }
+            
+            .column-list table {
+                font-size: 0.9rem;
+            }
+            
+            .column-list th,
+            .column-list td {
+                padding: 6px 8px;
+            }
+            
+            .panel-header h2 {
+                font-size: 1.3rem;
+            }
+            
+            .panel-header p {
+                font-size: 0.9rem;
+            }
+            
+            h3 {
+                font-size: 1.1rem;
+            }
+        }
     </style>
 </head>
 

@@ -11,11 +11,12 @@ echo "<!-- SESSION: " . (isset($_SESSION['user_role']) ? $_SESSION['user_role'] 
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>System Faktur - Strona Główna</title>
     <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/x-icon">
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/assets/js/responsive.js" defer></script>
     <style>
         .hero-section {
             position: relative;
@@ -188,10 +189,12 @@ echo "<!-- SESSION: " . (isset($_SESSION['user_role']) ? $_SESSION['user_role'] 
             box-shadow: 0 7px 15px rgba(44, 62, 80, 0.3);
         }
         
+        /* Additional responsive styles for home page */
         @media (max-width: 768px) {
             .hero-section {
-                padding: 40px 20px;
-                margin: -60px -20px 30px -20px;
+                padding: 40px 15px;
+                margin: 0 -15px 20px -15px;
+                border-radius: 0 0 30px 30px;
             }
             
             .hero-logo {
@@ -204,12 +207,48 @@ echo "<!-- SESSION: " . (isset($_SESSION['user_role']) ? $_SESSION['user_role'] 
             
             .hero-subtitle {
                 font-size: 1.1rem;
+                padding: 0 10px;
             }
             
             .features {
-                grid-template-columns: 1fr;
-                gap: 20px;
-                margin: 40px 0;
+                gap: 15px;
+                margin: 40px 10px;
+            }
+            
+            .feature-card {
+                padding: 20px 15px;
+            }
+            
+            .feature-title {
+                font-size: 1.2rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .hero-section {
+                padding: 30px 10px;
+            }
+            
+            .hero-logo {
+                font-size: 2.5rem;
+            }
+            
+            .hero-title {
+                font-size: 1.5rem;
+            }
+            
+            .hero-subtitle {
+                font-size: 1rem;
+            }
+            
+            .hero-cta {
+                padding: 10px 20px;
+                font-size: 1rem;
+            }
+            
+            .feature-card {
+                margin: 0 auto;
+                width: 90%;
             }
         }
         

@@ -3,10 +3,53 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Dodaj rekord</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kreator - Dodawanie Rekordu</title>
   <link rel="shortcut icon" href="/assets/images/favicon.png" type="image/x-icon">
   <link rel="stylesheet" href="/assets/css/style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="/assets/js/responsive.js" defer></script>
+  
+  <!-- Additional responsive styles for wizard -->
+  <style>
+    @media (max-width: 768px) {
+      form#wizardForm {
+        max-width: 95%;
+        padding: 15px;
+      }
+      
+      .form-group {
+        margin-bottom: 15px;
+      }
+      
+      .field-group {
+        flex-direction: column;
+      }
+      
+      .currency-input-wrapper,
+      .percentage-input-wrapper {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+      
+      #backButton, #nextButton, #submitButton {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+      
+      .calculation-section {
+        padding: 12px;
+      }
+      
+      .agent-button {
+        display: block;
+        width: 100%;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+    }
+  </style>
 </head>
 
 <body class="wizard">

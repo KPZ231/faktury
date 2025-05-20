@@ -145,6 +145,7 @@ syncPaymentStatuses($pdo);
     <title>Tabela spraw</title>
     <link rel="stylesheet" href="/assets/css/test.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/assets/js/responsive.js" defer></script>
 
 </head>
 <style>
@@ -214,7 +215,22 @@ syncPaymentStatuses($pdo);
     body.nav-expanded {
         margin-left: 220px; /* Adjusted to account for expanded nav width */
     }
-    
+
+
+    .status-cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: auto;
+        text-align: center;
+        border: none;
+        font-size: 20px;
+        width: 100%;
+        height: 100%;
+        position: relative;
+        padding: 8px 0;
+        min-height: 40px;
+    }
     /* Adjust nav-toggle button to not overlap with header */
     .nav-toggle {
         position: fixed;
@@ -310,10 +326,373 @@ syncPaymentStatuses($pdo);
     }
 
     /* Styl dla agent-info bez czerwonych kolorów */
+
+    /* Mobile navigation styles */
+    .mobile-menu-btn {
+        display: none;
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        width: 40px;
+        height: 40px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        z-index: 1010;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        cursor: pointer;
+    }
+    
+    .mobile-nav {
+        position: fixed;
+        top: 0;
+        left: -280px;
+        width: 280px;
+        height: 100vh;
+        background-color: #000;
+        z-index: 1005;
+        transition: left 0.3s ease;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+        overflow-y: auto;
+        padding-top: 60px;
+    }
+    
+    .mobile-nav.active {
+        left: 0;
+    }
+    
+    .mobile-nav-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: none;
+    }
+    
+    .mobile-nav-overlay.active {
+        display: block;
+    }
+    
+    .mobile-menu-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+    }
+    
+    .mobile-nav-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .mobile-nav-item {
+        margin: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .mobile-nav-link {
+        display: flex;
+        align-items: center;
+        padding: 15px 20px;
+        color: white;
+        text-decoration: none;
+        transition: background-color 0.2s;
+    }
+    
+    .mobile-nav-link:hover,
+    .mobile-nav-link.active {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .mobile-nav-icon {
+        margin-right: 15px;
+        width: 20px;
+        text-align: center;
+    }
+    
+    /* Responsive table styles */
+    .swipe-indicator {
+        display: none; /* Hide swipe indicator completely */
+    }
+    
+    /* Media queries for responsive design */
+    @media (max-width: 992px) {
+        body {
+            padding-top: 60px;
+            padding-left: 0;
+        }
+        
+        header {
+            left: 0;
+            width: 100%;
+            height: 60px;
+        }
+        
+        header h1 {
+            font-size: 1.6rem;
+        }
+        
+        .content-wrapper {
+            margin-top: 70px;
+            padding: 0;  /* Remove horizontal padding to maximize width */
+        }
+        
+        .cleannav {
+            display: none;
+        }
+        
+        .mobile-menu-btn {
+            display: flex;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+            position: relative;
+            max-width: 100%;
+            margin-left: 0; /* Move table to the left */
+            padding-left: 0; /* Remove any padding */
+        }
+        
+        table {
+            width: 100%; /* Full width table */
+            table-layout: auto; /* Allow table to size based on content */
+        }
+        
+        .search-container {
+            width: 100%;
+            padding: 0 10px;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .mobile-menu-btn {
+            top: 10px;
+        }
+        
+        header {
+            height: 50px;
+        }
+        
+        header h1 {
+            font-size: 1.4rem;
+        }
+        
+        .content-wrapper {
+            margin-top: 60px;
+            padding: 0; /* Remove padding to maximize space */
+        }
+        
+        /* Table styling for mobile without text truncation */
+        .table-container {
+            overflow-x: auto;
+            width: 100%;
+            margin: 10px 0;
+            margin-left: 0; /* Move table fully to the left */
+            position: relative;
+            z-index: 1;
+        }
+        
+        table {
+            width: 100%;
+            table-layout: auto; /* Let content determine width */
+            position: relative;
+        }
+        
+        tbody {
+            position: relative;
+            z-index: 1;
+        }
+        
+        tr {
+            position: relative;
+            z-index: 1;
+        }
+        
+        th, td {
+            padding: 8px 5px;
+            font-size: 0.85rem;
+            white-space: normal; /* Allow text wrapping */
+            overflow: visible; /* Show all content */
+            text-overflow: clip; /* Don't add ellipsis */
+            max-width: none; /* Allow cells to be as wide as needed */
+            word-wrap: break-word; /* Break words to prevent overflow */
+        }
+        
+        /* Fix sticky header on mobile */
+        thead {
+            position: sticky;
+            top: 50px;
+            z-index: 2;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            white-space: normal; /* Allow text wrapping in headers too */
+        }
+    }
+    
+    @media (max-width: 480px) {
+        header h1 {
+            font-size: 1.2rem;
+        }
+        
+        .mobile-menu-btn {
+            width: 35px;
+            height: 35px;
+            font-size: 18px;
+        }
+        
+        th, td {
+            padding: 6px 4px;
+            font-size: 0.8rem;
+            max-width: none; /* Remove max-width constraint */
+            white-space: normal; /* Enable wrapping */
+        }
+    }
+    
+    /* Specific styling for podsumowanie-spraw tables on mobile and tablet */
+    @media (max-width: 992px) {
+        /* Ensure the table takes full width but content is visible */
+        .table-container {
+            max-width: 100vw;
+            width: 100%;
+            overflow-x: visible;
+        }
+        
+        /* Make sure the table itself is fully visible */
+        .table-container table {
+            width: 100%;
+            margin: 0;
+            border-collapse: collapse;
+        }
+        
+        /* Adjust column widths to be more appropriate for the content */
+        .table-container th:first-child,
+        .table-container td:first-child {
+            min-width: 80px; /* Sprawa column */
+        }
+        
+        .table-container th:nth-child(2),
+        .table-container td:nth-child(2) {
+            min-width: 40px; /* Zakończona column */
+        }
+        
+        /* Currency columns */
+        .table-container .currency {
+            min-width: 70px;
+            text-align: right;
+        }
+        
+        /* Percentage columns */
+        .table-container .percentage {
+            min-width: 50px;
+            text-align: right;
+        }
+        
+        /* Details columns */
+        .table-container .details-section {
+            min-width: 120px;
+        }
+        
+        /* Action cell - keep minimal */
+        .table-container .action-cell {
+            min-width: 70px;
+        }
+        
+        /* Make sure the table fills the horizontal space without causing overflow */
+        .content-wrapper {
+            overflow-x: hidden;
+            width: 100%;
+        }
+    }
 </style>
 
 <body>
     <?php include_once __DIR__ . '/components/user_info.php'; ?>
+    <!-- Mobile hamburger menu button -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Mobile navigation overlay -->
+    <div class="mobile-nav-overlay" id="mobileNavOverlay"></div>
+    
+    <!-- Mobile slide-out navigation -->
+    <nav class="mobile-nav" id="mobileNav">
+        <button class="mobile-menu-close" id="mobileMenuClose">
+            <i class="fas fa-times"></i>
+        </button>
+        <ul class="mobile-nav-list">
+            <li class="mobile-nav-item">
+                <a href="/" class="mobile-nav-link">
+                    <i class="fa-solid fa-house mobile-nav-icon"></i>
+                    <span>Strona główna</span>
+                </a>
+            </li>
+            <li class="mobile-nav-item">
+                <a href="/invoices" class="mobile-nav-link">
+                    <i class="fa-solid fa-file-invoice mobile-nav-icon"></i>
+                    <span>Faktury</span>
+                </a>
+            </li>
+            <li class="mobile-nav-item">
+                <a href="/agents" class="mobile-nav-link">
+                    <i class="fa-solid fa-user-plus mobile-nav-icon"></i>
+                    <span>Dodaj agenta</span>
+                </a>
+            </li>
+            <li class="mobile-nav-item">
+                <a href="/wizard" class="mobile-nav-link">
+                    <i class="fa-solid fa-wand-magic-sparkles mobile-nav-icon"></i>
+                    <span>Kreator rekordu</span>
+                </a>
+            </li>
+            <li class="mobile-nav-item">
+                <a href="/podsumowanie-spraw" class="mobile-nav-link active">
+                    <i class="fa-solid fa-file-invoice-dollar mobile-nav-icon"></i>
+                    <span>Podsumowanie Faktur</span>
+                </a>
+            </li>
+            <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'superadmin'): ?>
+                <li class="mobile-nav-item">
+                    <a href="/zarzadzanie-uzytkownikami" class="mobile-nav-link">
+                        <i class="fa-solid fa-users-cog mobile-nav-icon"></i>
+                        <span>Zarządzanie Użytkownikami</span>
+                    </a>
+                </li>
+                <li class="mobile-nav-item">
+                    <a href="/database" class="mobile-nav-link">
+                        <i class="fa-solid fa-database mobile-nav-icon"></i>
+                        <span>Zarządzaj bazą</span>
+                    </a>
+                </li>
+            <?php endif; ?>
+            <li class="mobile-nav-item">
+                <a href="/logout" class="mobile-nav-link">
+                    <i class="fa-solid fa-sign-out-alt mobile-nav-icon"></i>
+                    <span>Wyloguj</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
     <nav class="cleannav">
         <ul class="cleannav__list">
             <li class="cleannav__item">
@@ -1422,6 +1801,73 @@ syncPaymentStatuses($pdo);
                     }
                 });
         };
+        
+        // Mobile Navigation functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileNav = document.getElementById('mobileNav');
+            const mobileNavOverlay = document.getElementById('mobileNavOverlay');
+            const mobileMenuClose = document.getElementById('mobileMenuClose');
+            
+            // Function to open mobile menu
+            function openMobileMenu() {
+                mobileNav.classList.add('active');
+                mobileNavOverlay.classList.add('active');
+                document.body.style.overflow = 'hidden'; // Prevent scrolling when menu is open
+            }
+            
+            // Function to close mobile menu
+            function closeMobileMenu() {
+                mobileNav.classList.remove('active');
+                mobileNavOverlay.classList.remove('active');
+                document.body.style.overflow = ''; // Restore scrolling
+            }
+            
+            // Add event listeners
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', openMobileMenu);
+            }
+            
+            if (mobileMenuClose) {
+                mobileMenuClose.addEventListener('click', closeMobileMenu);
+            }
+            
+            if (mobileNavOverlay) {
+                mobileNavOverlay.addEventListener('click', closeMobileMenu);
+            }
+            
+            // Close menu when clicking on a link (for better UX)
+            const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+            mobileNavLinks.forEach(link => {
+                link.addEventListener('click', closeMobileMenu);
+            });
+            
+            // Handle device orientation changes
+            window.addEventListener('orientationchange', function() {
+                // Give some time for the orientation to change
+                setTimeout(function() {
+                    // Adjust the sticky table headers if they exist
+                    const tableHeaders = document.querySelectorAll('thead th');
+                    if (tableHeaders.length > 0) {
+                        // Apply appropriate sticky positioning based on screen width
+                        const isMobile = window.innerWidth < 768;
+                        tableHeaders.forEach(header => {
+                            header.style.top = isMobile ? '60px' : '0';
+                        });
+                    }
+                }, 300);
+            });
+            
+            // Fix table layout for mobile viewing
+            const tableContainers = document.querySelectorAll('.table-container');
+            tableContainers.forEach(container => {
+                // Add mobile-specific attributes
+                container.setAttribute('data-mobile-optimized', 'true');
+                
+                // Remove the code that adds the swipe indicator
+                // No longer needed since we want to display the full table
+            });
+        });
     </script>
 </body>
 
